@@ -1,0 +1,226 @@
+{{ define "domain" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+    {{ template "header" . }}
+{{- end }}
+
+{{ template "import" $ }}
+
+{{- $domainNodes := domainNodes $.Nodes }}
+{{- if $domainNodes }}
+{{- $cfg := index $.Annotations "EntDomainConfig" }}
+{{- $pkgPath := index $cfg "PkgPath" }}
+{{- $pkgName := index $cfg "PkgName" }}
+{{- $domainImport := domainImportPath $ $pkgPath }}
+
+import (
+    "github.com/danhtran94/entdomain"
+    {{ $pkgName }} "{{ $domainImport }}"
+    {{- range $n := $domainNodes }}
+        {{- if hasEnumFields $n }}
+        "{{ $.Config.Package }}/{{ $n.Package }}"
+        {{- end }}
+    {{- end }}
+)
+
+{{ range $n := $domainNodes }}
+{{- $ant := entityAnnotation $n }}
+
+// {{ $n.Name }}DomainField is the type for {{ $n.Name }} domain field constants.
+type {{ $n.Name }}DomainField = string
+
+const (
+    {{- range $f := $n.Fields }}
+    {{- if not $f.IsEdgeField }}
+    {{ $n.Name }}DomainField{{ $f.StructField }} {{ $n.Name }}DomainField = "{{ $f.Name }}"
+    {{- end }}
+    {{- end }}
+    {{- range $e := $n.Edges }}
+    {{- $ea := edgeAnnotation $e }}
+    {{- if $ea }}
+    {{- if $ea.HasIDs }}
+    {{- if $e.Unique }}
+    {{ $n.Name }}DomainField{{ pascal $e.Name }}ID {{ $n.Name }}DomainField = "{{ $e.Name }}_id"
+    {{- else }}
+    {{ $n.Name }}DomainField{{ singular (pascal $e.Name) }}IDs {{ $n.Name }}DomainField = "{{ singular $e.Name }}_ids"
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+)
+
+// {{ $n.Name }}DomainTransformer holds optional transformer functions for {{ $n.Name }} → domain mapping.
+type {{ $n.Name }}DomainTransformer struct {
+    {{- range $vf := $ant.VirtualFields }}
+    Get{{ pascal $vf.Name }} func(e *{{ $n.Name }}) {{ virtualFieldType $vf.FieldType }}
+    Set{{ pascal $vf.Name }}OnCreate func(c *{{ $n.Name }}Create, val {{ virtualFieldType $vf.FieldType }})
+    Set{{ pascal $vf.Name }}OnUpdate func(u *{{ $n.Name }}UpdateOne, val {{ virtualFieldType $vf.FieldType }})
+    {{- end }}
+}
+
+// {{ $n.Name }}Transformer is the package-level transformer for {{ $n.Name }} (nil by default).
+var {{ $n.Name }}Transformer *{{ $n.Name }}DomainTransformer
+
+// ToDomain maps the ent {{ $n.Name }} to a {{ $pkgName }}.{{ $n.Name }}.
+func (e *{{ $n.Name }}) ToDomain() *{{ $pkgName }}.{{ $n.Name }} {
+    d := &{{ $pkgName }}.{{ $n.Name }}{
+        ID: e.ID,
+        {{- range $f := $n.Fields }}
+        {{- if not $f.IsEdgeField }}
+        {{- if isEnum $f }}
+        {{- if not (isNillable $f) }}
+        {{ $f.StructField }}: {{ $pkgName }}.{{ $n.Name }}{{ $f.StructField }}(e.{{ $f.StructField }}),
+        {{- end }}
+        {{- else }}
+        {{- if and $f.Optional (not $f.Nillable) }}
+        {{ $f.StructField }}: &e.{{ $f.StructField }},
+        {{- else }}
+        {{ $f.StructField }}: e.{{ $f.StructField }},
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+    }
+    {{- range $f := $n.Fields }}
+    {{- if and (not $f.IsEdgeField) (isNillable $f) (isEnum $f) }}
+    if e.{{ $f.StructField }} != nil {
+        _v := {{ $pkgName }}.{{ $n.Name }}{{ $f.StructField }}(*e.{{ $f.StructField }})
+        d.{{ $f.StructField }} = &_v
+    }
+    {{- end }}
+    {{- end }}
+    {{- range $e := $n.Edges }}
+    {{- $ea := edgeAnnotation $e }}
+    {{- if $ea }}
+    {{- if $e.Unique }}
+    if _e := e.Edges.{{ $e.StructField }}; _e != nil {
+        {{- if $ea.HasIDs }}
+        d.{{ pascal $e.Name }}ID = _e.ID
+        {{- end }}
+        {{- if $ea.HasNest }}
+        d.{{ pascal $e.Name }} = *_e.ToDomain()
+        {{- end }}
+    }
+    {{- else }}
+    for _, _e := range e.Edges.{{ $e.StructField }} {
+        {{- if $ea.HasIDs }}
+        d.{{ singular (pascal $e.Name) }}IDs = append(d.{{ singular (pascal $e.Name) }}IDs, _e.ID)
+        {{- end }}
+        {{- if $ea.HasNest }}
+        d.{{ pascal $e.Name }} = append(d.{{ pascal $e.Name }}, *_e.ToDomain())
+        {{- end }}
+    }
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- range $vf := $ant.VirtualFields }}
+    if {{ $n.Name }}Transformer != nil && {{ $n.Name }}Transformer.Get{{ pascal $vf.Name }} != nil {
+        d.{{ pascal $vf.Name }} = {{ $n.Name }}Transformer.Get{{ pascal $vf.Name }}(e)
+    }
+    {{- end }}
+    return d
+}
+
+// ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}Create builder.
+func (c *{{ $n.Name }}Create) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}Create {
+    cfg := entdomain.NewApplyConfig(opts...)
+    {{- range $f := $n.Fields }}
+    {{- if not $f.IsEdgeField }}
+    {{- if isNillable $f }}
+    {{- if isEnum $f }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
+        c = c.SetNillable{{ $f.StructField }}(&_v)
+    }
+    {{- else }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        c = c.SetNillable{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- end }}
+    {{- else }}
+    {{- if isEnum $f }}
+    if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        c = c.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(d.{{ $f.StructField }}))
+    }
+    {{- else }}
+    if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        c = c.Set{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- range $e := $n.Edges }}
+    {{- $ea := edgeAnnotation $e }}
+    {{- if $ea }}
+    {{- if and $ea.HasIDs (not $e.Unique) }}
+    if len(d.{{ singular (pascal $e.Name) }}IDs) > 0 {
+        c = c.{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
+    }
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- range $vf := $ant.VirtualFields }}
+    if {{ $n.Name }}Transformer != nil && {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnCreate != nil {
+        {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnCreate(c, d.{{ pascal $vf.Name }})
+    }
+    {{- end }}
+    return c
+}
+
+// ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}UpdateOne builder.
+func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpdateOne {
+    cfg := entdomain.NewApplyConfig(opts...)
+    {{- range $f := $n.Fields }}
+    {{- if not $f.IsEdgeField }}
+    {{- if not $f.Immutable }}
+    {{- if isNillable $f }}
+    {{- if isEnum $f }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
+        u = u.SetNillable{{ $f.StructField }}(&_v)
+    }
+    {{- else }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        u = u.SetNillable{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- end }}
+    {{- else }}
+    {{- if isEnum $f }}
+    if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        u = u.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(d.{{ $f.StructField }}))
+    }
+    {{- else }}
+    if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        u = u.Set{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- range $e := $n.Edges }}
+    {{- $ea := edgeAnnotation $e }}
+    {{- if $ea }}
+    {{- if and $ea.HasIDs (not $e.Unique) }}
+    if cfg.IsAppendEdge("{{ singular $e.Name }}_ids") {
+        u = u.{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
+    } else {
+        u = u.{{ $e.MutationClear }}().{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
+    }
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- range $vf := $ant.VirtualFields }}
+    if {{ $n.Name }}Transformer != nil && {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnUpdate != nil {
+        {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnUpdate(u, d.{{ pascal $vf.Name }})
+    }
+    {{- end }}
+    return u
+}
+{{ end }}
+{{- end }}
+{{ end }}

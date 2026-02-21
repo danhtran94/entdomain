@@ -1,0 +1,13 @@
+# Claude Code local settings
+.claude/
+
+# ent codegen cache
+.entc/
+
+# macOS
+.DS_Store
+
+# Go binaries and test artifacts
+*.exe
+*.test
+*.out
