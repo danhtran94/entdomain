@@ -275,7 +275,7 @@ func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
 func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
     ds := make({{ $pkgName }}.{{ $n.Name }}List, len(es))
     for i, e := range es {
-        ds[i] = *e.ToDomain()
+        ds[i] = e.ToDomain()
     }
     return ds
 }
@@ -284,7 +284,7 @@ func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
 func (c *{{ $n.Name }}Client) CreateBulkDomain(ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}CreateBulk {
     builders := make([]*{{ $n.Name }}Create, len(ds))
     for i := range ds {
-        builders[i] = c.Create().ApplyDomain(&ds[i], opts...)
+        builders[i] = c.Create().ApplyDomain(ds[i], opts...)
     }
     return c.CreateBulk(builders...)
 }
@@ -302,7 +302,7 @@ func (b *{{ $n.Name }}UpdateOneBulk) Save(ctx context.Context) ({{ $pkgName }}.{
         if err != nil {
             return nil, err
         }
-        result = append(result, *updated.ToDomain())
+        result = append(result, updated.ToDomain())
     }
     return result, nil
 }
@@ -334,7 +334,7 @@ func (b *{{ $n.Name }}UpdateOneBulk) ExecX(ctx context.Context) {
 func (c *{{ $n.Name }}Client) UpdateBulkDomain(ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpdateOneBulk {
     builders := make([]*{{ $n.Name }}UpdateOne, len(ds))
     for i := range ds {
-        builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(&ds[i], opts...)
+        builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(ds[i], opts...)
     }
     return &{{ $n.Name }}UpdateOneBulk{builders: builders}
 }

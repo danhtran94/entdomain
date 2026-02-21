@@ -29,4 +29,4 @@ type User struct {
 }
 
 // UserList is a slice of User.
-type UserList []User
+type UserList []*User

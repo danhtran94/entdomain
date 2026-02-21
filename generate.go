@@ -385,7 +385,7 @@ type {{ .EntityName }} struct {
 
 {{- if not .NoBulk }}
 // {{ .ListName }} is a slice of {{ .EntityName }}.
-type {{ .ListName }} []{{ .EntityName }}
+type {{ .ListName }} []*{{ .EntityName }}
 {{- end }}
 `))
 

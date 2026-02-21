@@ -225,7 +225,7 @@ func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 func (es Users) ToDomain() domain.UserList {
 	ds := make(domain.UserList, len(es))
 	for i, e := range es {
-		ds[i] = *e.ToDomain()
+		ds[i] = e.ToDomain()
 	}
 	return ds
 }
@@ -234,7 +234,7 @@ func (es Users) ToDomain() domain.UserList {
 func (c *UserClient) CreateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserCreateBulk {
 	builders := make([]*UserCreate, len(ds))
 	for i := range ds {
-		builders[i] = c.Create().ApplyDomain(&ds[i], opts...)
+		builders[i] = c.Create().ApplyDomain(ds[i], opts...)
 	}
 	return c.CreateBulk(builders...)
 }
@@ -252,7 +252,7 @@ func (b *UserUpdateOneBulk) Save(ctx context.Context) (domain.UserList, error) {
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, *updated.ToDomain())
+		result = append(result, updated.ToDomain())
 	}
 	return result, nil
 }
@@ -284,7 +284,7 @@ func (b *UserUpdateOneBulk) ExecX(ctx context.Context) {
 func (c *UserClient) UpdateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserUpdateOneBulk {
 	builders := make([]*UserUpdateOne, len(ds))
 	for i := range ds {
-		builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(&ds[i], opts...)
+		builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(ds[i], opts...)
 	}
 	return &UserUpdateOneBulk{builders: builders}
 }
