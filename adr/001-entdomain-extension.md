@@ -29,8 +29,16 @@ Introduce a new ent extension — `entdomain` — that generates a pure Go domai
 entdomain.NewExtension(
     entdomain.WithPackagePath("internal/domain"), // output path for domain package
     entdomain.WithPackageName("domain"),           // generated package name
+
+    // Disable bulk generation for specific entities:
+    entdomain.WithNoBulk("Post", "Order"),
+
+    // Or disable bulk generation for all entities:
+    entdomain.WithNoBulk(),
 )
 ```
+
+`WithNoBulk` suppresses generation of `XxxList`, `(Xxxs).ToDomain()`, `CreateBulkDomain`, `UpdateBulkDomain`, and `XxxUpdateOneBulk` for the named entities. Called with no arguments it applies to all entities.
 
 ### Annotation API
 
@@ -81,6 +89,7 @@ Pure Go struct with no ent imports. Rules:
 - **Optional fields** (`field.Optional()`) are pointers in the domain struct
 - **Enum types** are re-declared per entity file with the entity name as prefix to avoid collision (e.g. `UserStatus`, `OrderStatus` — even if the underlying values are identical)
 - **Singular edges** (`HasOne`/`BelongsTo`) produce a single value, not a slice
+- **`XxxList`** is `[]*Xxx` (pointer slice) — only generated when bulk is not disabled
 
 ```go
 package domain
@@ -122,11 +131,14 @@ type User struct {
     Tags      []string         // entdomain.GoType("", "[]string")
     Metadata  map[string]any   // entdomain.GoType("", "map[string]any")
 }
+
+// UserList is a pointer slice of User — generated unless WithNoBulk is set.
+type UserList []*User
 ```
 
 ### Generated Mapping Methods (`ent/domain.go`)
 
-Three methods are generated per entity on the ent-generated types. All entities are emitted into a single `ent/domain.go` file.
+Five methods are generated per entity on the ent-generated types. All entities are emitted into a single `ent/domain.go` file.
 
 #### 1. Read — `*ent.User → *domain.User`
 
@@ -176,8 +188,6 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
         c = c.AddPostIDs(d.PostIDs...)
     }
 
-    // Profile (nested) — not applied, manage edge in repository layer
-
     // Transformer hook — each function field is nil-checked individually
     if UserTransformer != nil && UserTransformer.SetFullNameOnCreate != nil {
         UserTransformer.SetFullNameOnCreate(c, d.FullName)
@@ -187,9 +197,9 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 }
 ```
 
-#### 3. Update — `*ent.UserUpdateOne ← *domain.User`
+#### 3. Update (by ID) — `*ent.UserUpdateOne ← *domain.User`
 
-Same as create for scalars. IDs edges default to **replace** (desired final state semantics). Immutable fields are excluded. Nested edges and virtual fields are skipped unless a Transformer is wired.
+Same as create for scalars. IDs edges default to **replace** (desired final state semantics). Immutable fields are excluded. Nested edges are skipped. Virtual field transformer hooks are called when wired.
 
 ```go
 func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdateOne {
@@ -197,9 +207,6 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 
     if cfg.ShouldApply("name", d.Name) {
         u = u.SetName(d.Name)
-    }
-    if cfg.ShouldApply("status", d.Status) {
-        u = u.SetStatus(user.Status(d.Status))
     }
 
     // IDs edges — replace by default, opt-in append via AppendEdge option
@@ -209,8 +216,6 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
         u = u.ClearPosts().AddPostIDs(d.PostIDs...)
     }
 
-    // Profile (nested) — not applied, manage edge in repository layer
-
     // Transformer hook — each function field is nil-checked individually
     if UserTransformer != nil && UserTransformer.SetFullNameOnUpdate != nil {
         UserTransformer.SetFullNameOnUpdate(u, d.FullName)
@@ -218,6 +223,70 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 
     return u
 }
+```
+
+#### 4. Update (by WHERE) — `*ent.UserUpdate ← *domain.User`
+
+Same field/edge logic as `UpdateOne` but operates on the WHERE-based `*UserUpdate` builder. Caller chains `.Where(...)` conditions. Virtual field transformer hooks are not called (transformer setters are typed to `*UserUpdateOne`).
+
+```go
+func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate {
+    cfg := entdomain.NewApplyConfig(opts...)
+
+    if cfg.ShouldApply("name", d.Name) {
+        u = u.SetName(d.Name)
+    }
+
+    if cfg.IsAppendEdge("post_ids") {
+        u = u.AddPostIDs(d.PostIDs...)
+    } else {
+        u = u.ClearPosts().AddPostIDs(d.PostIDs...)
+    }
+
+    return u
+}
+```
+
+Usage:
+```go
+client.User.Update().
+    ApplyDomain(&domain.User{Status: domain.UserStatusInactive},
+        entdomain.OnlyFields("status"),
+    ).
+    Where(user.StatusEQ(user.StatusActive)).
+    ExecX(ctx)
+```
+
+---
+
+### Bulk Operations
+
+Generated unless `WithNoBulk` is set for the entity.
+
+#### Slice mapper — `ent.Users → domain.UserList`
+
+```go
+func (es Users) ToDomain() domain.UserList
+```
+
+#### Create bulk — `domain.UserList → *UserCreateBulk`
+
+```go
+func (c *UserClient) CreateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserCreateBulk
+```
+
+#### Update bulk (by ID) — `domain.UserList → *UserUpdateOneBulk`
+
+Each item is keyed on `ds[i].ID`. Returns a `*UserUpdateOneBulk` wrapper with the same API as ent's `*UserCreateBulk`.
+
+```go
+func (c *UserClient) UpdateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserUpdateOneBulk
+
+// UserUpdateOneBulk mirrors the UserCreateBulk API:
+func (b *UserUpdateOneBulk) Save(ctx context.Context) (domain.UserList, error)
+func (b *UserUpdateOneBulk) SaveX(ctx context.Context) domain.UserList
+func (b *UserUpdateOneBulk) Exec(ctx context.Context) error
+func (b *UserUpdateOneBulk) ExecX(ctx context.Context)
 ```
 
 ---
@@ -288,7 +357,7 @@ type UserDomainTransformer struct {
     GetAmount    func(e *User) Money
     GetTags      func(e *User) []string
 
-    // Virtual field setters (domain → ent)
+    // Virtual field setters (domain → ent, typed to *UserCreate / *UserUpdateOne)
     SetFullNameOnCreate  func(c *UserCreate, val string)
     SetFullNameOnUpdate  func(u *UserUpdateOne, val string)
     SetIsPremiumOnCreate func(c *UserCreate, val bool)
@@ -324,13 +393,13 @@ ent.UserTransformer = &ent.UserDomainTransformer{
 
 ### Edge Mapping Summary
 
-| Edge annotation | Domain struct field | `ToDomain()` | `Create.ApplyDomain` | `UpdateOne.ApplyDomain` |
+| Edge annotation | Domain struct field | `ToDomain()` | `Create.ApplyDomain` | `UpdateOne/Update.ApplyDomain` |
 |---|---|---|---|---|
 | `IDs()` | `PostIDs []int` | from `Edges.Posts` | `AddPostIDs` (if len > 0) | replace by default |
 | `Nest()` | `Posts []Post` | from `Edges.Posts` | skipped | skipped |
 | `IDs(), Nest()` | both | from `Edges.Posts` | `AddPostIDs` only | replace by default |
 
-Nested edge mutations (create/update of child entities) are intentionally left to the repository adapter layer. The mapper emits a comment indicating this.
+Nested edge mutations (create/update of child entities) are intentionally left to the repository adapter layer.
 
 ---
 
@@ -375,6 +444,29 @@ func (r *UserRepo) Update(ctx context.Context, u *domain.User) (*domain.User, er
     }
     return updated.ToDomain(), nil
 }
+
+func (r *UserRepo) CreateBulk(ctx context.Context, users domain.UserList) (domain.UserList, error) {
+    return r.client.User.
+        CreateBulkDomain(users).
+        Save(ctx) // returns ([]*ent.User, error); caller calls ToDomain on each
+}
+
+func (r *UserRepo) UpdateBulk(ctx context.Context, users domain.UserList) (domain.UserList, error) {
+    return r.client.User.
+        UpdateBulkDomain(users).
+        Save(ctx) // returns (domain.UserList, error)
+}
+
+func (r *UserRepo) DeactivateAll(ctx context.Context) error {
+    return r.client.User.
+        Update().
+        ApplyDomain(
+            &domain.User{Status: domain.UserStatusInactive},
+            entdomain.OnlyFields(ent.UserDomainFieldStatus),
+        ).
+        Where(user.StatusEQ(user.StatusActive)).
+        Exec(ctx)
+}
 ```
 
 ---
@@ -387,6 +479,7 @@ func (r *UserRepo) Update(ctx context.Context, u *domain.User) (*domain.User, er
 - `ApplyDomain` fits naturally into **ent's existing builder/fluent API**
 - Opt-in via annotations — **no impact on existing ent users** who don't adopt `entdomain`
 - Typed field constants provide **IDE autocomplete and refactor safety** for apply options
+- Bulk helpers eliminate boilerplate loops in repository adapters
 - Consistent pattern across all entities reduces boilerplate in repository adapters
 
 ### Trade-offs
@@ -395,6 +488,7 @@ func (r *UserRepo) Update(ctx context.Context, u *domain.User) (*domain.User, er
 - `ApplyDomain` on create with `OmitZeroVal` can **silently skip intentional zero values** — developer must be aware
 - Transformer interface requires **app-startup wiring** — easy to forget in tests or secondary binaries
 - Nested edge mutations remain **fully manual** — no generation support, by design
+- `(*UserUpdate).ApplyDomain` does not call virtual field transformer hooks — transformer setters are typed to `*UserUpdateOne`
 
 ### Out of Scope
 - Repository interface generation (managed manually by developers)
