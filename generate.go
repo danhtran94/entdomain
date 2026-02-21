@@ -30,8 +30,16 @@ import (
 )
 
 // moduleRoot returns the module root directory (parent of the ent target dir).
+// g.Config.Target may be a relative path (e.g., "."), so we resolve it to an
+// absolute path using the working directory before calling filepath.Dir.
 func moduleRoot(g *gen.Graph) string {
-	return filepath.Dir(g.Config.Target)
+	target := g.Config.Target
+	if !filepath.IsAbs(target) {
+		if wd, err := os.Getwd(); err == nil {
+			target = filepath.Join(wd, target)
+		}
+	}
+	return filepath.Dir(target)
 }
 
 // domainImportPath computes the full Go import path for the domain package.
@@ -232,6 +240,11 @@ func fieldToDomainTypeWithEnum(entityName string, f *gen.Field) (typeStr, import
 		pkgPath := rt.PkgPath
 		if pkgPath != "" {
 			pkg := path.Base(pkgPath)
+			// RType.Ident may already include the package prefix (e.g., "uuid.UUID").
+			// Strip it to avoid double-qualification ("uuid.uuid.UUID").
+			if strings.HasPrefix(ident, pkg+".") {
+				ident = ident[len(pkg)+1:]
+			}
 			typeStr = pkg + "." + ident
 			importPath = pkgPath
 		} else {
