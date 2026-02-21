@@ -200,7 +200,7 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 			} else {
 				data.EdgeFields = append(data.EdgeFields, domainEdgeField{
 					StructName: pascal(e.Name),
-					TypeStr:    "[]" + e.Type.Name,
+					TypeStr:    e.Type.Name + "List",
 				})
 			}
 		}
@@ -383,9 +383,13 @@ type {{ .EntityName }} struct {
 {{- end }}
 }
 
-{{- if not .NoBulk }}
 // {{ .ListName }} is a slice of {{ .EntityName }}.
 type {{ .ListName }} []*{{ .EntityName }}
+
+// ToList wraps the {{ .EntityName }} in a {{ .ListName }}.
+func (e *{{ .EntityName }}) ToList() {{ .ListName }} {
+	return {{ .ListName }}{e}
+}
 
 // GetIDs returns the ID of each item in the list.
 func (ds {{ .ListName }}) GetIDs() []{{ .IDField.TypeStr }} {
@@ -395,7 +399,6 @@ func (ds {{ .ListName }}) GetIDs() []{{ .IDField.TypeStr }} {
 	}
 	return ids
 }
-{{- end }}
 `))
 
 // renderDomainFile renders the domain struct template and formats it with go/format.

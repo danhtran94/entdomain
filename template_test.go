@@ -165,9 +165,9 @@ func TestTemplate_SliceToDomain(t *testing.T) {
 		require.NotNil(t, fd, "(Users).ToDomain() must be declared")
 	})
 
-	t.Run("Posts.ToDomain absent (NoBulk)", func(t *testing.T) {
+	t.Run("Posts.ToDomain exists (always generated)", func(t *testing.T) {
 		fd := findFuncDecl(f, "Posts", "ToDomain")
-		assert.Nil(t, fd, "(Posts).ToDomain() must not be generated when NoBulk() is set")
+		require.NotNil(t, fd, "(Posts).ToDomain() must always be generated")
 	})
 }
 

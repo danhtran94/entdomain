@@ -7,3 +7,20 @@ type Post struct {
 	Title     string
 	Published bool
 }
+
+// PostList is a slice of Post.
+type PostList []*Post
+
+// ToList wraps the Post in a PostList.
+func (e *Post) ToList() PostList {
+	return PostList{e}
+}
+
+// GetIDs returns the ID of each item in the list.
+func (ds PostList) GetIDs() []int {
+	ids := make([]int, len(ds))
+	for i, d := range ds {
+		ids[i] = d.ID
+	}
+	return ids
+}

@@ -111,7 +111,7 @@ func (e *{{ $n.Name }}) ToDomain() *{{ $pkgName }}.{{ $n.Name }} {
         d.{{ singular (pascal $e.Name) }}IDs = append(d.{{ singular (pascal $e.Name) }}IDs, _e.ID)
         {{- end }}
         {{- if $ea.HasNest }}
-        d.{{ pascal $e.Name }} = append(d.{{ pascal $e.Name }}, *_e.ToDomain())
+        d.{{ pascal $e.Name }} = append(d.{{ pascal $e.Name }}, _e.ToDomain())
         {{- end }}
     }
     {{- end }}
@@ -270,7 +270,6 @@ func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
     return u
 }
 
-{{- if not $ant.NoBulk }}
 // ToDomain maps a slice of ent {{ $n.Name }} to {{ $pkgName }}.{{ $n.Name }}List.
 func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
     ds := make({{ $pkgName }}.{{ $n.Name }}List, len(es))
@@ -280,6 +279,7 @@ func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
     return ds
 }
 
+{{- if not $ant.NoBulk }}
 // CreateBulkDomain creates a {{ $n.Name }}CreateBulk from {{ $pkgName }}.{{ $n.Name }}List.
 func (c *{{ $n.Name }}Client) CreateBulkDomain(ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}CreateBulk {
     builders := make([]*{{ $n.Name }}Create, len(ds))

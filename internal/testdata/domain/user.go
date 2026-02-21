@@ -22,7 +22,7 @@ type User struct {
 	Username  string
 	Score     *int
 	PostIDs   []int
-	Posts     []Post
+	Posts     PostList
 	FullName  string
 	IsPremium bool
 	Metadata  map[string]any
@@ -30,6 +30,11 @@ type User struct {
 
 // UserList is a slice of User.
 type UserList []*User
+
+// ToList wraps the User in a UserList.
+func (e *User) ToList() UserList {
+	return UserList{e}
+}
 
 // GetIDs returns the ID of each item in the list.
 func (ds UserList) GetIDs() []int {

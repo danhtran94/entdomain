@@ -73,6 +73,15 @@ func (u *PostUpdate) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) 
 	return u
 }
 
+// ToDomain maps a slice of ent Post to domain.PostList.
+func (es Posts) ToDomain() domain.PostList {
+	ds := make(domain.PostList, len(es))
+	for i, e := range es {
+		ds[i] = e.ToDomain()
+	}
+	return ds
+}
+
 // UserDomainField is the type for User domain field constants.
 type UserDomainField = string
 
@@ -115,7 +124,7 @@ func (e *User) ToDomain() *domain.User {
 	}
 	for _, _e := range e.Edges.Posts {
 		d.PostIDs = append(d.PostIDs, _e.ID)
-		d.Posts = append(d.Posts, *_e.ToDomain())
+		d.Posts = append(d.Posts, _e.ToDomain())
 	}
 	if UserTransformer != nil && UserTransformer.GetFullName != nil {
 		d.FullName = UserTransformer.GetFullName(e)

@@ -155,7 +155,7 @@ func TestGenerate_UserDomainStruct(t *testing.T) {
 		// Edge IDs
 		assert.Equal(t, "[]int", findField(st, "PostIDs"))
 		// Edge nest
-		assert.Equal(t, "[]Post", findField(st, "Posts"))
+		assert.Equal(t, "PostList", findField(st, "Posts"))
 		// Virtual fields
 		assert.Equal(t, "string", findField(st, "FullName"))
 		assert.Equal(t, "bool", findField(st, "IsPremium"))
@@ -208,14 +208,21 @@ func TestGenerate_ListType(t *testing.T) {
 		assert.True(t, found, "UserList type must be declared")
 	})
 
+	t.Run("User.ToList declared in user.go", func(t *testing.T) {
+		f := domainFile(t, "internal/testdata/domain/user.go")
+		fd := findFuncDecl(f, "*User", "ToList")
+		require.NotNil(t, fd, "(*User).ToList() must be declared")
+	})
+
 	t.Run("UserList.GetIDs declared in user.go", func(t *testing.T) {
 		f := domainFile(t, "internal/testdata/domain/user.go")
 		fd := findFuncDecl(f, "UserList", "GetIDs")
 		require.NotNil(t, fd, "(UserList).GetIDs() must be declared")
 	})
 
-	t.Run("PostList absent in post.go (NoBulk)", func(t *testing.T) {
+	t.Run("PostList declared in post.go (always, NoBulk only gates operators)", func(t *testing.T) {
 		f := domainFile(t, "internal/testdata/domain/post.go")
+		found := false
 		for _, decl := range f.Decls {
 			gd, ok := decl.(*ast.GenDecl)
 			if !ok || gd.Tok != token.TYPE {
@@ -224,10 +231,17 @@ func TestGenerate_ListType(t *testing.T) {
 			for _, spec := range gd.Specs {
 				ts, ok := spec.(*ast.TypeSpec)
 				if ok && ts.Name.Name == "PostList" {
-					t.Error("PostList must not be declared when NoBulk() is set")
+					found = true
 				}
 			}
 		}
+		assert.True(t, found, "PostList type must always be declared regardless of NoBulk")
+	})
+
+	t.Run("PostList.GetIDs declared in post.go", func(t *testing.T) {
+		f := domainFile(t, "internal/testdata/domain/post.go")
+		fd := findFuncDecl(f, "PostList", "GetIDs")
+		require.NotNil(t, fd, "(PostList).GetIDs() must be declared")
 	})
 }
 
