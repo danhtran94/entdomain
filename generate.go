@@ -84,6 +84,8 @@ func generateDomainFiles(g *gen.Graph, pkgPath, pkgName string) error {
 type domainFileData struct {
 	PkgName       string
 	EntityName    string
+	ListName      string // e.g. "UserList"
+	NoBulk        bool
 	IDField       domainField
 	Fields        []domainField
 	EnumTypes     []domainEnumType
@@ -127,6 +129,8 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 	data := &domainFileData{
 		PkgName:    pkgName,
 		EntityName: t.Name,
+		ListName:   t.Name + "List",
+		NoBulk:     ant.NoBulk,
 	}
 
 	// ID field
@@ -378,6 +382,11 @@ type {{ .EntityName }} struct {
 	{{ .StructName }} {{ .TypeStr }}
 {{- end }}
 }
+
+{{- if not .NoBulk }}
+// {{ .ListName }} is a slice of {{ .EntityName }}.
+type {{ .ListName }} []{{ .EntityName }}
+{{- end }}
 `))
 
 // renderDomainFile renders the domain struct template and formats it with go/format.

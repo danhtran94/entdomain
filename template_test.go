@@ -142,6 +142,68 @@ func TestTemplate_ApplyDomain_UpdateOne(t *testing.T) {
 	})
 }
 
+func TestTemplate_SliceToDomain(t *testing.T) {
+	f := entDomainFile(t)
+
+	t.Run("Users.ToDomain exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "Users", "ToDomain")
+		require.NotNil(t, fd, "(Users).ToDomain() must be declared")
+	})
+
+	t.Run("Posts.ToDomain absent (NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "Posts", "ToDomain")
+		assert.Nil(t, fd, "(Posts).ToDomain() must not be generated when NoBulk() is set")
+	})
+}
+
+func TestTemplate_CreateBulkDomain(t *testing.T) {
+	f := entDomainFile(t)
+
+	t.Run("UserClient.CreateBulkDomain exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserClient", "CreateBulkDomain")
+		require.NotNil(t, fd, "(*UserClient).CreateBulkDomain() must be declared")
+	})
+
+	t.Run("PostClient.CreateBulkDomain absent (NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "*PostClient", "CreateBulkDomain")
+		assert.Nil(t, fd, "(*PostClient).CreateBulkDomain() must not be generated when NoBulk() is set")
+	})
+}
+
+func TestTemplate_UpdateBulkDomain(t *testing.T) {
+	f := entDomainFile(t)
+
+	t.Run("UserClient.UpdateBulkDomain exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserClient", "UpdateBulkDomain")
+		require.NotNil(t, fd, "(*UserClient).UpdateBulkDomain() must be declared")
+	})
+
+	t.Run("PostClient.UpdateBulkDomain absent (NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "*PostClient", "UpdateBulkDomain")
+		assert.Nil(t, fd, "(*PostClient).UpdateBulkDomain() must not be generated when NoBulk() is set")
+	})
+
+	t.Run("UserUpdateOneBulk.Save exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserUpdateOneBulk", "Save")
+		require.NotNil(t, fd, "(*UserUpdateOneBulk).Save() must be declared")
+	})
+
+	t.Run("UserUpdateOneBulk.SaveX exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserUpdateOneBulk", "SaveX")
+		require.NotNil(t, fd, "(*UserUpdateOneBulk).SaveX() must be declared")
+	})
+
+	t.Run("UserUpdateOneBulk.Exec exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserUpdateOneBulk", "Exec")
+		require.NotNil(t, fd, "(*UserUpdateOneBulk).Exec() must be declared")
+	})
+
+	t.Run("UserUpdateOneBulk.ExecX exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserUpdateOneBulk", "ExecX")
+		require.NotNil(t, fd, "(*UserUpdateOneBulk).ExecX() must be declared")
+	})
+}
+
 func TestTemplate_TransformerVar(t *testing.T) {
 	f := entDomainFile(t)
 

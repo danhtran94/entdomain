@@ -14,6 +14,7 @@ func main() {
 	ex, err := entdomain.NewExtension(
 		entdomain.WithPackagePath("domain"),
 		entdomain.WithPackageName("domain"),
+		entdomain.WithNoBulk("Post"),
 	)
 	if err != nil {
 		log.Fatalf("creating entdomain extension: %v", err)

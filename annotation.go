@@ -65,6 +65,7 @@ type VirtualFieldConfig struct {
 // EntityAnnotation is placed on schema Annotations() to opt an entity into domain generation.
 type EntityAnnotation struct {
 	VirtualFields []VirtualFieldConfig
+	NoBulk        bool
 }
 
 // Name implements schema.Annotation.

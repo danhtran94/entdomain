@@ -27,3 +27,6 @@ type User struct {
 	IsPremium bool
 	Metadata  map[string]any
 }
+
+// UserList is a slice of User.
+type UserList []User

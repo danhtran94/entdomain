@@ -3,7 +3,10 @@
 package ent
 
 import (
+	"context"
+
 	"github.com/danhtran94/entdomain"
+
 	domain "github.com/danhtran94/entdomain/internal/testdata/domain"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
 )
@@ -179,4 +182,72 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 		UserTransformer.SetMetadataOnUpdate(u, d.Metadata)
 	}
 	return u
+}
+
+// ToDomain maps a slice of ent User to domain.UserList.
+func (es Users) ToDomain() domain.UserList {
+	ds := make(domain.UserList, len(es))
+	for i, e := range es {
+		ds[i] = *e.ToDomain()
+	}
+	return ds
+}
+
+// CreateBulkDomain creates a UserCreateBulk from domain.UserList.
+func (c *UserClient) CreateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserCreateBulk {
+	builders := make([]*UserCreate, len(ds))
+	for i := range ds {
+		builders[i] = c.Create().ApplyDomain(&ds[i], opts...)
+	}
+	return c.CreateBulk(builders...)
+}
+
+// UserUpdateOneBulk holds a set of UserUpdateOne builders.
+type UserUpdateOneBulk struct {
+	builders []*UserUpdateOne
+}
+
+// Save executes all builders and returns the updated entities as domain.UserList.
+func (b *UserUpdateOneBulk) Save(ctx context.Context) (domain.UserList, error) {
+	result := make(domain.UserList, 0, len(b.builders))
+	for _, builder := range b.builders {
+		updated, err := builder.Save(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *updated.ToDomain())
+	}
+	return result, nil
+}
+
+// SaveX is like Save but panics on error.
+func (b *UserUpdateOneBulk) SaveX(ctx context.Context) domain.UserList {
+	result, err := b.Save(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+// Exec executes all builders without returning the updated entities.
+func (b *UserUpdateOneBulk) Exec(ctx context.Context) error {
+	_, err := b.Save(ctx)
+	return err
+}
+
+// ExecX is like Exec but panics on error.
+func (b *UserUpdateOneBulk) ExecX(ctx context.Context) {
+	if err := b.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// UpdateBulkDomain returns a UserUpdateOneBulk from domain.UserList.
+// Each builder is keyed on ds[i].ID.
+func (c *UserClient) UpdateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserUpdateOneBulk {
+	builders := make([]*UserUpdateOne, len(ds))
+	for i := range ds {
+		builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(&ds[i], opts...)
+	}
+	return &UserUpdateOneBulk{builders: builders}
 }

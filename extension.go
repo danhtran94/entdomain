@@ -22,8 +22,10 @@ import (
 // Extension implements entc.Extension for generating a pure Go domain layer.
 type Extension struct {
 	entc.DefaultExtension
-	pkgPath string // e.g. "internal/domain"
-	pkgName string // e.g. "domain"
+	pkgPath        string          // e.g. "internal/domain"
+	pkgName        string          // e.g. "domain"
+	noBulkAll      bool            // disables bulk generation for all entities
+	noBulkEntities map[string]bool // entity names that opt out of bulk generation
 }
 
 // ExtensionOption is a functional option for configuring Extension.
@@ -44,6 +46,26 @@ func WithPackagePath(path string) ExtensionOption {
 func WithPackageName(name string) ExtensionOption {
 	return func(e *Extension) error {
 		e.pkgName = name
+		return nil
+	}
+}
+
+// WithNoBulk disables bulk generation (XxxList type, ToDomain slice method,
+// CreateBulkDomain, UpdateBulkDomain, XxxUpdateOneBulk).
+// Called with no arguments, it disables bulk for all entities.
+// Called with entity names, it disables bulk only for those entities.
+func WithNoBulk(entityNames ...string) ExtensionOption {
+	return func(e *Extension) error {
+		if len(entityNames) == 0 {
+			e.noBulkAll = true
+			return nil
+		}
+		if e.noBulkEntities == nil {
+			e.noBulkEntities = make(map[string]bool)
+		}
+		for _, name := range entityNames {
+			e.noBulkEntities[name] = true
+		}
 		return nil
 	}
 }
@@ -79,6 +101,19 @@ func (e *Extension) Templates() []*gen.Template {
 func (e *Extension) generateDomainHook() gen.Hook {
 	return func(next gen.Generator) gen.Generator {
 		return gen.GenerateFunc(func(g *gen.Graph) error {
+			// Propagate extension-level noBulk config into each entity's annotation
+			// so that both the domain file generator and the ent template can read it.
+			for _, n := range g.Nodes {
+				if !e.noBulkAll && !e.noBulkEntities[n.Name] {
+					continue
+				}
+				ant, err := extractEntityAnnotation(n.Annotations)
+				if err != nil || ant == nil {
+					continue
+				}
+				ant.NoBulk = true
+				n.Annotations[ant.Name()] = ant
+			}
 			// Generate domain struct files first, so goimports can resolve the domain
 			// package when it processes the ent/domain.go mapper file.
 			if err := generateDomainFiles(g, e.pkgPath, e.pkgName); err != nil {

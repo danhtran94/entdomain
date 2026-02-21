@@ -189,6 +189,42 @@ func TestGenerate_UserDomainStruct(t *testing.T) {
 	})
 }
 
+func TestGenerate_ListType(t *testing.T) {
+	t.Run("UserList declared in user.go", func(t *testing.T) {
+		f := domainFile(t, "internal/testdata/domain/user.go")
+		found := false
+		for _, decl := range f.Decls {
+			gd, ok := decl.(*ast.GenDecl)
+			if !ok || gd.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gd.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if ok && ts.Name.Name == "UserList" {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "UserList type must be declared")
+	})
+
+	t.Run("PostList absent in post.go (NoBulk)", func(t *testing.T) {
+		f := domainFile(t, "internal/testdata/domain/post.go")
+		for _, decl := range f.Decls {
+			gd, ok := decl.(*ast.GenDecl)
+			if !ok || gd.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gd.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if ok && ts.Name.Name == "PostList" {
+					t.Error("PostList must not be declared when NoBulk() is set")
+				}
+			}
+		}
+	})
+}
+
 func TestGenerate_PostDomainStruct(t *testing.T) {
 	f := domainFile(t, "internal/testdata/domain/post.go")
 

@@ -17,6 +17,7 @@
 {{- $domainImport := domainImportPath $ $pkgPath }}
 
 import (
+    "context"
     "github.com/danhtran94/entdomain"
     {{ $pkgName }} "{{ $domainImport }}"
     {{- range $n := $domainNodes }}
@@ -221,6 +222,76 @@ func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, op
     {{- end }}
     return u
 }
+
+{{- if not $ant.NoBulk }}
+// ToDomain maps a slice of ent {{ $n.Name }} to {{ $pkgName }}.{{ $n.Name }}List.
+func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
+    ds := make({{ $pkgName }}.{{ $n.Name }}List, len(es))
+    for i, e := range es {
+        ds[i] = *e.ToDomain()
+    }
+    return ds
+}
+
+// CreateBulkDomain creates a {{ $n.Name }}CreateBulk from {{ $pkgName }}.{{ $n.Name }}List.
+func (c *{{ $n.Name }}Client) CreateBulkDomain(ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}CreateBulk {
+    builders := make([]*{{ $n.Name }}Create, len(ds))
+    for i := range ds {
+        builders[i] = c.Create().ApplyDomain(&ds[i], opts...)
+    }
+    return c.CreateBulk(builders...)
+}
+
+// {{ $n.Name }}UpdateOneBulk holds a set of {{ $n.Name }}UpdateOne builders.
+type {{ $n.Name }}UpdateOneBulk struct {
+    builders []*{{ $n.Name }}UpdateOne
+}
+
+// Save executes all builders and returns the updated entities as {{ $pkgName }}.{{ $n.Name }}List.
+func (b *{{ $n.Name }}UpdateOneBulk) Save(ctx context.Context) ({{ $pkgName }}.{{ $n.Name }}List, error) {
+    result := make({{ $pkgName }}.{{ $n.Name }}List, 0, len(b.builders))
+    for _, builder := range b.builders {
+        updated, err := builder.Save(ctx)
+        if err != nil {
+            return nil, err
+        }
+        result = append(result, *updated.ToDomain())
+    }
+    return result, nil
+}
+
+// SaveX is like Save but panics on error.
+func (b *{{ $n.Name }}UpdateOneBulk) SaveX(ctx context.Context) {{ $pkgName }}.{{ $n.Name }}List {
+    result, err := b.Save(ctx)
+    if err != nil {
+        panic(err)
+    }
+    return result
+}
+
+// Exec executes all builders without returning the updated entities.
+func (b *{{ $n.Name }}UpdateOneBulk) Exec(ctx context.Context) error {
+    _, err := b.Save(ctx)
+    return err
+}
+
+// ExecX is like Exec but panics on error.
+func (b *{{ $n.Name }}UpdateOneBulk) ExecX(ctx context.Context) {
+    if err := b.Exec(ctx); err != nil {
+        panic(err)
+    }
+}
+
+// UpdateBulkDomain returns a {{ $n.Name }}UpdateOneBulk from {{ $pkgName }}.{{ $n.Name }}List.
+// Each builder is keyed on ds[i].ID.
+func (c *{{ $n.Name }}Client) UpdateBulkDomain(ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpdateOneBulk {
+    builders := make([]*{{ $n.Name }}UpdateOne, len(ds))
+    for i := range ds {
+        builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(&ds[i], opts...)
+    }
+    return &{{ $n.Name }}UpdateOneBulk{builders: builders}
+}
+{{- end }}
 {{ end }}
 {{- end }}
 {{ end }}
