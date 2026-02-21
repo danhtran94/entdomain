@@ -418,6 +418,29 @@ func HasPostsWith(preds ...predicate.Post) predicate.User {
 	})
 }
 
+// HasPinnedPost applies the HasEdge predicate on the "pinned_post" edge.
+func HasPinnedPost() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, PinnedPostTable, PinnedPostColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPinnedPostWith applies the HasEdge predicate on the "pinned_post" edge with a given conditions (other predicates).
+func HasPinnedPostWith(preds ...predicate.Post) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newPinnedPostStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.User) predicate.User {
 	return predicate.User(sql.AndPredicates(predicates...))

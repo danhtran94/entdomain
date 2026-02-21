@@ -17,6 +17,8 @@ type PostDomainField = string
 const (
 	PostDomainFieldTitle     PostDomainField = "title"
 	PostDomainFieldPublished PostDomainField = "published"
+	PostDomainFieldOwnerID   PostDomainField = "owner_id"
+	PostDomainFieldPinnerIDs PostDomainField = "pinner_ids"
 )
 
 // PostDomainTransformer holds optional transformer functions for Post → domain mapping.
@@ -33,6 +35,12 @@ func (e *Post) ToDomain() *domain.Post {
 		Title:     e.Title,
 		Published: e.Published,
 	}
+	if _e := e.Edges.Owner; _e != nil {
+		d.OwnerID = _e.ID
+	}
+	for _, _e := range e.Edges.Pinners {
+		d.PinnerIDs = append(d.PinnerIDs, _e.ID)
+	}
 	return d
 }
 
@@ -44,6 +52,9 @@ func (c *PostCreate) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) 
 	}
 	if cfg.ShouldApply("published", d.Published) {
 		c = c.SetPublished(d.Published)
+	}
+	if len(d.PinnerIDs) > 0 {
+		c = c.AddPinnerIDs(d.PinnerIDs...)
 	}
 	return c
 }
@@ -57,6 +68,11 @@ func (u *PostUpdateOne) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOptio
 	if cfg.ShouldApply("published", d.Published) {
 		u = u.SetPublished(d.Published)
 	}
+	if cfg.IsAppendEdge("pinner_ids") {
+		u = u.AddPinnerIDs(d.PinnerIDs...)
+	} else {
+		u = u.ClearPinners().AddPinnerIDs(d.PinnerIDs...)
+	}
 	return u
 }
 
@@ -69,6 +85,11 @@ func (u *PostUpdate) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) 
 	}
 	if cfg.ShouldApply("published", d.Published) {
 		u = u.SetPublished(d.Published)
+	}
+	if cfg.IsAppendEdge("pinner_ids") {
+		u = u.AddPinnerIDs(d.PinnerIDs...)
+	} else {
+		u = u.ClearPinners().AddPinnerIDs(d.PinnerIDs...)
 	}
 	return u
 }
@@ -125,6 +146,9 @@ func (e *User) ToDomain() *domain.User {
 	for _, _e := range e.Edges.Posts {
 		d.PostIDs = append(d.PostIDs, _e.ID)
 		d.Posts = append(d.Posts, _e.ToDomain())
+	}
+	if _e := e.Edges.PinnedPost; _e != nil {
+		d.PinnedPost = *_e.ToDomain()
 	}
 	if UserTransformer != nil && UserTransformer.GetFullName != nil {
 		d.FullName = UserTransformer.GetFullName(e)

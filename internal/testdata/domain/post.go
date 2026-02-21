@@ -6,6 +6,8 @@ type Post struct {
 	ID        int
 	Title     string
 	Published bool
+	OwnerID   int
+	PinnerIDs []int
 }
 
 // PostList is a slice of Post.

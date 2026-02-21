@@ -59,6 +59,21 @@ func (_c *PostCreate) SetOwner(v *User) *PostCreate {
 	return _c.SetOwnerID(v.ID)
 }
 
+// AddPinnerIDs adds the "pinners" edge to the User entity by IDs.
+func (_c *PostCreate) AddPinnerIDs(ids ...int) *PostCreate {
+	_c.mutation.AddPinnerIDs(ids...)
+	return _c
+}
+
+// AddPinners adds the "pinners" edges to the User entity.
+func (_c *PostCreate) AddPinners(v ...*User) *PostCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddPinnerIDs(ids...)
+}
+
 // Mutation returns the PostMutation object of the builder.
 func (_c *PostCreate) Mutation() *PostMutation {
 	return _c.mutation
@@ -157,6 +172,22 @@ func (_c *PostCreate) createSpec() (*Post, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.user_posts = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PinnersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   post.PinnersTable,
+			Columns: []string{post.PinnersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

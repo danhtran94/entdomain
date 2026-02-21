@@ -152,10 +152,11 @@ func TestGenerate_UserDomainStruct(t *testing.T) {
 		assert.Equal(t, "time.Time", findField(st, "CreatedAt"))
 		assert.Equal(t, "string", findField(st, "Username"))
 		assert.Equal(t, "*int", findField(st, "Score"))
-		// Edge IDs
+		// plural To: IDs + Nest
 		assert.Equal(t, "[]int", findField(st, "PostIDs"))
-		// Edge nest
 		assert.Equal(t, "PostList", findField(st, "Posts"))
+		// singular To: Nest only
+		assert.Equal(t, "Post", findField(st, "PinnedPost"))
 		// Virtual fields
 		assert.Equal(t, "string", findField(st, "FullName"))
 		assert.Equal(t, "bool", findField(st, "IsPremium"))
@@ -259,5 +260,9 @@ func TestGenerate_PostDomainStruct(t *testing.T) {
 		assert.Equal(t, "int", findField(st, "ID"))
 		assert.Equal(t, "string", findField(st, "Title"))
 		assert.Equal(t, "bool", findField(st, "Published"))
+		// singular From: IDs
+		assert.Equal(t, "int", findField(st, "OwnerID"))
+		// plural From: IDs
+		assert.Equal(t, "[]int", findField(st, "PinnerIDs"))
 	})
 }

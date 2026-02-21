@@ -14,18 +14,19 @@ const (
 )
 
 type User struct {
-	ID        int
-	Name      string
-	Bio       *string
-	Status    UserStatus
-	CreatedAt time.Time
-	Username  string
-	Score     *int
-	PostIDs   []int
-	Posts     PostList
-	FullName  string
-	IsPremium bool
-	Metadata  map[string]any
+	ID         int
+	Name       string
+	Bio        *string
+	Status     UserStatus
+	CreatedAt  time.Time
+	Username   string
+	Score      *int
+	PostIDs    []int
+	Posts      PostList
+	PinnedPost Post
+	FullName   string
+	IsPremium  bool
+	Metadata   map[string]any
 }
 
 // UserList is a slice of User.

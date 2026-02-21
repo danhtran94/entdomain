@@ -38,12 +38,21 @@ var (
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "username", Type: field.TypeString},
 		{Name: "score", Type: field.TypeInt, Nullable: true},
+		{Name: "user_pinned_post", Type: field.TypeInt, Nullable: true},
 	}
 	// UsersTable holds the schema information for the "users" table.
 	UsersTable = &schema.Table{
 		Name:       "users",
 		Columns:    UsersColumns,
 		PrimaryKey: []*schema.Column{UsersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "users_posts_pinned_post",
+				Columns:    []*schema.Column{UsersColumns[7]},
+				RefColumns: []*schema.Column{PostsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
@@ -54,4 +63,5 @@ var (
 
 func init() {
 	PostsTable.ForeignKeys[0].RefTable = UsersTable
+	UsersTable.ForeignKeys[0].RefTable = PostsTable
 }

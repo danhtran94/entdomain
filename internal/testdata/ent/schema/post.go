@@ -38,9 +38,15 @@ func (Post) Fields() []ent.Field {
 // Edges of the Post.
 func (Post) Edges() []ent.Edge {
 	return []ent.Edge{
+		// singular From: IDs → OwnerID int
 		edge.From("owner", User.Type).
 			Ref("posts").
-			Unique(),
+			Unique().
+			Annotations(entdomain.Edge(entdomain.IDs())),
+		// plural From: IDs → PinnerIDs []int
+		edge.From("pinners", User.Type).
+			Ref("pinned_post").
+			Annotations(entdomain.Edge(entdomain.IDs())),
 	}
 }
 

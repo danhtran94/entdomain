@@ -118,6 +118,25 @@ func (_u *UserUpdate) AddPosts(v ...*Post) *UserUpdate {
 	return _u.AddPostIDs(ids...)
 }
 
+// SetPinnedPostID sets the "pinned_post" edge to the Post entity by ID.
+func (_u *UserUpdate) SetPinnedPostID(id int) *UserUpdate {
+	_u.mutation.SetPinnedPostID(id)
+	return _u
+}
+
+// SetNillablePinnedPostID sets the "pinned_post" edge to the Post entity by ID if the given value is not nil.
+func (_u *UserUpdate) SetNillablePinnedPostID(id *int) *UserUpdate {
+	if id != nil {
+		_u = _u.SetPinnedPostID(*id)
+	}
+	return _u
+}
+
+// SetPinnedPost sets the "pinned_post" edge to the Post entity.
+func (_u *UserUpdate) SetPinnedPost(v *Post) *UserUpdate {
+	return _u.SetPinnedPostID(v.ID)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -142,6 +161,12 @@ func (_u *UserUpdate) RemovePosts(v ...*Post) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePostIDs(ids...)
+}
+
+// ClearPinnedPost clears the "pinned_post" edge to the Post entity.
+func (_u *UserUpdate) ClearPinnedPost() *UserUpdate {
+	_u.mutation.ClearPinnedPost()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -249,6 +274,35 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Inverse: false,
 			Table:   user.PostsTable,
 			Columns: []string{user.PostsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PinnedPostCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.PinnedPostTable,
+			Columns: []string{user.PinnedPostColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PinnedPostIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.PinnedPostTable,
+			Columns: []string{user.PinnedPostColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),
@@ -369,6 +423,25 @@ func (_u *UserUpdateOne) AddPosts(v ...*Post) *UserUpdateOne {
 	return _u.AddPostIDs(ids...)
 }
 
+// SetPinnedPostID sets the "pinned_post" edge to the Post entity by ID.
+func (_u *UserUpdateOne) SetPinnedPostID(id int) *UserUpdateOne {
+	_u.mutation.SetPinnedPostID(id)
+	return _u
+}
+
+// SetNillablePinnedPostID sets the "pinned_post" edge to the Post entity by ID if the given value is not nil.
+func (_u *UserUpdateOne) SetNillablePinnedPostID(id *int) *UserUpdateOne {
+	if id != nil {
+		_u = _u.SetPinnedPostID(*id)
+	}
+	return _u
+}
+
+// SetPinnedPost sets the "pinned_post" edge to the Post entity.
+func (_u *UserUpdateOne) SetPinnedPost(v *Post) *UserUpdateOne {
+	return _u.SetPinnedPostID(v.ID)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -393,6 +466,12 @@ func (_u *UserUpdateOne) RemovePosts(v ...*Post) *UserUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePostIDs(ids...)
+}
+
+// ClearPinnedPost clears the "pinned_post" edge to the Post entity.
+func (_u *UserUpdateOne) ClearPinnedPost() *UserUpdateOne {
+	_u.mutation.ClearPinnedPost()
+	return _u
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -530,6 +609,35 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Inverse: false,
 			Table:   user.PostsTable,
 			Columns: []string{user.PostsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PinnedPostCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.PinnedPostTable,
+			Columns: []string{user.PinnedPostColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PinnedPostIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.PinnedPostTable,
+			Columns: []string{user.PinnedPostColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),

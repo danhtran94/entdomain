@@ -29,6 +29,8 @@ const (
 	FieldScore = "score"
 	// EdgePosts holds the string denoting the posts edge name in mutations.
 	EdgePosts = "posts"
+	// EdgePinnedPost holds the string denoting the pinned_post edge name in mutations.
+	EdgePinnedPost = "pinned_post"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// PostsTable is the table that holds the posts relation/edge.
@@ -38,6 +40,13 @@ const (
 	PostsInverseTable = "posts"
 	// PostsColumn is the table column denoting the posts relation/edge.
 	PostsColumn = "user_posts"
+	// PinnedPostTable is the table that holds the pinned_post relation/edge.
+	PinnedPostTable = "users"
+	// PinnedPostInverseTable is the table name for the Post entity.
+	// It exists in this package in order to avoid circular dependency with the "post" package.
+	PinnedPostInverseTable = "posts"
+	// PinnedPostColumn is the table column denoting the pinned_post relation/edge.
+	PinnedPostColumn = "user_pinned_post"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -51,10 +60,21 @@ var Columns = []string{
 	FieldScore,
 }
 
+// ForeignKeys holds the SQL foreign-keys that are owned by the "users"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"user_pinned_post",
+}
+
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -143,10 +163,24 @@ func ByPosts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newPostsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByPinnedPostField orders the results by pinned_post field.
+func ByPinnedPostField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPinnedPostStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newPostsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PostsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PostsTable, PostsColumn),
+	)
+}
+func newPinnedPostStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PinnedPostInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, PinnedPostTable, PinnedPostColumn),
 	)
 }

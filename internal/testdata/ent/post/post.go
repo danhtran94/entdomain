@@ -18,6 +18,8 @@ const (
 	FieldPublished = "published"
 	// EdgeOwner holds the string denoting the owner edge name in mutations.
 	EdgeOwner = "owner"
+	// EdgePinners holds the string denoting the pinners edge name in mutations.
+	EdgePinners = "pinners"
 	// Table holds the table name of the post in the database.
 	Table = "posts"
 	// OwnerTable is the table that holds the owner relation/edge.
@@ -27,6 +29,13 @@ const (
 	OwnerInverseTable = "users"
 	// OwnerColumn is the table column denoting the owner relation/edge.
 	OwnerColumn = "user_posts"
+	// PinnersTable is the table that holds the pinners relation/edge.
+	PinnersTable = "users"
+	// PinnersInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	PinnersInverseTable = "users"
+	// PinnersColumn is the table column denoting the pinners relation/edge.
+	PinnersColumn = "user_pinned_post"
 )
 
 // Columns holds all SQL columns for post fields.
@@ -86,10 +95,31 @@ func ByOwnerField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newOwnerStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByPinnersCount orders the results by pinners count.
+func ByPinnersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPinnersStep(), opts...)
+	}
+}
+
+// ByPinners orders the results by pinners terms.
+func ByPinners(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPinnersStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newOwnerStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OwnerInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, OwnerTable, OwnerColumn),
+	)
+}
+func newPinnersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PinnersInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, true, PinnersTable, PinnersColumn),
 	)
 }

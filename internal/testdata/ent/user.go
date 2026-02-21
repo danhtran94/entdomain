@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
 )
 
@@ -31,17 +32,20 @@ type User struct {
 	Score int `json:"score,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
-	Edges        UserEdges `json:"edges"`
-	selectValues sql.SelectValues
+	Edges            UserEdges `json:"edges"`
+	user_pinned_post *int
+	selectValues     sql.SelectValues
 }
 
 // UserEdges holds the relations/edges for other nodes in the graph.
 type UserEdges struct {
 	// Posts holds the value of the posts edge.
 	Posts []*Post `json:"posts,omitempty"`
+	// PinnedPost holds the value of the pinned_post edge.
+	PinnedPost *Post `json:"pinned_post,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // PostsOrErr returns the Posts value or an error if the edge
@@ -51,6 +55,17 @@ func (e UserEdges) PostsOrErr() ([]*Post, error) {
 		return e.Posts, nil
 	}
 	return nil, &NotLoadedError{edge: "posts"}
+}
+
+// PinnedPostOrErr returns the PinnedPost value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e UserEdges) PinnedPostOrErr() (*Post, error) {
+	if e.PinnedPost != nil {
+		return e.PinnedPost, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: post.Label}
+	}
+	return nil, &NotLoadedError{edge: "pinned_post"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -64,6 +79,8 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case user.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
+		case user.ForeignKeys[0]: // user_pinned_post
+			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -121,6 +138,13 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Score = int(value.Int64)
 			}
+		case user.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field user_pinned_post", value)
+			} else if value.Valid {
+				_m.user_pinned_post = new(int)
+				*_m.user_pinned_post = int(value.Int64)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -137,6 +161,11 @@ func (_m *User) Value(name string) (ent.Value, error) {
 // QueryPosts queries the "posts" edge of the User entity.
 func (_m *User) QueryPosts() *PostQuery {
 	return NewUserClient(_m.config).QueryPosts(_m)
+}
+
+// QueryPinnedPost queries the "pinned_post" edge of the User entity.
+func (_m *User) QueryPinnedPost() *PostQuery {
+	return NewUserClient(_m.config).QueryPinnedPost(_m)
 }
 
 // Update returns a builder for updating this User.

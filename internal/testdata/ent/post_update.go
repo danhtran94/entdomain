@@ -75,6 +75,21 @@ func (_u *PostUpdate) SetOwner(v *User) *PostUpdate {
 	return _u.SetOwnerID(v.ID)
 }
 
+// AddPinnerIDs adds the "pinners" edge to the User entity by IDs.
+func (_u *PostUpdate) AddPinnerIDs(ids ...int) *PostUpdate {
+	_u.mutation.AddPinnerIDs(ids...)
+	return _u
+}
+
+// AddPinners adds the "pinners" edges to the User entity.
+func (_u *PostUpdate) AddPinners(v ...*User) *PostUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPinnerIDs(ids...)
+}
+
 // Mutation returns the PostMutation object of the builder.
 func (_u *PostUpdate) Mutation() *PostMutation {
 	return _u.mutation
@@ -84,6 +99,27 @@ func (_u *PostUpdate) Mutation() *PostMutation {
 func (_u *PostUpdate) ClearOwner() *PostUpdate {
 	_u.mutation.ClearOwner()
 	return _u
+}
+
+// ClearPinners clears all "pinners" edges to the User entity.
+func (_u *PostUpdate) ClearPinners() *PostUpdate {
+	_u.mutation.ClearPinners()
+	return _u
+}
+
+// RemovePinnerIDs removes the "pinners" edge to User entities by IDs.
+func (_u *PostUpdate) RemovePinnerIDs(ids ...int) *PostUpdate {
+	_u.mutation.RemovePinnerIDs(ids...)
+	return _u
+}
+
+// RemovePinners removes "pinners" edges to User entities.
+func (_u *PostUpdate) RemovePinners(v ...*User) *PostUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePinnerIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -147,6 +183,51 @@ func (_u *PostUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Inverse: true,
 			Table:   post.OwnerTable,
 			Columns: []string{post.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PinnersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   post.PinnersTable,
+			Columns: []string{post.PinnersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPinnersIDs(); len(nodes) > 0 && !_u.mutation.PinnersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   post.PinnersTable,
+			Columns: []string{post.PinnersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PinnersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   post.PinnersTable,
+			Columns: []string{post.PinnersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
@@ -224,6 +305,21 @@ func (_u *PostUpdateOne) SetOwner(v *User) *PostUpdateOne {
 	return _u.SetOwnerID(v.ID)
 }
 
+// AddPinnerIDs adds the "pinners" edge to the User entity by IDs.
+func (_u *PostUpdateOne) AddPinnerIDs(ids ...int) *PostUpdateOne {
+	_u.mutation.AddPinnerIDs(ids...)
+	return _u
+}
+
+// AddPinners adds the "pinners" edges to the User entity.
+func (_u *PostUpdateOne) AddPinners(v ...*User) *PostUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPinnerIDs(ids...)
+}
+
 // Mutation returns the PostMutation object of the builder.
 func (_u *PostUpdateOne) Mutation() *PostMutation {
 	return _u.mutation
@@ -233,6 +329,27 @@ func (_u *PostUpdateOne) Mutation() *PostMutation {
 func (_u *PostUpdateOne) ClearOwner() *PostUpdateOne {
 	_u.mutation.ClearOwner()
 	return _u
+}
+
+// ClearPinners clears all "pinners" edges to the User entity.
+func (_u *PostUpdateOne) ClearPinners() *PostUpdateOne {
+	_u.mutation.ClearPinners()
+	return _u
+}
+
+// RemovePinnerIDs removes the "pinners" edge to User entities by IDs.
+func (_u *PostUpdateOne) RemovePinnerIDs(ids ...int) *PostUpdateOne {
+	_u.mutation.RemovePinnerIDs(ids...)
+	return _u
+}
+
+// RemovePinners removes "pinners" edges to User entities.
+func (_u *PostUpdateOne) RemovePinners(v ...*User) *PostUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePinnerIDs(ids...)
 }
 
 // Where appends a list predicates to the PostUpdate builder.
@@ -326,6 +443,51 @@ func (_u *PostUpdateOne) sqlSave(ctx context.Context) (_node *Post, err error) {
 			Inverse: true,
 			Table:   post.OwnerTable,
 			Columns: []string{post.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PinnersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   post.PinnersTable,
+			Columns: []string{post.PinnersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPinnersIDs(); len(nodes) > 0 && !_u.mutation.PinnersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   post.PinnersTable,
+			Columns: []string{post.PinnersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PinnersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   post.PinnersTable,
+			Columns: []string{post.PinnersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),

@@ -32,9 +32,11 @@ type Post struct {
 type PostEdges struct {
 	// Owner holds the value of the owner edge.
 	Owner *User `json:"owner,omitempty"`
+	// Pinners holds the value of the pinners edge.
+	Pinners []*User `json:"pinners,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // OwnerOrErr returns the Owner value or an error if the edge
@@ -46,6 +48,15 @@ func (e PostEdges) OwnerOrErr() (*User, error) {
 		return nil, &NotFoundError{label: user.Label}
 	}
 	return nil, &NotLoadedError{edge: "owner"}
+}
+
+// PinnersOrErr returns the Pinners value or an error if the edge
+// was not loaded in eager-loading.
+func (e PostEdges) PinnersOrErr() ([]*User, error) {
+	if e.loadedTypes[1] {
+		return e.Pinners, nil
+	}
+	return nil, &NotLoadedError{edge: "pinners"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -117,6 +128,11 @@ func (_m *Post) Value(name string) (ent.Value, error) {
 // QueryOwner queries the "owner" edge of the Post entity.
 func (_m *Post) QueryOwner() *UserQuery {
 	return NewPostClient(_m.config).QueryOwner(_m)
+}
+
+// QueryPinners queries the "pinners" edge of the Post entity.
+func (_m *Post) QueryPinners() *UserQuery {
+	return NewPostClient(_m.config).QueryPinners(_m)
 }
 
 // Update returns a builder for updating this Post.

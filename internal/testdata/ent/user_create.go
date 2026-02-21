@@ -104,6 +104,25 @@ func (_c *UserCreate) AddPosts(v ...*Post) *UserCreate {
 	return _c.AddPostIDs(ids...)
 }
 
+// SetPinnedPostID sets the "pinned_post" edge to the Post entity by ID.
+func (_c *UserCreate) SetPinnedPostID(id int) *UserCreate {
+	_c.mutation.SetPinnedPostID(id)
+	return _c
+}
+
+// SetNillablePinnedPostID sets the "pinned_post" edge to the Post entity by ID if the given value is not nil.
+func (_c *UserCreate) SetNillablePinnedPostID(id *int) *UserCreate {
+	if id != nil {
+		_c = _c.SetPinnedPostID(*id)
+	}
+	return _c
+}
+
+// SetPinnedPost sets the "pinned_post" edge to the Post entity.
+func (_c *UserCreate) SetPinnedPost(v *Post) *UserCreate {
+	return _c.SetPinnedPostID(v.ID)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_c *UserCreate) Mutation() *UserMutation {
 	return _c.mutation
@@ -232,6 +251,23 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PinnedPostIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.PinnedPostTable,
+			Columns: []string{user.PinnedPostColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.user_pinned_post = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

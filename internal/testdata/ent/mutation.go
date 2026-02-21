@@ -32,17 +32,20 @@ const (
 // PostMutation represents an operation that mutates the Post nodes in the graph.
 type PostMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	title         *string
-	published     *bool
-	clearedFields map[string]struct{}
-	owner         *int
-	clearedowner  bool
-	done          bool
-	oldValue      func(context.Context) (*Post, error)
-	predicates    []predicate.Post
+	op             Op
+	typ            string
+	id             *int
+	title          *string
+	published      *bool
+	clearedFields  map[string]struct{}
+	owner          *int
+	clearedowner   bool
+	pinners        map[int]struct{}
+	removedpinners map[int]struct{}
+	clearedpinners bool
+	done           bool
+	oldValue       func(context.Context) (*Post, error)
+	predicates     []predicate.Post
 }
 
 var _ ent.Mutation = (*PostMutation)(nil)
@@ -254,6 +257,60 @@ func (m *PostMutation) ResetOwner() {
 	m.clearedowner = false
 }
 
+// AddPinnerIDs adds the "pinners" edge to the User entity by ids.
+func (m *PostMutation) AddPinnerIDs(ids ...int) {
+	if m.pinners == nil {
+		m.pinners = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.pinners[ids[i]] = struct{}{}
+	}
+}
+
+// ClearPinners clears the "pinners" edge to the User entity.
+func (m *PostMutation) ClearPinners() {
+	m.clearedpinners = true
+}
+
+// PinnersCleared reports if the "pinners" edge to the User entity was cleared.
+func (m *PostMutation) PinnersCleared() bool {
+	return m.clearedpinners
+}
+
+// RemovePinnerIDs removes the "pinners" edge to the User entity by IDs.
+func (m *PostMutation) RemovePinnerIDs(ids ...int) {
+	if m.removedpinners == nil {
+		m.removedpinners = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.pinners, ids[i])
+		m.removedpinners[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedPinners returns the removed IDs of the "pinners" edge to the User entity.
+func (m *PostMutation) RemovedPinnersIDs() (ids []int) {
+	for id := range m.removedpinners {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// PinnersIDs returns the "pinners" edge IDs in the mutation.
+func (m *PostMutation) PinnersIDs() (ids []int) {
+	for id := range m.pinners {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetPinners resets all changes to the "pinners" edge.
+func (m *PostMutation) ResetPinners() {
+	m.pinners = nil
+	m.clearedpinners = false
+	m.removedpinners = nil
+}
+
 // Where appends a list predicates to the PostMutation builder.
 func (m *PostMutation) Where(ps ...predicate.Post) {
 	m.predicates = append(m.predicates, ps...)
@@ -404,9 +461,12 @@ func (m *PostMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *PostMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.owner != nil {
 		edges = append(edges, post.EdgeOwner)
+	}
+	if m.pinners != nil {
+		edges = append(edges, post.EdgePinners)
 	}
 	return edges
 }
@@ -419,27 +479,47 @@ func (m *PostMutation) AddedIDs(name string) []ent.Value {
 		if id := m.owner; id != nil {
 			return []ent.Value{*id}
 		}
+	case post.EdgePinners:
+		ids := make([]ent.Value, 0, len(m.pinners))
+		for id := range m.pinners {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *PostMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedpinners != nil {
+		edges = append(edges, post.EdgePinners)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *PostMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case post.EdgePinners:
+		ids := make([]ent.Value, 0, len(m.removedpinners))
+		for id := range m.removedpinners {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *PostMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedowner {
 		edges = append(edges, post.EdgeOwner)
+	}
+	if m.clearedpinners {
+		edges = append(edges, post.EdgePinners)
 	}
 	return edges
 }
@@ -450,6 +530,8 @@ func (m *PostMutation) EdgeCleared(name string) bool {
 	switch name {
 	case post.EdgeOwner:
 		return m.clearedowner
+	case post.EdgePinners:
+		return m.clearedpinners
 	}
 	return false
 }
@@ -472,6 +554,9 @@ func (m *PostMutation) ResetEdge(name string) error {
 	case post.EdgeOwner:
 		m.ResetOwner()
 		return nil
+	case post.EdgePinners:
+		m.ResetPinners()
+		return nil
 	}
 	return fmt.Errorf("unknown Post edge %s", name)
 }
@@ -479,23 +564,25 @@ func (m *PostMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	name          *string
-	bio           *string
-	status        *user.Status
-	created_at    *time.Time
-	username      *string
-	score         *int
-	addscore      *int
-	clearedFields map[string]struct{}
-	posts         map[int]struct{}
-	removedposts  map[int]struct{}
-	clearedposts  bool
-	done          bool
-	oldValue      func(context.Context) (*User, error)
-	predicates    []predicate.User
+	op                 Op
+	typ                string
+	id                 *int
+	name               *string
+	bio                *string
+	status             *user.Status
+	created_at         *time.Time
+	username           *string
+	score              *int
+	addscore           *int
+	clearedFields      map[string]struct{}
+	posts              map[int]struct{}
+	removedposts       map[int]struct{}
+	clearedposts       bool
+	pinned_post        *int
+	clearedpinned_post bool
+	done               bool
+	oldValue           func(context.Context) (*User, error)
+	predicates         []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -913,6 +1000,45 @@ func (m *UserMutation) ResetPosts() {
 	m.removedposts = nil
 }
 
+// SetPinnedPostID sets the "pinned_post" edge to the Post entity by id.
+func (m *UserMutation) SetPinnedPostID(id int) {
+	m.pinned_post = &id
+}
+
+// ClearPinnedPost clears the "pinned_post" edge to the Post entity.
+func (m *UserMutation) ClearPinnedPost() {
+	m.clearedpinned_post = true
+}
+
+// PinnedPostCleared reports if the "pinned_post" edge to the Post entity was cleared.
+func (m *UserMutation) PinnedPostCleared() bool {
+	return m.clearedpinned_post
+}
+
+// PinnedPostID returns the "pinned_post" edge ID in the mutation.
+func (m *UserMutation) PinnedPostID() (id int, exists bool) {
+	if m.pinned_post != nil {
+		return *m.pinned_post, true
+	}
+	return
+}
+
+// PinnedPostIDs returns the "pinned_post" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PinnedPostID instead. It exists only for internal usage by the builders.
+func (m *UserMutation) PinnedPostIDs() (ids []int) {
+	if id := m.pinned_post; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPinnedPost resets all changes to the "pinned_post" edge.
+func (m *UserMutation) ResetPinnedPost() {
+	m.pinned_post = nil
+	m.clearedpinned_post = false
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -1161,9 +1287,12 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.posts != nil {
 		edges = append(edges, user.EdgePosts)
+	}
+	if m.pinned_post != nil {
+		edges = append(edges, user.EdgePinnedPost)
 	}
 	return edges
 }
@@ -1178,13 +1307,17 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgePinnedPost:
+		if id := m.pinned_post; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.removedposts != nil {
 		edges = append(edges, user.EdgePosts)
 	}
@@ -1207,9 +1340,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedposts {
 		edges = append(edges, user.EdgePosts)
+	}
+	if m.clearedpinned_post {
+		edges = append(edges, user.EdgePinnedPost)
 	}
 	return edges
 }
@@ -1220,6 +1356,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 	switch name {
 	case user.EdgePosts:
 		return m.clearedposts
+	case user.EdgePinnedPost:
+		return m.clearedpinned_post
 	}
 	return false
 }
@@ -1228,6 +1366,9 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *UserMutation) ClearEdge(name string) error {
 	switch name {
+	case user.EdgePinnedPost:
+		m.ClearPinnedPost()
+		return nil
 	}
 	return fmt.Errorf("unknown User unique edge %s", name)
 }
@@ -1238,6 +1379,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 	switch name {
 	case user.EdgePosts:
 		m.ResetPosts()
+		return nil
+	case user.EdgePinnedPost:
+		m.ResetPinnedPost()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)
