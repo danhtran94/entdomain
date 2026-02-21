@@ -30,3 +30,12 @@ type User struct {
 
 // UserList is a slice of User.
 type UserList []*User
+
+// GetIDs returns the ID of each item in the list.
+func (ds UserList) GetIDs() []int {
+	ids := make([]int, len(ds))
+	for i, d := range ds {
+		ids[i] = d.ID
+	}
+	return ids
+}

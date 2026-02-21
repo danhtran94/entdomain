@@ -386,6 +386,15 @@ type {{ .EntityName }} struct {
 {{- if not .NoBulk }}
 // {{ .ListName }} is a slice of {{ .EntityName }}.
 type {{ .ListName }} []*{{ .EntityName }}
+
+// GetIDs returns the ID of each item in the list.
+func (ds {{ .ListName }}) GetIDs() []{{ .IDField.TypeStr }} {
+	ids := make([]{{ .IDField.TypeStr }}, len(ds))
+	for i, d := range ds {
+		ids[i] = d.ID
+	}
+	return ids
+}
 {{- end }}
 `))
 

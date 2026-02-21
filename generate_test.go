@@ -208,6 +208,12 @@ func TestGenerate_ListType(t *testing.T) {
 		assert.True(t, found, "UserList type must be declared")
 	})
 
+	t.Run("UserList.GetIDs declared in user.go", func(t *testing.T) {
+		f := domainFile(t, "internal/testdata/domain/user.go")
+		fd := findFuncDecl(f, "UserList", "GetIDs")
+		require.NotNil(t, fd, "(UserList).GetIDs() must be declared")
+	})
+
 	t.Run("PostList absent in post.go (NoBulk)", func(t *testing.T) {
 		f := domainFile(t, "internal/testdata/domain/post.go")
 		for _, decl := range f.Decls {
