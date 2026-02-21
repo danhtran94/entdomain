@@ -142,6 +142,21 @@ func TestTemplate_ApplyDomain_UpdateOne(t *testing.T) {
 	})
 }
 
+func TestTemplate_ApplyDomain_Update(t *testing.T) {
+	f := entDomainFile(t)
+
+	t.Run("UserUpdate.ApplyDomain exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserUpdate", "ApplyDomain")
+		require.NotNil(t, fd, "(*UserUpdate).ApplyDomain() must be declared")
+	})
+
+	t.Run("PostUpdate.ApplyDomain exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*PostUpdate", "ApplyDomain")
+		require.NotNil(t, fd, "(*PostUpdate).ApplyDomain() must be declared")
+	})
+
+}
+
 func TestTemplate_SliceToDomain(t *testing.T) {
 	f := entDomainFile(t)
 

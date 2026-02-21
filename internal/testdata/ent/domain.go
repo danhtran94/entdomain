@@ -60,6 +60,19 @@ func (u *PostUpdateOne) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOptio
 	return u
 }
 
+// ApplyDomain applies domain.Post fields to the PostUpdate builder.
+// Chain .Where(...) conditions to target specific records.
+func (u *PostUpdate) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) *PostUpdate {
+	cfg := entdomain.NewApplyConfig(opts...)
+	if cfg.ShouldApply("title", d.Title) {
+		u = u.SetTitle(d.Title)
+	}
+	if cfg.ShouldApply("published", d.Published) {
+		u = u.SetPublished(d.Published)
+	}
+	return u
+}
+
 // UserDomainField is the type for User domain field constants.
 type UserDomainField = string
 
@@ -180,6 +193,30 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 	}
 	if UserTransformer != nil && UserTransformer.SetMetadataOnUpdate != nil {
 		UserTransformer.SetMetadataOnUpdate(u, d.Metadata)
+	}
+	return u
+}
+
+// ApplyDomain applies domain.User fields to the UserUpdate builder.
+// Chain .Where(...) conditions to target specific records.
+func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate {
+	cfg := entdomain.NewApplyConfig(opts...)
+	if cfg.ShouldApply("name", d.Name) {
+		u = u.SetName(d.Name)
+	}
+	if cfg.ShouldApplyPtr("bio", d.Bio) {
+		u = u.SetNillableBio(d.Bio)
+	}
+	if cfg.ShouldApply("status", d.Status) {
+		u = u.SetStatus(user.Status(d.Status))
+	}
+	if cfg.ShouldApplyPtr("score", d.Score) {
+		u = u.SetNillableScore(d.Score)
+	}
+	if cfg.IsAppendEdge("post_ids") {
+		u = u.AddPostIDs(d.PostIDs...)
+	} else {
+		u = u.ClearPosts().AddPostIDs(d.PostIDs...)
 	}
 	return u
 }

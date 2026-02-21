@@ -223,6 +223,53 @@ func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, op
     return u
 }
 
+// ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}Update builder.
+// Chain .Where(...) conditions to target specific records.
+func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}Update {
+    cfg := entdomain.NewApplyConfig(opts...)
+    {{- range $f := $n.Fields }}
+    {{- if not $f.IsEdgeField }}
+    {{- if not $f.Immutable }}
+    {{- if isNillable $f }}
+    {{- if isEnum $f }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
+        u = u.SetNillable{{ $f.StructField }}(&_v)
+    }
+    {{- else }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        u = u.SetNillable{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- end }}
+    {{- else }}
+    {{- if isEnum $f }}
+    if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        u = u.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(d.{{ $f.StructField }}))
+    }
+    {{- else }}
+    if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+        u = u.Set{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- range $e := $n.Edges }}
+    {{- $ea := edgeAnnotation $e }}
+    {{- if $ea }}
+    {{- if and $ea.HasIDs (not $e.Unique) }}
+    if cfg.IsAppendEdge("{{ singular $e.Name }}_ids") {
+        u = u.{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
+    } else {
+        u = u.{{ $e.MutationClear }}().{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
+    }
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    return u
+}
+
 {{- if not $ant.NoBulk }}
 // ToDomain maps a slice of ent {{ $n.Name }} to {{ $pkgName }}.{{ $n.Name }}List.
 func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
