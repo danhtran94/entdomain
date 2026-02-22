@@ -59,13 +59,34 @@ var wellKnownGoTypeMap = map[[2]string][2]string{
 
 // resolveEntFieldProtoSpec resolves the proto spec for a regular ent schema field.
 // Resolution order:
-//  1. TypeUUID → explicit string with conversion expressions
-//  2. TypeJSON / TypeBytes / TypeOther → IsExcluded
-//  3. Custom GoType → attempt well-known map or exclude
-//  4. TypeEnum → proto enum
-//  5. Primitive types → direct mapping
-func resolveEntFieldProtoSpec(entityName string, f *gen.Field) ProtoFieldSpec {
+//  1. Explicit ProtoType annotation (via FieldAnnotation) → use as-is
+//  2. TypeUUID → explicit string with conversion expressions
+//  3. TypeJSON / TypeBytes / TypeOther → IsExcluded (unless overridden by step 1)
+//  4. Custom GoType → attempt well-known map or exclude
+//  5. TypeEnum → proto enum
+//  6. Primitive types → direct mapping
+func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotation) ProtoFieldSpec {
 	optional := f.Optional || f.Nillable
+
+	// Explicit ProtoType annotation overrides all auto-resolution.
+	if fa != nil && fa.ProtoType != nil {
+		// Infer IsRepeated from the Go type: a JSON slice ([]T) maps to a repeated proto field.
+		repeated := f.Type.RType != nil && strings.HasPrefix(f.Type.RType.Ident, "[]")
+		spec := ProtoFieldSpec{
+			ProtoType:  fa.ProtoType.TypeName,
+			ImportPath: fa.ProtoType.ImportPath,
+			IsOptional: optional && !repeated, // repeated fields are never optional
+			IsRepeated: repeated,
+		}
+		if fa.ProtoType.ToProtoExpr != "" || fa.ProtoType.FromProtoExpr != "" {
+			// Explicit conversion expressions take priority over inference.
+			spec.ToProtoExpr = fa.ProtoType.ToProtoExpr
+			spec.FromProtoExpr = fa.ProtoType.FromProtoExpr
+		} else if !repeated {
+			inferConversionExprs(fa.ProtoType.TypeName, optional, &spec)
+		}
+		return spec
+	}
 
 	// UUID fields: always use string representation with explicit converters.
 	// Check this BEFORE HasGoType since ent represents uuid fields as a GoType.
@@ -79,6 +100,20 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field) ProtoFieldSpec {
 			spec.FromProtoExpr = "uuid.MustParse(%s)"
 		}
 		return spec
+	}
+
+	// JSON fields: check BEFORE HasGoType because field.JSON also sets RType.
+	// Only map[string]any maps cleanly to google.protobuf.Struct; everything else is excluded.
+	if f.Type.Type == field.TypeJSON {
+		if isMapStringAny(f) {
+			return ProtoFieldSpec{
+				ProtoType:     "google.protobuf.Struct",
+				ImportPath:    "google/protobuf/struct.proto",
+				ToProtoExpr:   "mapToProtoStruct(%s)",
+				FromProtoExpr: "protoStructToMap(%s)",
+			}
+		}
+		return ProtoFieldSpec{IsExcluded: true}
 	}
 
 	// Custom Go type: try well-known map, else exclude.
@@ -96,7 +131,7 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field) ProtoFieldSpec {
 	}
 
 	switch f.Type.Type {
-	case field.TypeJSON, field.TypeBytes, field.TypeOther:
+	case field.TypeBytes, field.TypeOther:
 		return ProtoFieldSpec{IsExcluded: true}
 
 	case field.TypeString:
@@ -214,8 +249,12 @@ func resolveVirtualFieldProtoSpec(vf VirtualFieldConfig) ProtoFieldSpec {
 			ImportPath: vf.ProtoType.ImportPath,
 			IsOptional: optional,
 		}
-		// Add conversion based on the proto type.
-		inferConversionExprs(vf.ProtoType.TypeName, optional, &spec)
+		if vf.ProtoType.ToProtoExpr != "" || vf.ProtoType.FromProtoExpr != "" {
+			spec.ToProtoExpr = vf.ProtoType.ToProtoExpr
+			spec.FromProtoExpr = vf.ProtoType.FromProtoExpr
+		} else {
+			inferConversionExprs(vf.ProtoType.TypeName, optional, &spec)
+		}
 		return spec
 	}
 
@@ -344,8 +383,23 @@ func inferConversionExprs(protoType string, optional bool, spec *ProtoFieldSpec)
 			spec.ToProtoExpr = "durationpb.New(%s)"
 			spec.FromProtoExpr = "%s.AsDuration()"
 		}
+	case "google.protobuf.Struct":
+		// Applies for explicit-annotation path; domain field must be map[string]any.
+		spec.ToProtoExpr = "mapToProtoStruct(%s)"
+		spec.FromProtoExpr = "protoStructToMap(%s)"
 	}
 	// For "string" from UUID mapping etc., no conversion needed (direct copy).
+}
+
+// isMapStringAny reports whether the JSON field's Go type is map[string]any
+// (or the equivalent map[string]interface {} from reflect). Only this type
+// maps cleanly to google.protobuf.Struct; all other typed JSON fields are excluded.
+func isMapStringAny(f *gen.Field) bool {
+	if f.Type.RType == nil {
+		return false
+	}
+	ident := f.Type.RType.Ident
+	return ident == "map[string]interface {}" || ident == "map[string]any"
 }
 
 // resolveIDTypeSpec builds a ProtoFieldSpec for an edge ID field.

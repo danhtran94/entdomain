@@ -17,6 +17,8 @@ package entdomain
 import (
 	"testing"
 
+	"entgo.io/ent/entc/gen"
+	"entgo.io/ent/schema/field"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -226,6 +228,121 @@ func TestApplyExprTemplate(t *testing.T) {
 	assert.Equal(t, "int64(d.Score)", applyExprTemplate("int64(%s)", "d.Score"))
 	assert.Equal(t, "timestamppb.New(d.CreatedAt)", applyExprTemplate("timestamppb.New(%s)", "d.CreatedAt"))
 	assert.Equal(t, "p.CreatedAt.AsTime()", applyExprTemplate("%s.AsTime()", "p.CreatedAt"))
+}
+
+func TestIsMapStringAny(t *testing.T) {
+	tests := []struct {
+		name  string
+		ident string
+		want  bool
+	}{
+		{"map[string]interface {} (reflect form)", "map[string]interface {}", true},
+		{"map[string]any (alias form)", "map[string]any", true},
+		{"map[string]string", "map[string]string", false},
+		{"[]string", "[]string", false},
+		{"json.RawMessage", "json.RawMessage", false},
+		{"struct", "SomeStruct", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &gen.Field{}
+			f.Type = &field.TypeInfo{
+				Type:  field.TypeJSON,
+				RType: &field.RType{Ident: tt.ident},
+			}
+			assert.Equal(t, tt.want, isMapStringAny(f))
+		})
+	}
+}
+
+func TestResolveEntFieldProtoSpec_JSONField(t *testing.T) {
+	t.Run("map[string]any → google.protobuf.Struct", func(t *testing.T) {
+		f := &gen.Field{}
+		f.Type = &field.TypeInfo{
+			Type:  field.TypeJSON,
+			RType: &field.RType{Ident: "map[string]interface {}"},
+		}
+		spec := resolveEntFieldProtoSpec("User", f, nil)
+		assert.False(t, spec.IsExcluded)
+		assert.Equal(t, "google.protobuf.Struct", spec.ProtoType)
+		assert.Equal(t, "google/protobuf/struct.proto", spec.ImportPath)
+		assert.Equal(t, "mapToProtoStruct(%s)", spec.ToProtoExpr)
+		assert.Equal(t, "protoStructToMap(%s)", spec.FromProtoExpr)
+		assert.False(t, spec.IsOptional, "Struct is a message type; no optional keyword")
+	})
+
+	t.Run("typed JSON ([]string) → excluded without annotation", func(t *testing.T) {
+		f := &gen.Field{}
+		f.Type = &field.TypeInfo{
+			Type:  field.TypeJSON,
+			RType: &field.RType{Ident: "[]string"},
+		}
+		spec := resolveEntFieldProtoSpec("User", f, nil)
+		assert.True(t, spec.IsExcluded)
+	})
+
+	t.Run("typed JSON with explicit ProtoType annotation → not excluded", func(t *testing.T) {
+		f := &gen.Field{}
+		f.Type = &field.TypeInfo{
+			Type:  field.TypeJSON,
+			RType: &field.RType{Ident: "map[string]string"},
+		}
+		fa := &FieldAnnotation{
+			ProtoType: &ProtoTypeConfig{
+				TypeName:   "google.protobuf.Struct",
+				ImportPath: "google/protobuf/struct.proto",
+			},
+		}
+		spec := resolveEntFieldProtoSpec("User", f, fa)
+		assert.False(t, spec.IsExcluded)
+		assert.Equal(t, "google.protobuf.Struct", spec.ProtoType)
+		assert.Equal(t, "google/protobuf/struct.proto", spec.ImportPath)
+		assert.False(t, spec.IsRepeated)
+	})
+
+	t.Run("[]string JSON with explicit ProtoType('string') → repeated, not excluded", func(t *testing.T) {
+		f := &gen.Field{}
+		f.Type = &field.TypeInfo{
+			Type:  field.TypeJSON,
+			RType: &field.RType{Ident: "[]string"},
+		}
+		fa := &FieldAnnotation{
+			ProtoType: &ProtoTypeConfig{TypeName: "string"},
+		}
+		spec := resolveEntFieldProtoSpec("User", f, fa)
+		assert.False(t, spec.IsExcluded)
+		assert.Equal(t, "string", spec.ProtoType)
+		assert.True(t, spec.IsRepeated, "slice type should infer IsRepeated")
+		assert.False(t, spec.IsOptional, "repeated fields are never optional")
+		assert.Empty(t, spec.ToProtoExpr, "[]string → []string needs no conversion")
+		assert.Empty(t, spec.FromProtoExpr)
+	})
+
+	t.Run("json.RawMessage → excluded", func(t *testing.T) {
+		f := &gen.Field{}
+		f.Type = &field.TypeInfo{
+			Type:  field.TypeJSON,
+			RType: &field.RType{Ident: "json.RawMessage", PkgPath: "encoding/json"},
+		}
+		spec := resolveEntFieldProtoSpec("User", f, nil)
+		assert.True(t, spec.IsExcluded)
+	})
+
+	t.Run("nil RType → excluded", func(t *testing.T) {
+		f := &gen.Field{}
+		f.Type = &field.TypeInfo{Type: field.TypeJSON}
+		spec := resolveEntFieldProtoSpec("User", f, nil)
+		assert.True(t, spec.IsExcluded)
+	})
+}
+
+func TestFieldAnnotation_ProtoType(t *testing.T) {
+	// Verify Field(ProtoType(...)) compiles and populates FieldAnnotation correctly.
+	fa := Field(ProtoType("google.protobuf.Struct", "google/protobuf/struct.proto"))
+	assert.NotNil(t, fa.ProtoType)
+	assert.Equal(t, "google.protobuf.Struct", fa.ProtoType.TypeName)
+	assert.Equal(t, "google/protobuf/struct.proto", fa.ProtoType.ImportPath)
+	assert.False(t, fa.SkipProto)
 }
 
 func TestParseGoPackage(t *testing.T) {

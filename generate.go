@@ -64,7 +64,7 @@ func generateDomainFiles(g *gen.Graph, pkgPath, pkgName string) error {
 		if ant == nil {
 			continue
 		}
-		data, err := buildDomainFileData(g, t, ant, pkgName)
+		data, err := buildDomainFileData(g, t, ant, pkgName, domainImportPath(g, pkgPath))
 		if err != nil {
 			return fmt.Errorf("entdomain: build domain data for %s: %w", t.Name, err)
 		}
@@ -124,7 +124,9 @@ type domainVirtualField struct {
 }
 
 // buildDomainFileData constructs the template data for a single entity's domain file.
-func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgName string) (*domainFileData, error) {
+// ownImportPath is the full Go import path of the domain package being generated;
+// any field whose PkgPath matches it is a same-package type and needs no import.
+func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgName, ownImportPath string) (*domainFileData, error) {
 	imports := map[string]bool{}
 	data := &domainFileData{
 		PkgName:    pkgName,
@@ -144,14 +146,35 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 		imports[idImport] = true
 	}
 
+	// addImport adds an import path, skipping same-package references to avoid self-import.
+	// When the import is same-package, also strips the pkg qualifier from typeStr.
+	addImport := func(importPath string) {
+		if importPath != "" && importPath != ownImportPath {
+			imports[importPath] = true
+		}
+	}
+	// stripSelfPkg strips "pkgAlias." prefix from typeStr when importPath is the own package.
+	// Handles pointer-prefixed types: "*domain.UserMetadata" → "*UserMetadata".
+	stripSelfPkg := func(typeStr, importPath string) string {
+		if importPath == ownImportPath {
+			alias := path.Base(importPath) + "."
+			if strings.HasPrefix(typeStr, "*") {
+				return "*" + strings.TrimPrefix(typeStr[1:], alias)
+			}
+			return strings.TrimPrefix(typeStr, alias)
+		}
+		return typeStr
+	}
+
 	// Regular fields
 	for _, f := range t.Fields {
 		if f.IsEdgeField() {
 			continue
 		}
 		typeStr, importPath, enumType := fieldToDomainTypeWithEnum(t.Name, f)
+		typeStr = stripSelfPkg(typeStr, importPath)
 		if importPath != "" {
-			imports[importPath] = true
+			addImport(importPath)
 		}
 		if enumType != nil {
 			data.EnumTypes = append(data.EnumTypes, *enumType)
@@ -175,9 +198,7 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 		// IDs fields
 		if edgeAnt.HasIDs() {
 			idTypeStr, idImport := fieldToDomainType(e.Type.Name, e.Type.ID)
-			if idImport != "" {
-				imports[idImport] = true
-			}
+			addImport(idImport)
 			if e.Unique {
 				data.EdgeFields = append(data.EdgeFields, domainEdgeField{
 					StructName: pascal(e.Name) + "ID",
@@ -209,9 +230,7 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 	// Virtual fields
 	for _, vf := range ant.VirtualFields {
 		typeStr, importPath := resolveGoTypeDomainStr(vf.FieldType)
-		if importPath != "" {
-			imports[importPath] = true
-		}
+		addImport(importPath)
 		data.VirtualFields = append(data.VirtualFields, domainVirtualField{
 			StructName: pascal(vf.Name),
 			TypeStr:    typeStr,
@@ -254,7 +273,8 @@ func fieldToDomainTypeWithEnum(entityName string, f *gen.Field) (typeStr, import
 		} else {
 			typeStr = ident
 		}
-		if optional && !strings.HasPrefix(typeStr, "*") {
+		if optional && !strings.HasPrefix(typeStr, "*") &&
+		!strings.HasPrefix(typeStr, "map[") && !strings.HasPrefix(typeStr, "[]") {
 			typeStr = "*" + typeStr
 		}
 		return
@@ -318,6 +338,7 @@ func fieldToDomainTypeWithEnum(entityName string, f *gen.Field) (typeStr, import
 			typeStr = "json.RawMessage"
 			importPath = "encoding/json"
 		}
+		// Note: self-import filtering (same-package types) is applied by the caller.
 	default:
 		typeStr = "interface{}"
 	}

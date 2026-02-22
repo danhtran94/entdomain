@@ -88,9 +88,7 @@ func TestTemplate_DomainTransformer_Struct(t *testing.T) {
 		assert.Contains(t, fields, "GetIsPremium")
 		assert.Contains(t, fields, "SetIsPremiumOnCreate")
 		assert.Contains(t, fields, "SetIsPremiumOnUpdate")
-		assert.Contains(t, fields, "GetMetadata")
-		assert.Contains(t, fields, "SetMetadataOnCreate")
-		assert.Contains(t, fields, "SetMetadataOnUpdate")
+		// metadata is now a regular ent field (not virtual) → no transformer hooks.
 	})
 
 	t.Run("PostDomainTransformer is empty (no virtual fields)", func(t *testing.T) {

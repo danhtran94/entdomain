@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/danhtran94/entdomain/internal/testdata/domain"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
@@ -110,6 +111,30 @@ func (_c *UserCreate) SetNillableUpdatedAt(v *time.Time) *UserCreate {
 	if v != nil {
 		_c.SetUpdatedAt(*v)
 	}
+	return _c
+}
+
+// SetSettings sets the "settings" field.
+func (_c *UserCreate) SetSettings(v map[string]interface{}) *UserCreate {
+	_c.mutation.SetSettings(v)
+	return _c
+}
+
+// SetLabels sets the "labels" field.
+func (_c *UserCreate) SetLabels(v map[string]interface{}) *UserCreate {
+	_c.mutation.SetLabels(v)
+	return _c
+}
+
+// SetTagNames sets the "tag_names" field.
+func (_c *UserCreate) SetTagNames(v []string) *UserCreate {
+	_c.mutation.SetTagNames(v)
+	return _c
+}
+
+// SetMetadata sets the "metadata" field.
+func (_c *UserCreate) SetMetadata(v domain.UserMetadata) *UserCreate {
+	_c.mutation.SetMetadata(v)
 	return _c
 }
 
@@ -229,6 +254,15 @@ func (_c *UserCreate) check() error {
 	if _, ok := _c.mutation.ExternalID(); !ok {
 		return &ValidationError{Name: "external_id", err: errors.New(`ent: missing required field "User.external_id"`)}
 	}
+	if _, ok := _c.mutation.Labels(); !ok {
+		return &ValidationError{Name: "labels", err: errors.New(`ent: missing required field "User.labels"`)}
+	}
+	if _, ok := _c.mutation.TagNames(); !ok {
+		return &ValidationError{Name: "tag_names", err: errors.New(`ent: missing required field "User.tag_names"`)}
+	}
+	if _, ok := _c.mutation.Metadata(); !ok {
+		return &ValidationError{Name: "metadata", err: errors.New(`ent: missing required field "User.metadata"`)}
+	}
 	return nil
 }
 
@@ -287,6 +321,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if value, ok := _c.mutation.Settings(); ok {
+		_spec.SetField(user.FieldSettings, field.TypeJSON, value)
+		_node.Settings = value
+	}
+	if value, ok := _c.mutation.Labels(); ok {
+		_spec.SetField(user.FieldLabels, field.TypeJSON, value)
+		_node.Labels = value
+	}
+	if value, ok := _c.mutation.TagNames(); ok {
+		_spec.SetField(user.FieldTagNames, field.TypeJSON, value)
+		_node.TagNames = value
+	}
+	if value, ok := _c.mutation.Metadata(); ok {
+		_spec.SetField(user.FieldMetadata, field.TypeJSON, value)
+		_node.Metadata = value
 	}
 	if nodes := _c.mutation.PostsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -485,6 +535,60 @@ func (u *UserUpsert) ClearUpdatedAt() *UserUpsert {
 	return u
 }
 
+// SetSettings sets the "settings" field.
+func (u *UserUpsert) SetSettings(v map[string]interface{}) *UserUpsert {
+	u.Set(user.FieldSettings, v)
+	return u
+}
+
+// UpdateSettings sets the "settings" field to the value that was provided on create.
+func (u *UserUpsert) UpdateSettings() *UserUpsert {
+	u.SetExcluded(user.FieldSettings)
+	return u
+}
+
+// ClearSettings clears the value of the "settings" field.
+func (u *UserUpsert) ClearSettings() *UserUpsert {
+	u.SetNull(user.FieldSettings)
+	return u
+}
+
+// SetLabels sets the "labels" field.
+func (u *UserUpsert) SetLabels(v map[string]interface{}) *UserUpsert {
+	u.Set(user.FieldLabels, v)
+	return u
+}
+
+// UpdateLabels sets the "labels" field to the value that was provided on create.
+func (u *UserUpsert) UpdateLabels() *UserUpsert {
+	u.SetExcluded(user.FieldLabels)
+	return u
+}
+
+// SetTagNames sets the "tag_names" field.
+func (u *UserUpsert) SetTagNames(v []string) *UserUpsert {
+	u.Set(user.FieldTagNames, v)
+	return u
+}
+
+// UpdateTagNames sets the "tag_names" field to the value that was provided on create.
+func (u *UserUpsert) UpdateTagNames() *UserUpsert {
+	u.SetExcluded(user.FieldTagNames)
+	return u
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *UserUpsert) SetMetadata(v domain.UserMetadata) *UserUpsert {
+	u.Set(user.FieldMetadata, v)
+	return u
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *UserUpsert) UpdateMetadata() *UserUpsert {
+	u.SetExcluded(user.FieldMetadata)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -642,6 +746,69 @@ func (u *UserUpsertOne) UpdateUpdatedAt() *UserUpsertOne {
 func (u *UserUpsertOne) ClearUpdatedAt() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearUpdatedAt()
+	})
+}
+
+// SetSettings sets the "settings" field.
+func (u *UserUpsertOne) SetSettings(v map[string]interface{}) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetSettings(v)
+	})
+}
+
+// UpdateSettings sets the "settings" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateSettings() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateSettings()
+	})
+}
+
+// ClearSettings clears the value of the "settings" field.
+func (u *UserUpsertOne) ClearSettings() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearSettings()
+	})
+}
+
+// SetLabels sets the "labels" field.
+func (u *UserUpsertOne) SetLabels(v map[string]interface{}) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetLabels(v)
+	})
+}
+
+// UpdateLabels sets the "labels" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateLabels() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateLabels()
+	})
+}
+
+// SetTagNames sets the "tag_names" field.
+func (u *UserUpsertOne) SetTagNames(v []string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetTagNames(v)
+	})
+}
+
+// UpdateTagNames sets the "tag_names" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateTagNames() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateTagNames()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *UserUpsertOne) SetMetadata(v domain.UserMetadata) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateMetadata() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateMetadata()
 	})
 }
 
@@ -968,6 +1135,69 @@ func (u *UserUpsertBulk) UpdateUpdatedAt() *UserUpsertBulk {
 func (u *UserUpsertBulk) ClearUpdatedAt() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearUpdatedAt()
+	})
+}
+
+// SetSettings sets the "settings" field.
+func (u *UserUpsertBulk) SetSettings(v map[string]interface{}) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetSettings(v)
+	})
+}
+
+// UpdateSettings sets the "settings" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateSettings() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateSettings()
+	})
+}
+
+// ClearSettings clears the value of the "settings" field.
+func (u *UserUpsertBulk) ClearSettings() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearSettings()
+	})
+}
+
+// SetLabels sets the "labels" field.
+func (u *UserUpsertBulk) SetLabels(v map[string]interface{}) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetLabels(v)
+	})
+}
+
+// UpdateLabels sets the "labels" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateLabels() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateLabels()
+	})
+}
+
+// SetTagNames sets the "tag_names" field.
+func (u *UserUpsertBulk) SetTagNames(v []string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetTagNames(v)
+	})
+}
+
+// UpdateTagNames sets the "tag_names" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateTagNames() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateTagNames()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *UserUpsertBulk) SetMetadata(v domain.UserMetadata) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateMetadata() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateMetadata()
 	})
 }
 

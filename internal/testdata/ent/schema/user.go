@@ -22,6 +22,7 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"github.com/danhtran94/entdomain"
+	"github.com/danhtran94/entdomain/internal/testdata/domain"
 	"github.com/google/uuid"
 )
 
@@ -42,6 +43,20 @@ func (User) Fields() []ent.Field {
 		field.Int("score").Optional(),
 		field.UUID("external_id", uuid.UUID{}),
 		field.Time("updated_at").Optional(),
+		field.JSON("settings", map[string]any{}).Optional(),
+		// Typed JSON field opted into proto via explicit ProtoType annotation.
+		// Demonstrates entdomain.Field(entdomain.ProtoType(...)) usage.
+		field.JSON("labels", map[string]any{}).
+			Annotations(entdomain.Field(entdomain.ProtoType("google.protobuf.Struct", "google/protobuf/struct.proto"))),
+		// []string JSON field: auto-infers repeated from slice type.
+		field.JSON("tag_names", []string{}).
+			Annotations(entdomain.Field(entdomain.ProtoType("string"))),
+		// Custom struct JSON field mapped to a custom proto message via explicit annotation.
+		field.JSON("metadata", domain.UserMetadata{}).
+			Annotations(entdomain.Field(
+				entdomain.ProtoType("UserMetadata", "entpb/user_metadata.proto").
+					WithConversion("UserMetadataToProto(%s)", "UserMetadataFromProto(%s)"),
+			)),
 	}
 }
 
@@ -67,7 +82,6 @@ func (User) Annotations() []schema.Annotation {
 		entdomain.Entity(
 			entdomain.VirtualField("full_name", entdomain.String),
 			entdomain.VirtualField("is_premium", entdomain.Bool),
-			entdomain.VirtualField("metadata", entdomain.GoType("", "map[string]any")),
 			entdomain.VirtualField("expires_at", entdomain.GoType("time", "Time"),
 				entdomain.ProtoType("google.protobuf.Timestamp", "google/protobuf/timestamp.proto")),
 			entdomain.VirtualField("subscription_duration", entdomain.GoType("time", "Duration")),

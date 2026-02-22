@@ -56,10 +56,12 @@ func GoType(pkgPath, typeName string) FieldType {
 	return FieldType{PkgPath: pkgPath, TypeName: typeName}
 }
 
-// ProtoTypeConfig specifies an explicit proto type for a virtual field.
+// ProtoTypeConfig specifies an explicit proto type for a field or virtual field.
 type ProtoTypeConfig struct {
-	TypeName   string // e.g. "google.protobuf.Timestamp"
-	ImportPath string // e.g. "google/protobuf/timestamp.proto"
+	TypeName      string // e.g. "google.protobuf.Timestamp"
+	ImportPath    string // e.g. "google/protobuf/timestamp.proto"
+	ToProtoExpr   string // optional Go fmt string, e.g. "UserMetadataToProto(%s)"
+	FromProtoExpr string // optional Go fmt string, e.g. "UserMetadataFromProto(%s)"
 }
 
 // VirtualFieldConfig represents a single virtual field entry on EntityAnnotation.
@@ -69,19 +71,61 @@ type VirtualFieldConfig struct {
 	ProtoType *ProtoTypeConfig
 }
 
-// virtualFieldOption is a functional option for VirtualFieldConfig.
-type virtualFieldOption func(*VirtualFieldConfig)
+// virtualFieldOption configures a VirtualFieldConfig.
+type virtualFieldOption interface {
+	applyVirtualField(*VirtualFieldConfig)
+}
 
-// ProtoType sets an explicit proto type for a virtual field.
-// importPath is optional; if omitted, no import is added.
-func ProtoType(typeName string, importPath ...string) virtualFieldOption {
-	return func(vf *VirtualFieldConfig) {
-		cfg := &ProtoTypeConfig{TypeName: typeName}
-		if len(importPath) > 0 {
-			cfg.ImportPath = importPath[0]
-		}
-		vf.ProtoType = cfg
+// fieldOption configures a FieldAnnotation.
+type fieldOption interface {
+	applyField(*FieldAnnotation)
+}
+
+// ProtoTypeOpt is the value returned by ProtoType(). It implements both
+// virtualFieldOption (for use with VirtualField()) and fieldOption (for use
+// with Field()), so the same call works in both contexts.
+type ProtoTypeOpt struct {
+	TypeName      string
+	ImportPath    string
+	ToProtoExpr   string
+	FromProtoExpr string
+}
+
+func (p ProtoTypeOpt) applyVirtualField(vf *VirtualFieldConfig) {
+	vf.ProtoType = &ProtoTypeConfig{
+		TypeName:      p.TypeName,
+		ImportPath:    p.ImportPath,
+		ToProtoExpr:   p.ToProtoExpr,
+		FromProtoExpr: p.FromProtoExpr,
 	}
+}
+
+func (p ProtoTypeOpt) applyField(a *FieldAnnotation) {
+	a.ProtoType = &ProtoTypeConfig{
+		TypeName:      p.TypeName,
+		ImportPath:    p.ImportPath,
+		ToProtoExpr:   p.ToProtoExpr,
+		FromProtoExpr: p.FromProtoExpr,
+	}
+}
+
+// ProtoType sets an explicit proto type. Usable with both VirtualField() and Field().
+// importPath is optional; if omitted, no import is added.
+func ProtoType(typeName string, importPath ...string) ProtoTypeOpt {
+	opt := ProtoTypeOpt{TypeName: typeName}
+	if len(importPath) > 0 {
+		opt.ImportPath = importPath[0]
+	}
+	return opt
+}
+
+// WithConversion returns a copy of ProtoTypeOpt with explicit Go conversion
+// expressions. toExpr and fromExpr are Go fmt strings where %s is the source
+// expression (e.g. "UserMetadataToProto(%s)" / "UserMetadataFromProto(%s)").
+func (p ProtoTypeOpt) WithConversion(toExpr, fromExpr string) ProtoTypeOpt {
+	p.ToProtoExpr = toExpr
+	p.FromProtoExpr = fromExpr
+	return p
 }
 
 // EntityAnnotation is placed on schema Annotations() to opt an entity into domain generation.
@@ -140,7 +184,7 @@ func VirtualField(name string, ft FieldType, opts ...virtualFieldOption) entityO
 			FieldType: ft,
 		}
 		for _, opt := range opts {
-			opt(&vf)
+			opt.applyVirtualField(&vf)
 		}
 		a.VirtualFields = append(a.VirtualFields, vf)
 	}
@@ -215,6 +259,7 @@ func Nest() EdgeOption {
 // FieldAnnotation is placed on individual field Annotations() to configure domain field behaviour.
 type FieldAnnotation struct {
 	SkipProto bool
+	ProtoType *ProtoTypeConfig
 }
 
 // Name implements schema.Annotation.
@@ -234,6 +279,9 @@ func (a FieldAnnotation) Merge(other schema.Annotation) schema.Annotation {
 		return a
 	}
 	a.SkipProto = a.SkipProto || ant.SkipProto
+	if a.ProtoType == nil && ant.ProtoType != nil {
+		a.ProtoType = ant.ProtoType
+	}
 	return a
 }
 
@@ -246,24 +294,22 @@ func (a *FieldAnnotation) Decode(v interface{}) error {
 	return json.Unmarshal(buf, a)
 }
 
-// fieldOption is a functional option for FieldAnnotation.
-type fieldOption func(*FieldAnnotation)
+// skipProtoOpt implements fieldOption.
+type skipProtoOpt struct{}
+
+func (skipProtoOpt) applyField(a *FieldAnnotation) { a.SkipProto = true }
 
 // Field builds a FieldAnnotation with the given options.
 func Field(opts ...fieldOption) FieldAnnotation {
 	a := FieldAnnotation{}
 	for _, opt := range opts {
-		opt(&a)
+		opt.applyField(&a)
 	}
 	return a
 }
 
 // SkipProto returns a fieldOption that excludes the field from proto generation.
-func SkipProto() fieldOption {
-	return func(a *FieldAnnotation) {
-		a.SkipProto = true
-	}
-}
+func SkipProto() fieldOption { return skipProtoOpt{} }
 
 // extractEntityAnnotation extracts EntityAnnotation from a map of annotations.
 func extractEntityAnnotation(annotations map[string]interface{}) (*EntityAnnotation, error) {

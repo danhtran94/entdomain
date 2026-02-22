@@ -409,7 +409,7 @@ internal/domain/
   pbmap/                   ← domain ↔ proto mappers (package pbmap)
     user_proto_gen.go
     post_proto_gen.go
-    proto_helpers_gen.go   ← shared helpers (ToInt64Slice, etc.)
+    proto_helpers_gen.go   ← shared helpers (ToInt64Slice, MapToProtoStruct, etc.)
 ```
 
 ### Mapper Usage
@@ -451,16 +451,61 @@ func (User) Edges() []ent.Edge {
 }
 ```
 
-### Custom Proto Type for Virtual Fields
+### Custom Proto Type
 
-Virtual fields with a `GoType` that has no well-known proto mapping are silently excluded from proto output. Supply an explicit type to include them:
+`ProtoType()` works with both `VirtualField()` and `Field()`, making it usable in two contexts:
+
+#### Virtual fields
+
+Fields with a `GoType` that has no well-known mapping are excluded by default. Supply an explicit type to include them:
 
 ```go
 entdomain.VirtualField("amount",
     entdomain.GoType("github.com/shopspring/decimal", "Decimal"),
     entdomain.ProtoType("google.type.Money", "google/type/money.proto"),
-),
+)
 ```
+
+#### Ent JSON fields (`Field(ProtoType(...))`)
+
+Typed JSON fields are excluded by default (except `map[string]any` which auto-maps to `google.protobuf.Struct`). Use `Field(ProtoType(...))` to opt any JSON field into proto:
+
+```go
+// Typed map → Struct (would otherwise be excluded)
+field.JSON("labels", map[string]string{}).
+    Annotations(entdomain.Field(
+        entdomain.ProtoType("google.protobuf.Struct", "google/protobuf/struct.proto"),
+    ))
+
+// Slice → repeated scalar (IsRepeated is auto-inferred from the [] prefix)
+field.JSON("tag_names", []string{}).
+    Annotations(entdomain.Field(entdomain.ProtoType("string")))
+
+// Custom struct → hand-defined proto message
+// WithConversion provides the Go conversion expressions (%s = source expression).
+// The actual converter functions must be hand-written in the pbmap package.
+field.JSON("metadata", domain.UserMetadata{}).
+    Annotations(entdomain.Field(
+        entdomain.ProtoType("UserMetadata", "entpb/user_metadata.proto").
+            WithConversion("UserMetadataToProto(%s)", "UserMetadataFromProto(%s)"),
+    ))
+```
+
+### Proto Helper Functions
+
+The generated `proto_helpers_gen.go` file in the `pbmap` package includes shared conversion helpers used across all entity mappers:
+
+```go
+func ToInt64Slice(ids []int) []int64
+func FromInt64Slice(ids []int64) []int
+func ToInt64Ptr(v *int) *int64
+func FromInt64Ptr(v *int64) *int
+func MapToProtoStruct(m map[string]any) *structpb.Struct  // for map[string]any fields
+func ProtoStructToMap(s *structpb.Struct) map[string]any  // inverse of MapToProtoStruct
+// ... and more
+```
+
+`MapToProtoStruct` and `ProtoStructToMap` are used automatically for `field.JSON("x", map[string]any{})` fields. When using `Field(ProtoType(...)).WithConversion(...)` on other JSON fields, the hand-written conversion functions in the `pbmap` package are called instead.
 
 ### Built-in Auto-Mappings
 
@@ -476,7 +521,9 @@ entdomain.VirtualField("amount",
 | `field.Time(...)` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
 | `field.UUID(...)` | `string` | — |
 | `field.Enum(...)` | top-level enum | — |
-| `field.JSON(...)` | **excluded** | — |
+| `field.JSON("x", map[string]any{})` | `google.protobuf.Struct` | `google/protobuf/struct.proto` |
+| `field.JSON("x", []T{})` + `Field(ProtoType("T"))` | `repeated T` | depends on T |
+| `field.JSON("x", OtherType{})` | **excluded** (use `Field(ProtoType(...))` to opt in) | — |
 
 ### Nest Edges in Proto
 

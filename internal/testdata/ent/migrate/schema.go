@@ -51,6 +51,10 @@ var (
 		{Name: "score", Type: field.TypeInt, Nullable: true},
 		{Name: "external_id", Type: field.TypeUUID},
 		{Name: "updated_at", Type: field.TypeTime, Nullable: true},
+		{Name: "settings", Type: field.TypeJSON, Nullable: true},
+		{Name: "labels", Type: field.TypeJSON},
+		{Name: "tag_names", Type: field.TypeJSON},
+		{Name: "metadata", Type: field.TypeJSON},
 		{Name: "user_pinned_post", Type: field.TypeInt, Nullable: true},
 	}
 	// UsersTable holds the schema information for the "users" table.
@@ -61,7 +65,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_posts_pinned_post",
-				Columns:    []*schema.Column{UsersColumns[9]},
+				Columns:    []*schema.Column{UsersColumns[13]},
 				RefColumns: []*schema.Column{PostsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

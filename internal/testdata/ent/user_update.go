@@ -10,7 +10,9 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/danhtran94/entdomain/internal/testdata/domain"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/predicate"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
@@ -137,6 +139,50 @@ func (_u *UserUpdate) SetNillableUpdatedAt(v *time.Time) *UserUpdate {
 // ClearUpdatedAt clears the value of the "updated_at" field.
 func (_u *UserUpdate) ClearUpdatedAt() *UserUpdate {
 	_u.mutation.ClearUpdatedAt()
+	return _u
+}
+
+// SetSettings sets the "settings" field.
+func (_u *UserUpdate) SetSettings(v map[string]interface{}) *UserUpdate {
+	_u.mutation.SetSettings(v)
+	return _u
+}
+
+// ClearSettings clears the value of the "settings" field.
+func (_u *UserUpdate) ClearSettings() *UserUpdate {
+	_u.mutation.ClearSettings()
+	return _u
+}
+
+// SetLabels sets the "labels" field.
+func (_u *UserUpdate) SetLabels(v map[string]interface{}) *UserUpdate {
+	_u.mutation.SetLabels(v)
+	return _u
+}
+
+// SetTagNames sets the "tag_names" field.
+func (_u *UserUpdate) SetTagNames(v []string) *UserUpdate {
+	_u.mutation.SetTagNames(v)
+	return _u
+}
+
+// AppendTagNames appends value to the "tag_names" field.
+func (_u *UserUpdate) AppendTagNames(v []string) *UserUpdate {
+	_u.mutation.AppendTagNames(v)
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *UserUpdate) SetMetadata(v domain.UserMetadata) *UserUpdate {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// SetNillableMetadata sets the "metadata" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableMetadata(v *domain.UserMetadata) *UserUpdate {
+	if v != nil {
+		_u.SetMetadata(*v)
+	}
 	return _u
 }
 
@@ -320,6 +366,26 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.UpdatedAtCleared() {
 		_spec.ClearField(user.FieldUpdatedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.Settings(); ok {
+		_spec.SetField(user.FieldSettings, field.TypeJSON, value)
+	}
+	if _u.mutation.SettingsCleared() {
+		_spec.ClearField(user.FieldSettings, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Labels(); ok {
+		_spec.SetField(user.FieldLabels, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.TagNames(); ok {
+		_spec.SetField(user.FieldTagNames, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTagNames(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, user.FieldTagNames, value)
+		})
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(user.FieldMetadata, field.TypeJSON, value)
 	}
 	if _u.mutation.PostsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -569,6 +635,50 @@ func (_u *UserUpdateOne) ClearUpdatedAt() *UserUpdateOne {
 	return _u
 }
 
+// SetSettings sets the "settings" field.
+func (_u *UserUpdateOne) SetSettings(v map[string]interface{}) *UserUpdateOne {
+	_u.mutation.SetSettings(v)
+	return _u
+}
+
+// ClearSettings clears the value of the "settings" field.
+func (_u *UserUpdateOne) ClearSettings() *UserUpdateOne {
+	_u.mutation.ClearSettings()
+	return _u
+}
+
+// SetLabels sets the "labels" field.
+func (_u *UserUpdateOne) SetLabels(v map[string]interface{}) *UserUpdateOne {
+	_u.mutation.SetLabels(v)
+	return _u
+}
+
+// SetTagNames sets the "tag_names" field.
+func (_u *UserUpdateOne) SetTagNames(v []string) *UserUpdateOne {
+	_u.mutation.SetTagNames(v)
+	return _u
+}
+
+// AppendTagNames appends value to the "tag_names" field.
+func (_u *UserUpdateOne) AppendTagNames(v []string) *UserUpdateOne {
+	_u.mutation.AppendTagNames(v)
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *UserUpdateOne) SetMetadata(v domain.UserMetadata) *UserUpdateOne {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// SetNillableMetadata sets the "metadata" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableMetadata(v *domain.UserMetadata) *UserUpdateOne {
+	if v != nil {
+		_u.SetMetadata(*v)
+	}
+	return _u
+}
+
 // AddPostIDs adds the "posts" edge to the Post entity by IDs.
 func (_u *UserUpdateOne) AddPostIDs(ids ...int) *UserUpdateOne {
 	_u.mutation.AddPostIDs(ids...)
@@ -779,6 +889,26 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if _u.mutation.UpdatedAtCleared() {
 		_spec.ClearField(user.FieldUpdatedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.Settings(); ok {
+		_spec.SetField(user.FieldSettings, field.TypeJSON, value)
+	}
+	if _u.mutation.SettingsCleared() {
+		_spec.ClearField(user.FieldSettings, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Labels(); ok {
+		_spec.SetField(user.FieldLabels, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.TagNames(); ok {
+		_spec.SetField(user.FieldTagNames, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTagNames(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, user.FieldTagNames, value)
+		})
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(user.FieldMetadata, field.TypeJSON, value)
 	}
 	if _u.mutation.PostsCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -152,7 +152,7 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 	var pending []pendingField
 
 	// ID field (always int64 in proto for non-UUID IDs).
-	idSpec := resolveEntFieldProtoSpec(t.Name, t.ID)
+	idSpec := resolveEntFieldProtoSpec(t.Name, t.ID, nil)
 	idField := pendingField{
 		snakeName: "id",
 		spec:      idSpec,
@@ -179,7 +179,7 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 			continue
 		}
 
-		spec := resolveEntFieldProtoSpec(t.Name, f)
+		spec := resolveEntFieldProtoSpec(t.Name, f, fa)
 		pf := pendingField{snakeName: f.Name, spec: spec}
 
 		if spec.IsEnum && !spec.IsExcluded {

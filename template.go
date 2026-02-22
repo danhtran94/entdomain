@@ -36,6 +36,7 @@ var (
 		"virtualFieldType": virtualFieldTypeFn,
 		"isEnum":           func(f *gen.Field) bool { return f.Type.Type == field.TypeEnum },
 		"isNillable":       func(f *gen.Field) bool { return f.Optional || f.Nillable },
+		"isJSONField":      func(f *gen.Field) bool { return f.Type.Type == field.TypeJSON },
 		"hasEnumFields":    hasEnumFieldsFn,
 		"hasUpsert":        hasUpsertFn,
 		"singular":         func(s string) string { return gen.Funcs["singular"].(func(string) string)(s) },

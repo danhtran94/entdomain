@@ -273,6 +273,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -399,6 +400,24 @@ func {{ fn "stringSliceToUUIDSlice" .Exported }}(vs []string) []uuid.UUID {
 	}
 	return result
 }
+
+// {{ fn "mapToProtoStruct" .Exported }} converts map[string]any to *structpb.Struct.
+func {{ fn "mapToProtoStruct" .Exported }}(m map[string]any) *structpb.Struct {
+	if m == nil {
+		return nil
+	}
+	s, _ := structpb.NewStruct(m)
+	return s
+}
+
+// {{ fn "protoStructToMap" .Exported }} converts *structpb.Struct to map[string]any.
+func {{ fn "protoStructToMap" .Exported }}(s *structpb.Struct) map[string]any {
+	if s == nil {
+		return nil
+	}
+	return s.AsMap()
+}
+
 `))
 
 // protoHelperFuncNames lists all helper function names (unexported/camelCase form).
@@ -411,6 +430,7 @@ var protoHelperFuncNames = []string{
 	"durationToDurationProto", "durationProtoToDuration",
 	"uuidPtrToProtoString", "protoStringToUUIDPtr",
 	"uuidSliceToStringSlice", "stringSliceToUUIDSlice",
+	"mapToProtoStruct", "protoStructToMap",
 }
 
 // generateProtoMapperFiles generates the proto mapper files for each entity.
@@ -520,7 +540,7 @@ func buildProtoMapperFileData(
 	}
 
 	// ID field.
-	idSpec := resolveEntFieldProtoSpec(t.Name, t.ID)
+	idSpec := resolveEntFieldProtoSpec(t.Name, t.ID, nil)
 	rawIDTo := applyExprTemplate(idSpec.ToProtoExpr, "d.ID")
 	rawIDFrom := applyExprTemplate(idSpec.FromProtoExpr, "p.Id")
 	trackExprImports(rawIDTo, rawIDFrom, goImports)
@@ -547,7 +567,7 @@ func buildProtoMapperFileData(
 			continue
 		}
 
-		spec := resolveEntFieldProtoSpec(t.Name, f)
+		spec := resolveEntFieldProtoSpec(t.Name, f, fa)
 		if spec.IsExcluded {
 			continue
 		}
@@ -818,6 +838,9 @@ func trackExprImports(rawTo, rawFrom string, goImports map[string]bool) {
 		}
 		if strings.Contains(expr, "uuid.MustParse") || strings.Contains(expr, "uuid.UUID") {
 			goImports["github.com/google/uuid"] = true
+		}
+		if strings.Contains(expr, "structpb") {
+			goImports["google.golang.org/protobuf/types/known/structpb"] = true
 		}
 	}
 }

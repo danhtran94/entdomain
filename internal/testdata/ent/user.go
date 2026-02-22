@@ -3,12 +3,14 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/danhtran94/entdomain/internal/testdata/domain"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
 	"github.com/google/uuid"
@@ -35,6 +37,14 @@ type User struct {
 	ExternalID uuid.UUID `json:"external_id,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// Settings holds the value of the "settings" field.
+	Settings map[string]interface{} `json:"settings,omitempty"`
+	// Labels holds the value of the "labels" field.
+	Labels map[string]interface{} `json:"labels,omitempty"`
+	// TagNames holds the value of the "tag_names" field.
+	TagNames []string `json:"tag_names,omitempty"`
+	// Metadata holds the value of the "metadata" field.
+	Metadata domain.UserMetadata `json:"metadata,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges            UserEdges `json:"edges"`
@@ -89,6 +99,8 @@ func (*User) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case user.FieldSettings, user.FieldLabels, user.FieldTagNames, user.FieldMetadata:
+			values[i] = new([]byte)
 		case user.FieldID, user.FieldScore:
 			values[i] = new(sql.NullInt64)
 		case user.FieldName, user.FieldBio, user.FieldStatus, user.FieldUsername:
@@ -167,6 +179,38 @@ func (_m *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
 				_m.UpdatedAt = value.Time
+			}
+		case user.FieldSettings:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field settings", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Settings); err != nil {
+					return fmt.Errorf("unmarshal field settings: %w", err)
+				}
+			}
+		case user.FieldLabels:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field labels", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Labels); err != nil {
+					return fmt.Errorf("unmarshal field labels: %w", err)
+				}
+			}
+		case user.FieldTagNames:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field tag_names", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.TagNames); err != nil {
+					return fmt.Errorf("unmarshal field tag_names: %w", err)
+				}
+			}
+		case user.FieldMetadata:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field metadata", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
+					return fmt.Errorf("unmarshal field metadata: %w", err)
+				}
 			}
 		case user.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -249,6 +293,18 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(_m.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("settings=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Settings))
+	builder.WriteString(", ")
+	builder.WriteString("labels=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Labels))
+	builder.WriteString(", ")
+	builder.WriteString("tag_names=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TagNames))
+	builder.WriteString(", ")
+	builder.WriteString("metadata=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
 	builder.WriteByte(')')
 	return builder.String()
 }

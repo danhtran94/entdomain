@@ -13,6 +13,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -239,6 +240,10 @@ type User struct {
 	PinnedPost           *Post                  `protobuf:"bytes,16,opt,name=pinned_post,json=pinnedPost,proto3" json:"pinned_post,omitempty"`
 	Posts                []*Post                `protobuf:"bytes,17,rep,name=posts,proto3" json:"posts,omitempty"`
 	Tags                 []*Tag                 `protobuf:"bytes,18,rep,name=tags,proto3" json:"tags,omitempty"`
+	Settings             *structpb.Struct       `protobuf:"bytes,19,opt,name=settings,proto3" json:"settings,omitempty"`
+	Labels               *structpb.Struct       `protobuf:"bytes,20,opt,name=labels,proto3" json:"labels,omitempty"`
+	TagNames             []string               `protobuf:"bytes,21,rep,name=tag_names,json=tagNames,proto3" json:"tag_names,omitempty"`
+	Metadata             *UserMetadata          `protobuf:"bytes,22,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -399,11 +404,39 @@ func (x *User) GetTags() []*Tag {
 	return nil
 }
 
+func (x *User) GetSettings() *structpb.Struct {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *User) GetLabels() *structpb.Struct {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
+func (x *User) GetTagNames() []string {
+	if x != nil {
+		return x.TagNames
+	}
+	return nil
+}
+
+func (x *User) GetMetadata() *UserMetadata {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 var File_entpb_ent_messages_proto protoreflect.FileDescriptor
 
 const file_entpb_ent_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x18entpb/ent_messages.proto\x12\x05entpb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x84\x01\n" +
+	"\x18entpb/ent_messages.proto\x12\x05entpb\x1a\x19entpb/user_metadata.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x84\x01\n" +
 	"\x04Post\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\x03R\aownerId\x12\x1d\n" +
@@ -415,7 +448,7 @@ const file_entpb_ent_messages_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
 	"\buser_ids\x18\x03 \x03(\x03R\auserIds\x12!\n" +
-	"\x05users\x18\x04 \x03(\v2\v.entpb.UserR\x05users\"\xc2\x05\n" +
+	"\x05users\x18\x04 \x03(\v2\v.entpb.UserR\x05users\"\xf6\x06\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x15\n" +
 	"\x03bio\x18\x02 \x01(\tH\x00R\x03bio\x88\x01\x01\x129\n" +
@@ -442,7 +475,11 @@ const file_entpb_ent_messages_proto_rawDesc = "" +
 	"pinnedPost\x12!\n" +
 	"\x05posts\x18\x11 \x03(\v2\v.entpb.PostR\x05posts\x12\x1e\n" +
 	"\x04tags\x18\x12 \x03(\v2\n" +
-	".entpb.TagR\x04tagsB\x06\n" +
+	".entpb.TagR\x04tags\x123\n" +
+	"\bsettings\x18\x13 \x01(\v2\x17.google.protobuf.StructR\bsettings\x12/\n" +
+	"\x06labels\x18\x14 \x01(\v2\x17.google.protobuf.StructR\x06labels\x12\x1b\n" +
+	"\ttag_names\x18\x15 \x03(\tR\btagNames\x12/\n" +
+	"\bmetadata\x18\x16 \x01(\v2\x13.entpb.UserMetadataR\bmetadataB\x06\n" +
 	"\x04_bioB\b\n" +
 	"\x06_score*[\n" +
 	"\n" +
@@ -472,22 +509,27 @@ var file_entpb_ent_messages_proto_goTypes = []any{
 	(*User)(nil),                  // 3: entpb.User
 	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
 	(*durationpb.Duration)(nil),   // 5: google.protobuf.Duration
+	(*structpb.Struct)(nil),       // 6: google.protobuf.Struct
+	(*UserMetadata)(nil),          // 7: entpb.UserMetadata
 }
 var file_entpb_ent_messages_proto_depIdxs = []int32{
-	3, // 0: entpb.Tag.users:type_name -> entpb.User
-	4, // 1: entpb.User.created_at:type_name -> google.protobuf.Timestamp
-	4, // 2: entpb.User.expires_at:type_name -> google.protobuf.Timestamp
-	0, // 3: entpb.User.status:type_name -> entpb.UserStatus
-	5, // 4: entpb.User.subscription_duration:type_name -> google.protobuf.Duration
-	4, // 5: entpb.User.updated_at:type_name -> google.protobuf.Timestamp
-	1, // 6: entpb.User.pinned_post:type_name -> entpb.Post
-	1, // 7: entpb.User.posts:type_name -> entpb.Post
-	2, // 8: entpb.User.tags:type_name -> entpb.Tag
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	3,  // 0: entpb.Tag.users:type_name -> entpb.User
+	4,  // 1: entpb.User.created_at:type_name -> google.protobuf.Timestamp
+	4,  // 2: entpb.User.expires_at:type_name -> google.protobuf.Timestamp
+	0,  // 3: entpb.User.status:type_name -> entpb.UserStatus
+	5,  // 4: entpb.User.subscription_duration:type_name -> google.protobuf.Duration
+	4,  // 5: entpb.User.updated_at:type_name -> google.protobuf.Timestamp
+	1,  // 6: entpb.User.pinned_post:type_name -> entpb.Post
+	1,  // 7: entpb.User.posts:type_name -> entpb.Post
+	2,  // 8: entpb.User.tags:type_name -> entpb.Tag
+	6,  // 9: entpb.User.settings:type_name -> google.protobuf.Struct
+	6,  // 10: entpb.User.labels:type_name -> google.protobuf.Struct
+	7,  // 11: entpb.User.metadata:type_name -> entpb.UserMetadata
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_entpb_ent_messages_proto_init() }
@@ -495,6 +537,7 @@ func file_entpb_ent_messages_proto_init() {
 	if File_entpb_ent_messages_proto != nil {
 		return
 	}
+	file_entpb_user_metadata_proto_init()
 	file_entpb_ent_messages_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

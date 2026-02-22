@@ -7,7 +7,9 @@ package entpb;
 
 option go_package = "github.com/danhtran94/entdomain/internal/testdata/proto/entpb;entpb";
 
+import "entpb/user_metadata.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 enum UserStatus {
@@ -50,5 +52,9 @@ message User {
   Post pinned_post = 16;
   repeated Post posts = 17;
   repeated Tag tags = 18;
+  google.protobuf.Struct settings = 19;
+  google.protobuf.Struct labels = 20;
+  repeated string tag_names = 21;
+  UserMetadata metadata = 22;
 }
 

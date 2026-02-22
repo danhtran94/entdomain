@@ -289,6 +289,10 @@ const (
 	UserDomainFieldScore        UserDomainField = "score"
 	UserDomainFieldExternalID   UserDomainField = "external_id"
 	UserDomainFieldUpdatedAt    UserDomainField = "updated_at"
+	UserDomainFieldSettings     UserDomainField = "settings"
+	UserDomainFieldLabels       UserDomainField = "labels"
+	UserDomainFieldTagNames     UserDomainField = "tag_names"
+	UserDomainFieldMetadata     UserDomainField = "metadata"
 	UserDomainFieldPostIDs      UserDomainField = "post_ids"
 	UserDomainFieldPinnedPostID UserDomainField = "pinned_post_id"
 	UserDomainFieldTagIDs       UserDomainField = "tag_ids"
@@ -302,9 +306,6 @@ type UserDomainTransformer struct {
 	GetIsPremium                    func(e *User) bool
 	SetIsPremiumOnCreate            func(c *UserCreate, val bool)
 	SetIsPremiumOnUpdate            func(u *UserUpdateOne, val bool)
-	GetMetadata                     func(e *User) map[string]any
-	SetMetadataOnCreate             func(c *UserCreate, val map[string]any)
-	SetMetadataOnUpdate             func(u *UserUpdateOne, val map[string]any)
 	GetExpiresAt                    func(e *User) time.Time
 	SetExpiresAtOnCreate            func(c *UserCreate, val time.Time)
 	SetExpiresAtOnUpdate            func(u *UserUpdateOne, val time.Time)
@@ -328,6 +329,10 @@ func (e *User) ToDomain() *domain.User {
 		Score:      &e.Score,
 		ExternalID: e.ExternalID,
 		UpdatedAt:  &e.UpdatedAt,
+		Settings:   e.Settings,
+		Labels:     e.Labels,
+		TagNames:   e.TagNames,
+		Metadata:   e.Metadata,
 	}
 	for _, _e := range e.Edges.Posts {
 		d.PostIDs = append(d.PostIDs, _e.ID)
@@ -346,9 +351,6 @@ func (e *User) ToDomain() *domain.User {
 	}
 	if UserTransformer != nil && UserTransformer.GetIsPremium != nil {
 		d.IsPremium = UserTransformer.GetIsPremium(e)
-	}
-	if UserTransformer != nil && UserTransformer.GetMetadata != nil {
-		d.Metadata = UserTransformer.GetMetadata(e)
 	}
 	if UserTransformer != nil && UserTransformer.GetExpiresAt != nil {
 		d.ExpiresAt = UserTransformer.GetExpiresAt(e)
@@ -386,6 +388,18 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
 		c = c.SetNillableUpdatedAt(d.UpdatedAt)
 	}
+	if cfg.ShouldApply("settings", d.Settings) {
+		c = c.SetSettings(d.Settings)
+	}
+	if cfg.ShouldApply("labels", d.Labels) {
+		c = c.SetLabels(d.Labels)
+	}
+	if cfg.ShouldApply("tag_names", d.TagNames) {
+		c = c.SetTagNames(d.TagNames)
+	}
+	if cfg.ShouldApply("metadata", d.Metadata) {
+		c = c.SetMetadata(d.Metadata)
+	}
 	if len(d.PostIDs) > 0 {
 		c = c.AddPostIDs(d.PostIDs...)
 	}
@@ -397,9 +411,6 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	}
 	if UserTransformer != nil && UserTransformer.SetIsPremiumOnCreate != nil {
 		UserTransformer.SetIsPremiumOnCreate(c, d.IsPremium)
-	}
-	if UserTransformer != nil && UserTransformer.SetMetadataOnCreate != nil {
-		UserTransformer.SetMetadataOnCreate(c, d.Metadata)
 	}
 	if UserTransformer != nil && UserTransformer.SetExpiresAtOnCreate != nil {
 		UserTransformer.SetExpiresAtOnCreate(c, d.ExpiresAt)
@@ -431,6 +442,18 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
 		u = u.SetNillableUpdatedAt(d.UpdatedAt)
 	}
+	if cfg.ShouldApply("settings", d.Settings) {
+		u = u.SetSettings(d.Settings)
+	}
+	if cfg.ShouldApply("labels", d.Labels) {
+		u = u.SetLabels(d.Labels)
+	}
+	if cfg.ShouldApply("tag_names", d.TagNames) {
+		u = u.SetTagNames(d.TagNames)
+	}
+	if cfg.ShouldApply("metadata", d.Metadata) {
+		u = u.SetMetadata(d.Metadata)
+	}
 	if cfg.IsAppendEdge("post_ids") {
 		u = u.AddPostIDs(d.PostIDs...)
 	} else {
@@ -446,9 +469,6 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 	}
 	if UserTransformer != nil && UserTransformer.SetIsPremiumOnUpdate != nil {
 		UserTransformer.SetIsPremiumOnUpdate(u, d.IsPremium)
-	}
-	if UserTransformer != nil && UserTransformer.SetMetadataOnUpdate != nil {
-		UserTransformer.SetMetadataOnUpdate(u, d.Metadata)
 	}
 	if UserTransformer != nil && UserTransformer.SetExpiresAtOnUpdate != nil {
 		UserTransformer.SetExpiresAtOnUpdate(u, d.ExpiresAt)
@@ -480,6 +500,18 @@ func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	}
 	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
 		u = u.SetNillableUpdatedAt(d.UpdatedAt)
+	}
+	if cfg.ShouldApply("settings", d.Settings) {
+		u = u.SetSettings(d.Settings)
+	}
+	if cfg.ShouldApply("labels", d.Labels) {
+		u = u.SetLabels(d.Labels)
+	}
+	if cfg.ShouldApply("tag_names", d.TagNames) {
+		u = u.SetTagNames(d.TagNames)
+	}
+	if cfg.ShouldApply("metadata", d.Metadata) {
+		u = u.SetMetadata(d.Metadata)
 	}
 	if cfg.IsAppendEdge("post_ids") {
 		u = u.AddPostIDs(d.PostIDs...)
@@ -517,6 +549,18 @@ func (u *UserUpsertOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 		if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) && d.UpdatedAt != nil {
 			uu.SetUpdatedAt(*d.UpdatedAt)
 		}
+		if cfg.ShouldApply("settings", d.Settings) {
+			uu.SetSettings(d.Settings)
+		}
+		if cfg.ShouldApply("labels", d.Labels) {
+			uu.SetLabels(d.Labels)
+		}
+		if cfg.ShouldApply("tag_names", d.TagNames) {
+			uu.SetTagNames(d.TagNames)
+		}
+		if cfg.ShouldApply("metadata", d.Metadata) {
+			uu.SetMetadata(d.Metadata)
+		}
 	})
 }
 
@@ -542,6 +586,18 @@ func (u *UserUpsertBulk) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOpti
 		}
 		if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) && d.UpdatedAt != nil {
 			uu.SetUpdatedAt(*d.UpdatedAt)
+		}
+		if cfg.ShouldApply("settings", d.Settings) {
+			uu.SetSettings(d.Settings)
+		}
+		if cfg.ShouldApply("labels", d.Labels) {
+			uu.SetLabels(d.Labels)
+		}
+		if cfg.ShouldApply("tag_names", d.TagNames) {
+			uu.SetTagNames(d.TagNames)
+		}
+		if cfg.ShouldApply("metadata", d.Metadata) {
+			uu.SetMetadata(d.Metadata)
 		}
 	})
 }

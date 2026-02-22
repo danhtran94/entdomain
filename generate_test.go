@@ -161,7 +161,7 @@ func TestGenerate_UserDomainStruct(t *testing.T) {
 		// Virtual fields
 		assert.Equal(t, "string", findField(st, "FullName"))
 		assert.Equal(t, "bool", findField(st, "IsPremium"))
-		assert.Equal(t, "map[string]any", findField(st, "Metadata"))
+		assert.Equal(t, "UserMetadata", findField(st, "Metadata"))
 	})
 
 	t.Run("UserStatus enum type", func(t *testing.T) {

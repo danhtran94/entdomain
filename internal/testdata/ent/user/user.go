@@ -31,6 +31,14 @@ const (
 	FieldExternalID = "external_id"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// FieldSettings holds the string denoting the settings field in the database.
+	FieldSettings = "settings"
+	// FieldLabels holds the string denoting the labels field in the database.
+	FieldLabels = "labels"
+	// FieldTagNames holds the string denoting the tag_names field in the database.
+	FieldTagNames = "tag_names"
+	// FieldMetadata holds the string denoting the metadata field in the database.
+	FieldMetadata = "metadata"
 	// EdgePosts holds the string denoting the posts edge name in mutations.
 	EdgePosts = "posts"
 	// EdgePinnedPost holds the string denoting the pinned_post edge name in mutations.
@@ -71,6 +79,10 @@ var Columns = []string{
 	FieldScore,
 	FieldExternalID,
 	FieldUpdatedAt,
+	FieldSettings,
+	FieldLabels,
+	FieldTagNames,
+	FieldMetadata,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "users"

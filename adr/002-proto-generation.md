@@ -100,34 +100,68 @@ func (User) Edges() []ent.Edge {
 }
 ```
 
+#### `ProtoType` on ent fields
+
+`ProtoType()` can also be passed to `Field()` to explicitly map any ent field to a proto type, overriding auto-resolution. This is the primary mechanism for typed JSON fields that would otherwise be excluded.
+
+```go
+// Typed map → google.protobuf.Struct
+field.JSON("labels", map[string]string{}).
+    Annotations(entdomain.Field(
+        entdomain.ProtoType("google.protobuf.Struct", "google/protobuf/struct.proto"),
+    ))
+
+// Slice → repeated scalar (IsRepeated inferred from [] prefix)
+field.JSON("tag_names", []string{}).
+    Annotations(entdomain.Field(entdomain.ProtoType("string")))
+
+// Custom struct → hand-defined proto message with explicit conversion
+field.JSON("metadata", domain.UserMetadata{}).
+    Annotations(entdomain.Field(
+        entdomain.ProtoType("UserMetadata", "entpb/user_metadata.proto").
+            WithConversion("UserMetadataToProto(%s)", "UserMetadataFromProto(%s)"),
+    ))
+```
+
+`WithConversion(toExpr, fromExpr)` accepts Go `fmt` strings where `%s` is the source expression. The conversion functions must be provided as hand-written code in the `pbmap` package — entdomain does not generate them.
+
 #### `FieldAnnotation` (new type)
 
 ```go
 type FieldAnnotation struct {
     SkipProto bool
+    ProtoType *ProtoTypeConfig  // explicit proto type override for this field
 }
 
-type fieldOption func(*FieldAnnotation)
+// fieldOption configures a FieldAnnotation (interface, not function type).
+type fieldOption interface { ... }
 
 func Field(opts ...fieldOption) FieldAnnotation
 func SkipProto() fieldOption
+// ProtoType() also satisfies fieldOption — see ProtoType section above
 ```
 
 #### `ProtoType` on virtual fields
 
 ```go
-// ProtoType specifies the proto type for a GoType virtual field.
+// ProtoType sets an explicit proto type. Usable with both VirtualField() and Field().
 // typeName is the fully-qualified proto type (scalar or message).
 // importPath is the optional .proto import required for the type; omit for scalars.
-func ProtoType(typeName string, importPath ...string) virtualFieldOption
+func ProtoType(typeName string, importPath ...string) ProtoTypeOpt
+
+// WithConversion returns a copy with explicit Go conversion expressions.
+// toExpr and fromExpr are Go fmt strings where %s is the source expression.
+func (p ProtoTypeOpt) WithConversion(toExpr, fromExpr string) ProtoTypeOpt
 ```
 
 Stored in `VirtualFieldConfig`:
 
 ```go
 type ProtoTypeConfig struct {
-    TypeName   string // "string", "google.protobuf.Timestamp", "google.type.Money"
-    ImportPath string // "", "google/protobuf/timestamp.proto", "google/type/money.proto"
+    TypeName      string // e.g. "google.protobuf.Timestamp"
+    ImportPath    string // e.g. "google/protobuf/timestamp.proto"
+    ToProtoExpr   string // optional: Go fmt string, e.g. "UserMetadataToProto(%s)"
+    FromProtoExpr string // optional: Go fmt string, e.g. "UserMetadataFromProto(%s)"
 }
 
 type VirtualFieldConfig struct {
@@ -144,6 +178,7 @@ type VirtualFieldConfig struct {
 Resolution order per field:
 
 1. `SkipProto()` annotated → **excluded**
+1a. Explicit `FieldAnnotation.ProtoType` on an ent field → use specified type + import (with optional `WithConversion` exprs)
 2. Virtual `GoType` with `ProtoType(...)` → use specified type + import
 3. Virtual `GoType` matching a well-known mapping → auto-mapped
 4. Virtual `GoType` with no match → **excluded** (silently)
@@ -168,7 +203,9 @@ Resolution order per field:
 | Ent `field.Int(...)` | `int64` | — |
 | Ent `field.Float(...)` | `double` | — |
 | Ent `field.Enum(...)` | top-level enum | — |
-| Ent `field.JSON(...)` | **excluded** | — |
+| Ent `field.JSON("x", map[string]any{})` | `google.protobuf.Struct` | `google/protobuf/struct.proto` |
+| Ent `field.JSON("x", []T{})` + `Field(ProtoType("T"))` | `repeated T` | depends on T |
+| Ent `field.JSON("x", OtherType{})` | **excluded** (unless `Field(ProtoType(...))` used) | — |
 | Ent `field.Other(...)` | **excluded** | — |
 | Unknown `GoType(...)` | **excluded** | — |
 
@@ -453,6 +490,8 @@ func DurationToDurationProto(v *time.Duration) *durationpb.Duration
 func DurationProtoToDuration(v *durationpb.Duration) *time.Duration
 func UuidPtrToProtoString(v *uuid.UUID) *string
 func ProtoStringToUUIDPtr(v *string) *uuid.UUID
+func MapToProtoStruct(m map[string]any) *structpb.Struct
+func ProtoStructToMap(s *structpb.Struct) map[string]any
 ```
 
 ---
@@ -477,6 +516,7 @@ func ProtoStringToUUIDPtr(v *string) *uuid.UUID
 - Lock file must be committed and reviewed — similar discipline to database migrations
 - Renaming a field creates a new field number; the old number is permanently reserved
 - `GoType` virtual fields without a proto mapping (no `ProtoType(...)` and no well-known match) are silently excluded — developer must verify proto output when adding new `GoType` fields
+- `field.JSON("x", map[string]any{})` is auto-mapped to `google.protobuf.Struct`; all other typed JSON fields are excluded by default and must be opted in via `Field(ProtoType(...))` — typed JSON fields added to the schema without an annotation will silently produce no proto field
 - `Nest()` edges are included in proto by default — developers must apply `SkipProto()` to break circular references between mutually-nesting entities
 - Virtual fields in `UserFromProto` are populated directly from proto; fields that require transformer logic (custom computation from ent data) will be zero in the proto→domain direction — the caller is responsible for hydrating them
 - Proto generation adds a dependency on the protobuf Go runtime (`google.golang.org/protobuf`) in the generated `pbmap` package — the domain package itself remains proto-free
@@ -486,5 +526,5 @@ func ProtoStringToUUIDPtr(v *string) *uuid.UUID
 - Request/response wrapper types (e.g. `CreateUserRequest`)
 - `buf` / `protoc` plugin integration
 - Proto2 syntax
-- `google.protobuf.Any` or `google.protobuf.Struct` auto-mapping
+- `google.protobuf.Any` auto-mapping
 - Streaming RPC support

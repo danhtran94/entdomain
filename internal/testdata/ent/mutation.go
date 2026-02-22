@@ -11,6 +11,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/danhtran94/entdomain/internal/testdata/domain"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/predicate"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
@@ -998,6 +999,11 @@ type UserMutation struct {
 	addscore           *int
 	external_id        *uuid.UUID
 	updated_at         *time.Time
+	settings           *map[string]interface{}
+	labels             *map[string]interface{}
+	tag_names          *[]string
+	appendtag_names    []string
+	metadata           *domain.UserMetadata
 	clearedFields      map[string]struct{}
 	posts              map[int]struct{}
 	removedposts       map[int]struct{}
@@ -1458,6 +1464,178 @@ func (m *UserMutation) ResetUpdatedAt() {
 	delete(m.clearedFields, user.FieldUpdatedAt)
 }
 
+// SetSettings sets the "settings" field.
+func (m *UserMutation) SetSettings(value map[string]interface{}) {
+	m.settings = &value
+}
+
+// Settings returns the value of the "settings" field in the mutation.
+func (m *UserMutation) Settings() (r map[string]interface{}, exists bool) {
+	v := m.settings
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSettings returns the old "settings" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldSettings(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSettings is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSettings requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSettings: %w", err)
+	}
+	return oldValue.Settings, nil
+}
+
+// ClearSettings clears the value of the "settings" field.
+func (m *UserMutation) ClearSettings() {
+	m.settings = nil
+	m.clearedFields[user.FieldSettings] = struct{}{}
+}
+
+// SettingsCleared returns if the "settings" field was cleared in this mutation.
+func (m *UserMutation) SettingsCleared() bool {
+	_, ok := m.clearedFields[user.FieldSettings]
+	return ok
+}
+
+// ResetSettings resets all changes to the "settings" field.
+func (m *UserMutation) ResetSettings() {
+	m.settings = nil
+	delete(m.clearedFields, user.FieldSettings)
+}
+
+// SetLabels sets the "labels" field.
+func (m *UserMutation) SetLabels(value map[string]interface{}) {
+	m.labels = &value
+}
+
+// Labels returns the value of the "labels" field in the mutation.
+func (m *UserMutation) Labels() (r map[string]interface{}, exists bool) {
+	v := m.labels
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLabels returns the old "labels" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldLabels(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLabels is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLabels requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLabels: %w", err)
+	}
+	return oldValue.Labels, nil
+}
+
+// ResetLabels resets all changes to the "labels" field.
+func (m *UserMutation) ResetLabels() {
+	m.labels = nil
+}
+
+// SetTagNames sets the "tag_names" field.
+func (m *UserMutation) SetTagNames(s []string) {
+	m.tag_names = &s
+	m.appendtag_names = nil
+}
+
+// TagNames returns the value of the "tag_names" field in the mutation.
+func (m *UserMutation) TagNames() (r []string, exists bool) {
+	v := m.tag_names
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTagNames returns the old "tag_names" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldTagNames(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTagNames is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTagNames requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTagNames: %w", err)
+	}
+	return oldValue.TagNames, nil
+}
+
+// AppendTagNames adds s to the "tag_names" field.
+func (m *UserMutation) AppendTagNames(s []string) {
+	m.appendtag_names = append(m.appendtag_names, s...)
+}
+
+// AppendedTagNames returns the list of values that were appended to the "tag_names" field in this mutation.
+func (m *UserMutation) AppendedTagNames() ([]string, bool) {
+	if len(m.appendtag_names) == 0 {
+		return nil, false
+	}
+	return m.appendtag_names, true
+}
+
+// ResetTagNames resets all changes to the "tag_names" field.
+func (m *UserMutation) ResetTagNames() {
+	m.tag_names = nil
+	m.appendtag_names = nil
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *UserMutation) SetMetadata(dm domain.UserMetadata) {
+	m.metadata = &dm
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *UserMutation) Metadata() (r domain.UserMetadata, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldMetadata(ctx context.Context) (v domain.UserMetadata, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *UserMutation) ResetMetadata() {
+	m.metadata = nil
+}
+
 // AddPostIDs adds the "posts" edge to the Post entity by ids.
 func (m *UserMutation) AddPostIDs(ids ...int) {
 	if m.posts == nil {
@@ -1639,7 +1817,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 12)
 	if m.name != nil {
 		fields = append(fields, user.FieldName)
 	}
@@ -1663,6 +1841,18 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.updated_at != nil {
 		fields = append(fields, user.FieldUpdatedAt)
+	}
+	if m.settings != nil {
+		fields = append(fields, user.FieldSettings)
+	}
+	if m.labels != nil {
+		fields = append(fields, user.FieldLabels)
+	}
+	if m.tag_names != nil {
+		fields = append(fields, user.FieldTagNames)
+	}
+	if m.metadata != nil {
+		fields = append(fields, user.FieldMetadata)
 	}
 	return fields
 }
@@ -1688,6 +1878,14 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.ExternalID()
 	case user.FieldUpdatedAt:
 		return m.UpdatedAt()
+	case user.FieldSettings:
+		return m.Settings()
+	case user.FieldLabels:
+		return m.Labels()
+	case user.FieldTagNames:
+		return m.TagNames()
+	case user.FieldMetadata:
+		return m.Metadata()
 	}
 	return nil, false
 }
@@ -1713,6 +1911,14 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldExternalID(ctx)
 	case user.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
+	case user.FieldSettings:
+		return m.OldSettings(ctx)
+	case user.FieldLabels:
+		return m.OldLabels(ctx)
+	case user.FieldTagNames:
+		return m.OldTagNames(ctx)
+	case user.FieldMetadata:
+		return m.OldMetadata(ctx)
 	}
 	return nil, fmt.Errorf("unknown User field %s", name)
 }
@@ -1778,6 +1984,34 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUpdatedAt(v)
 		return nil
+	case user.FieldSettings:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSettings(v)
+		return nil
+	case user.FieldLabels:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLabels(v)
+		return nil
+	case user.FieldTagNames:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTagNames(v)
+		return nil
+	case user.FieldMetadata:
+		v, ok := value.(domain.UserMetadata)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)
 }
@@ -1832,6 +2066,9 @@ func (m *UserMutation) ClearedFields() []string {
 	if m.FieldCleared(user.FieldUpdatedAt) {
 		fields = append(fields, user.FieldUpdatedAt)
 	}
+	if m.FieldCleared(user.FieldSettings) {
+		fields = append(fields, user.FieldSettings)
+	}
 	return fields
 }
 
@@ -1854,6 +2091,9 @@ func (m *UserMutation) ClearField(name string) error {
 		return nil
 	case user.FieldUpdatedAt:
 		m.ClearUpdatedAt()
+		return nil
+	case user.FieldSettings:
+		m.ClearSettings()
 		return nil
 	}
 	return fmt.Errorf("unknown User nullable field %s", name)
@@ -1886,6 +2126,18 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldUpdatedAt:
 		m.ResetUpdatedAt()
+		return nil
+	case user.FieldSettings:
+		m.ResetSettings()
+		return nil
+	case user.FieldLabels:
+		m.ResetLabels()
+		return nil
+	case user.FieldTagNames:
+		m.ResetTagNames()
+		return nil
+	case user.FieldMetadata:
+		m.ResetMetadata()
 		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)

@@ -24,6 +24,10 @@ type User struct {
 	Score                *int
 	ExternalID           uuid.UUID
 	UpdatedAt            *time.Time
+	Settings             map[string]interface{}
+	Labels               map[string]interface{}
+	TagNames             []string
+	Metadata             UserMetadata
 	PostIDs              []int
 	Posts                PostList
 	PinnedPostID         int
@@ -32,7 +36,6 @@ type User struct {
 	Tags                 TagList
 	FullName             string
 	IsPremium            bool
-	Metadata             map[string]any
 	ExpiresAt            time.Time
 	SubscriptionDuration time.Duration
 }

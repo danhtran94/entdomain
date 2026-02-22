@@ -90,8 +90,9 @@ func TestProtoGenerate_UserMessage(t *testing.T) {
 	// username must NOT appear (SkipProto).
 	assert.NotContains(t, content, "username", "username should be excluded (SkipProto)")
 
-	// metadata must NOT appear (map type → excluded).
-	assert.NotContains(t, content, "metadata", "metadata should be excluded (map type)")
+	// metadata is a custom struct field with explicit ProtoType → included as UserMetadata.
+	assert.Contains(t, content, "UserMetadata metadata", "metadata mapped to custom proto message via annotation")
+	assert.Contains(t, content, `import "entpb/user_metadata.proto"`, "user_metadata.proto must be imported")
 }
 
 // TestProtoGenerate_PostMessage verifies the Post proto message.

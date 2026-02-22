@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -132,4 +133,21 @@ func StringSliceToUUIDSlice(vs []string) []uuid.UUID {
 		result[i] = uuid.MustParse(v)
 	}
 	return result
+}
+
+// MapToProtoStruct converts map[string]any to *structpb.Struct.
+func MapToProtoStruct(m map[string]any) *structpb.Struct {
+	if m == nil {
+		return nil
+	}
+	s, _ := structpb.NewStruct(m)
+	return s
+}
+
+// ProtoStructToMap converts *structpb.Struct to map[string]any.
+func ProtoStructToMap(s *structpb.Struct) map[string]any {
+	if s == nil {
+		return nil
+	}
+	return s.AsMap()
 }
