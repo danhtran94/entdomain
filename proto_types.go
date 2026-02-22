@@ -376,8 +376,13 @@ func resolveIDTypeSpec(idTypeStr string, unique bool) ProtoFieldSpec {
 	default:
 		// UUID or other types → string representation.
 		protoType = "string"
-		toExpr = "%s.String()"
-		fromExpr = "uuid.MustParse(%s)"
+		if unique {
+			toExpr = "%s.String()"
+			fromExpr = "uuid.MustParse(%s)"
+		} else {
+			toExpr = "uuidSliceToStringSlice(%s)"
+			fromExpr = "stringSliceToUUIDSlice(%s)"
+		}
 	}
 
 	return ProtoFieldSpec{

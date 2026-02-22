@@ -381,6 +381,24 @@ func {{ fn "protoStringToUUIDPtr" .Exported }}(v *string) *uuid.UUID {
 	id := uuid.MustParse(*v)
 	return &id
 }
+
+// {{ fn "uuidSliceToStringSlice" .Exported }} converts []uuid.UUID to []string.
+func {{ fn "uuidSliceToStringSlice" .Exported }}(vs []uuid.UUID) []string {
+	result := make([]string, len(vs))
+	for i, v := range vs {
+		result[i] = v.String()
+	}
+	return result
+}
+
+// {{ fn "stringSliceToUUIDSlice" .Exported }} converts []string to []uuid.UUID.
+func {{ fn "stringSliceToUUIDSlice" .Exported }}(vs []string) []uuid.UUID {
+	result := make([]uuid.UUID, len(vs))
+	for i, v := range vs {
+		result[i] = uuid.MustParse(v)
+	}
+	return result
+}
 `))
 
 // protoHelperFuncNames lists all helper function names (unexported/camelCase form).
@@ -392,6 +410,7 @@ var protoHelperFuncNames = []string{
 	"timeToTimestampProto", "timestampProtoToTime",
 	"durationToDurationProto", "durationProtoToDuration",
 	"uuidPtrToProtoString", "protoStringToUUIDPtr",
+	"uuidSliceToStringSlice", "stringSliceToUUIDSlice",
 }
 
 // generateProtoMapperFiles generates the proto mapper files for each entity.
@@ -504,6 +523,7 @@ func buildProtoMapperFileData(
 	idSpec := resolveEntFieldProtoSpec(t.Name, t.ID)
 	rawIDTo := applyExprTemplate(idSpec.ToProtoExpr, "d.ID")
 	rawIDFrom := applyExprTemplate(idSpec.FromProtoExpr, "p.Id")
+	trackExprImports(rawIDTo, rawIDFrom, goImports)
 	if isHelperExpr(rawIDTo) || isHelperExpr(rawIDFrom) {
 		needsHelpers = true
 	}
@@ -618,16 +638,27 @@ func buildProtoMapperFileData(
 				domainExpr := "d." + domainFieldName
 				protoExpr := "p." + protoFieldName
 
+				rawTo := applyExprTemplate(spec.ToProtoExpr, domainExpr)
+				rawFrom := applyExprTemplate(spec.FromProtoExpr, protoExpr)
+
 				mf := protoMapperField{
 					StructName:     domainFieldName,
 					ProtoFieldName: protoFieldName,
-					ToProtoExpr:    adjustHelperExpr(applyExprTemplate(spec.ToProtoExpr, domainExpr), helpersExported),
-					FromProtoExpr:  adjustHelperExpr(applyExprTemplate(spec.FromProtoExpr, protoExpr), helpersExported),
+					ToProtoExpr:    adjustHelperExpr(rawTo, helpersExported),
+					FromProtoExpr:  adjustHelperExpr(rawFrom, helpersExported),
 				}
 
 				if spec.IsRepeated && spec.ProtoType == "int64" {
-					mf.ToProtoExpr = adjustHelperExpr("toInt64Slice("+domainExpr+")", helpersExported)
-					mf.FromProtoExpr = adjustHelperExpr("fromInt64Slice("+protoExpr+")", helpersExported)
+					rawTo = "toInt64Slice(" + domainExpr + ")"
+					rawFrom = "fromInt64Slice(" + protoExpr + ")"
+					mf.ToProtoExpr = adjustHelperExpr(rawTo, helpersExported)
+					mf.FromProtoExpr = adjustHelperExpr(rawFrom, helpersExported)
+					needsHelpers = true
+				}
+
+				// Track imports and helpers from raw (pre-capitalization) expressions.
+				trackExprImports(rawTo, rawFrom, goImports)
+				if isHelperExpr(rawTo) || isHelperExpr(rawFrom) {
 					needsHelpers = true
 				}
 
@@ -785,7 +816,7 @@ func trackExprImports(rawTo, rawFrom string, goImports map[string]bool) {
 		if strings.Contains(expr, "durationpb") {
 			goImports["google.golang.org/protobuf/types/known/durationpb"] = true
 		}
-		if strings.Contains(expr, "uuid.MustParse") {
+		if strings.Contains(expr, "uuid.MustParse") || strings.Contains(expr, "uuid.UUID") {
 			goImports["github.com/google/uuid"] = true
 		}
 	}
@@ -818,11 +849,8 @@ func parseGoPackage(goPackage string) (importPath, alias string) {
 // location is relPkgPath relative to moduleRoot(g) (i.e. filepath.Dir(g.Config.Target)).
 // It walks up from the ent target directory to find go.mod.
 func resolveGoImportPath(g *gen.Graph, relPkgPath string) (string, error) {
-	outDir := filepath.Dir(g.Config.Target)
-	pkgAbsPath, err := filepath.Abs(filepath.Join(outDir, relPkgPath))
-	if err != nil {
-		return "", err
-	}
+	outDir := moduleRoot(g)
+	pkgAbsPath := filepath.Join(outDir, relPkgPath)
 
 	dir := outDir
 	for {
