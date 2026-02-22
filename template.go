@@ -37,6 +37,7 @@ var (
 		"isEnum":           func(f *gen.Field) bool { return f.Type.Type == field.TypeEnum },
 		"isNillable":       func(f *gen.Field) bool { return f.Optional || f.Nillable },
 		"hasEnumFields":    hasEnumFieldsFn,
+		"hasUpsert":        hasUpsertFn,
 		"singular":         func(s string) string { return gen.Funcs["singular"].(func(string) string)(s) },
 		"pascal":           func(s string) string { return gen.Funcs["pascal"].(func(string) string)(s) },
 		"snake":            func(s string) string { return gen.Funcs["snake"].(func(string) string)(s) },
@@ -97,6 +98,16 @@ func virtualFieldTypeFn(ft FieldType) string {
 func hasEnumFieldsFn(n *gen.Type) bool {
 	for _, f := range n.Fields {
 		if f.Type.Type == field.TypeEnum && !f.IsEdgeField() {
+			return true
+		}
+	}
+	return false
+}
+
+// hasUpsertFn reports whether the graph has gen.FeatureUpsert enabled.
+func hasUpsertFn(g *gen.Graph) bool {
+	for _, f := range g.Config.Features {
+		if f.Name == gen.FeatureUpsert.Name {
 			return true
 		}
 	}

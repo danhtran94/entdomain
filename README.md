@@ -49,7 +49,11 @@ func main() {
         log.Fatalf("creating entdomain extension: %v", err)
     }
     if err := entc.Generate("./schema",
-        &gen.Config{},
+        &gen.Config{
+            // Optional: enable ent upsert support — entdomain auto-detects this
+            // and generates ApplyDomain on *EntityUpsertOne / *EntityUpsertBulk.
+            Features: []gen.Feature{gen.FeatureUpsert},
+        },
         entc.Extensions(ex),
     ); err != nil {
         log.Fatalf("running ent codegen: %v", err)
@@ -172,6 +176,10 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 
 // Update by WHERE condition: domain → ent builder, chain .Where(...) after
 func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate
+
+// Upsert (generated only when gen.FeatureUpsert is enabled in gen.Config)
+func (u *UserUpsertOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertOne
+func (u *UserUpsertBulk) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertBulk // absent when NoBulk
 ```
 
 ### Bulk methods (`ent/domain.go`, unless `WithNoBulk` is set)
@@ -202,6 +210,40 @@ const (
     // ...
 )
 ```
+
+## Upsert Support
+
+When ent's `gen.FeatureUpsert` is enabled in `gen.Config.Features`, entdomain automatically detects it and generates `ApplyDomain` on the `*EntityUpsertOne` and `*EntityUpsertBulk` builders — no additional annotation is required.
+
+```go
+// Single upsert — conflict on "email", apply domain fields on conflict:
+client.User.Create().
+    ApplyDomain(d).
+    OnConflict(sql.ConflictColumns("email")).
+    ApplyDomain(d).   // ← on *UserUpsertOne
+    Exec(ctx)
+
+// Bulk upsert — uniform conflict resolution across all rows:
+client.User.CreateBulkDomain(ds).
+    OnConflict(sql.ConflictColumns("email")).
+    ApplyDomain(d).   // ← on *UserUpsertBulk (absent when NoBulk is set)
+    Exec(ctx)
+```
+
+### Field Handling in Upsert
+
+`*EntityUpsert` has `SetX` / `ClearX` but no `SetNillableX`. The upsert methods handle each field category as follows:
+
+| Field type | Upsert behaviour |
+|---|---|
+| Non-nillable scalar / enum | `uu.SetX(val)` — same as UpdateOne |
+| Nillable scalar | `if d.X != nil { uu.SetX(*d.X) }` — nil means leave unchanged |
+| Nillable enum | `if d.X != nil { uu.SetX(EntType(*d.X)) }` |
+| Immutable field | **skipped** — same as UpdateOne |
+| Edge IDs | **skipped** — ent upsert does not support edge mutations |
+| Virtual fields | **skipped** — no corresponding `*EntityUpsert` setter exists |
+
+`*EntityUpsertBulk.ApplyDomain` is suppressed for entities that have `WithNoBulk` set — consistent with the existing bulk generation policy.
 
 ## Apply Options
 
@@ -317,6 +359,22 @@ func (r *UserRepo) DeactivateAll(ctx context.Context) error {
             entdomain.OnlyFields(ent.UserDomainFieldStatus),
         ).
         Where(user.StatusEQ(user.StatusActive)).
+        Exec(ctx)
+}
+
+// Upsert — requires gen.FeatureUpsert in gen.Config.Features
+func (r *UserRepo) Upsert(ctx context.Context, d *domain.User) error {
+    return r.client.User.Create().
+        ApplyDomain(d).
+        OnConflict(sql.ConflictColumns("username")).
+        ApplyDomain(d).
+        Exec(ctx)
+}
+
+func (r *UserRepo) UpsertBulk(ctx context.Context, ds domain.UserList) error {
+    return r.client.User.CreateBulkDomain(ds).
+        OnConflict(sql.ConflictColumns("username")).
+        ApplyDomain(ds[0]). // same conflict resolution for all rows
         Exec(ctx)
 }
 ```
@@ -443,10 +501,14 @@ Proto field numbers are tracked in `.entdomain.lock.json`. Commit this file — 
 
 - Nested edge mutations (creating/updating child entities) are intentionally not generated — manage them in the repository layer
 - Virtual fields are always zero in `ToDomain()` unless a Transformer is wired; each transformer function field is nil-checked individually before calling
-- Immutable ent fields are excluded from `UpdateOne.ApplyDomain` and `Update.ApplyDomain`
+- Immutable ent fields are excluded from `UpdateOne.ApplyDomain`, `Update.ApplyDomain`, and `UpsertOne/Bulk.ApplyDomain`
 - Nested edges (`Nest()`) are excluded from `ApplyDomain` entirely; only `IDs()` edges are written
+- Edge IDs are additionally excluded from upsert `ApplyDomain` — ent's `*EntityUpsert` type does not support edge mutations
+- Virtual field transformer hooks are excluded from upsert `ApplyDomain` — transformer setters are typed to `*UserCreate` / `*UserUpdateOne` only
+- Upsert nillable fields use an explicit `d.X != nil` guard with dereference (`uu.SetX(*d.X)`) instead of `SetNillableX` — `*EntityUpsert` has no `SetNillable*` methods
 - `(*UserUpdate).ApplyDomain` does not call virtual field transformer hooks — transformer setters are typed to `*UserUpdateOne`
 - `Optional()` fields without `.Nillable()` are stored as base types in ent (`string`, `int`, …) but mapped to pointers in the domain struct by taking their address — `&e.Bio`. The zero value is never nil in this case; use `.Nillable()` in the schema if you need nil-distinguishable optionals
-- `WithNoBulk` is configured at extension level, not per schema — keeps schema annotations focused on domain shape, not generation policy
+- `WithNoBulk` is configured at extension level, not per schema — keeps schema annotations focused on domain shape, not generation policy; it also suppresses `*EntityUpsertBulk.ApplyDomain`
+- Upsert generation is auto-detected from `gen.Config.Features` — no entdomain annotation or config option is needed
 
 See [`adr/001-entdomain-extension.md`](adr/001-entdomain-extension.md) for the full design rationale.

@@ -219,6 +219,52 @@ func TestTemplate_UpdateBulkDomain(t *testing.T) {
 	})
 }
 
+func TestTemplate_ApplyDomain_Upsert(t *testing.T) {
+	f := entDomainFile(t)
+
+	t.Run("UserUpsertOne.ApplyDomain exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserUpsertOne", "ApplyDomain")
+		require.NotNil(t, fd, "(*UserUpsertOne).ApplyDomain() must be declared")
+	})
+
+	t.Run("UserUpsertBulk.ApplyDomain exists (User is not NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserUpsertBulk", "ApplyDomain")
+		require.NotNil(t, fd, "(*UserUpsertBulk).ApplyDomain() must be declared")
+	})
+
+	t.Run("PostUpsertBulk.ApplyDomain absent (Post has NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "*PostUpsertBulk", "ApplyDomain")
+		assert.Nil(t, fd, "(*PostUpsertBulk).ApplyDomain() must not be generated when NoBulk() is set")
+	})
+
+	t.Run("nillable fields use && nil guard, not SetNillable", func(t *testing.T) {
+		body := methodBodySource(t, "*UserUpsertOne", "ApplyDomain")
+		require.NotEmpty(t, body)
+		assert.Contains(t, body, "d.Bio != nil", "bio must use nil guard in upsert")
+		assert.Contains(t, body, "d.Score != nil", "score must use nil guard in upsert")
+		assert.NotContains(t, body, "SetNillable", "upsert must not use SetNillable*")
+	})
+
+	t.Run("immutable field CreatedAt absent from upsert body", func(t *testing.T) {
+		body := methodBodySource(t, "*UserUpsertOne", "ApplyDomain")
+		require.NotEmpty(t, body)
+		assert.NotContains(t, body, "SetCreatedAt", "immutable field must be absent from upsert body")
+	})
+
+	t.Run("edge IDs absent from upsert body", func(t *testing.T) {
+		body := methodBodySource(t, "*UserUpsertOne", "ApplyDomain")
+		require.NotEmpty(t, body)
+		assert.NotContains(t, body, "PostIDs", "edge IDs must be absent from upsert body")
+		assert.NotContains(t, body, "TagIDs", "edge IDs must be absent from upsert body")
+	})
+
+	t.Run("virtual field transformer absent from upsert body", func(t *testing.T) {
+		body := methodBodySource(t, "*UserUpsertOne", "ApplyDomain")
+		require.NotEmpty(t, body)
+		assert.NotContains(t, body, "Transformer", "virtual field transformer must be absent from upsert body")
+	})
+}
+
 func TestTemplate_TransformerVar(t *testing.T) {
 	f := entDomainFile(t)
 

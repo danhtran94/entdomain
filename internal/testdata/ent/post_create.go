@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
@@ -18,6 +19,7 @@ type PostCreate struct {
 	config
 	mutation *PostMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetTitle sets the "title" field.
@@ -149,6 +151,7 @@ func (_c *PostCreate) createSpec() (*Post, *sqlgraph.CreateSpec) {
 		_node = &Post{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(post.Table, sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt))
 	)
+	_spec.OnConflict = _c.conflict
 	if value, ok := _c.mutation.Title(); ok {
 		_spec.SetField(post.FieldTitle, field.TypeString, value)
 		_node.Title = value
@@ -193,11 +196,186 @@ func (_c *PostCreate) createSpec() (*Post, *sqlgraph.CreateSpec) {
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.Post.Create().
+//		SetTitle(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.PostUpsert) {
+//			SetTitle(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *PostCreate) OnConflict(opts ...sql.ConflictOption) *PostUpsertOne {
+	_c.conflict = opts
+	return &PostUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.Post.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *PostCreate) OnConflictColumns(columns ...string) *PostUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &PostUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// PostUpsertOne is the builder for "upsert"-ing
+	//  one Post node.
+	PostUpsertOne struct {
+		create *PostCreate
+	}
+
+	// PostUpsert is the "OnConflict" setter.
+	PostUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetTitle sets the "title" field.
+func (u *PostUpsert) SetTitle(v string) *PostUpsert {
+	u.Set(post.FieldTitle, v)
+	return u
+}
+
+// UpdateTitle sets the "title" field to the value that was provided on create.
+func (u *PostUpsert) UpdateTitle() *PostUpsert {
+	u.SetExcluded(post.FieldTitle)
+	return u
+}
+
+// SetPublished sets the "published" field.
+func (u *PostUpsert) SetPublished(v bool) *PostUpsert {
+	u.Set(post.FieldPublished, v)
+	return u
+}
+
+// UpdatePublished sets the "published" field to the value that was provided on create.
+func (u *PostUpsert) UpdatePublished() *PostUpsert {
+	u.SetExcluded(post.FieldPublished)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create.
+// Using this option is equivalent to using:
+//
+//	client.Post.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *PostUpsertOne) UpdateNewValues() *PostUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.Post.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *PostUpsertOne) Ignore() *PostUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *PostUpsertOne) DoNothing() *PostUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the PostCreate.OnConflict
+// documentation for more info.
+func (u *PostUpsertOne) Update(set func(*PostUpsert)) *PostUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&PostUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTitle sets the "title" field.
+func (u *PostUpsertOne) SetTitle(v string) *PostUpsertOne {
+	return u.Update(func(s *PostUpsert) {
+		s.SetTitle(v)
+	})
+}
+
+// UpdateTitle sets the "title" field to the value that was provided on create.
+func (u *PostUpsertOne) UpdateTitle() *PostUpsertOne {
+	return u.Update(func(s *PostUpsert) {
+		s.UpdateTitle()
+	})
+}
+
+// SetPublished sets the "published" field.
+func (u *PostUpsertOne) SetPublished(v bool) *PostUpsertOne {
+	return u.Update(func(s *PostUpsert) {
+		s.SetPublished(v)
+	})
+}
+
+// UpdatePublished sets the "published" field to the value that was provided on create.
+func (u *PostUpsertOne) UpdatePublished() *PostUpsertOne {
+	return u.Update(func(s *PostUpsert) {
+		s.UpdatePublished()
+	})
+}
+
+// Exec executes the query.
+func (u *PostUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for PostCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *PostUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *PostUpsertOne) ID(ctx context.Context) (id int, err error) {
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *PostUpsertOne) IDX(ctx context.Context) int {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // PostCreateBulk is the builder for creating many Post entities in bulk.
 type PostCreateBulk struct {
 	config
 	err      error
 	builders []*PostCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the Post entities in the database.
@@ -227,6 +405,7 @@ func (_c *PostCreateBulk) Save(ctx context.Context) ([]*Post, error) {
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -277,6 +456,138 @@ func (_c *PostCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *PostCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.Post.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.PostUpsert) {
+//			SetTitle(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *PostCreateBulk) OnConflict(opts ...sql.ConflictOption) *PostUpsertBulk {
+	_c.conflict = opts
+	return &PostUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.Post.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *PostCreateBulk) OnConflictColumns(columns ...string) *PostUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &PostUpsertBulk{
+		create: _c,
+	}
+}
+
+// PostUpsertBulk is the builder for "upsert"-ing
+// a bulk of Post nodes.
+type PostUpsertBulk struct {
+	create *PostCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.Post.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *PostUpsertBulk) UpdateNewValues() *PostUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.Post.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *PostUpsertBulk) Ignore() *PostUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *PostUpsertBulk) DoNothing() *PostUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the PostCreateBulk.OnConflict
+// documentation for more info.
+func (u *PostUpsertBulk) Update(set func(*PostUpsert)) *PostUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&PostUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTitle sets the "title" field.
+func (u *PostUpsertBulk) SetTitle(v string) *PostUpsertBulk {
+	return u.Update(func(s *PostUpsert) {
+		s.SetTitle(v)
+	})
+}
+
+// UpdateTitle sets the "title" field to the value that was provided on create.
+func (u *PostUpsertBulk) UpdateTitle() *PostUpsertBulk {
+	return u.Update(func(s *PostUpsert) {
+		s.UpdateTitle()
+	})
+}
+
+// SetPublished sets the "published" field.
+func (u *PostUpsertBulk) SetPublished(v bool) *PostUpsertBulk {
+	return u.Update(func(s *PostUpsert) {
+		s.SetPublished(v)
+	})
+}
+
+// UpdatePublished sets the "published" field to the value that was provided on create.
+func (u *PostUpsertBulk) UpdatePublished() *PostUpsertBulk {
+	return u.Update(func(s *PostUpsert) {
+		s.UpdatePublished()
+	})
+}
+
+// Exec executes the query.
+func (u *PostUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the PostCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for PostCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *PostUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

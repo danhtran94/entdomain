@@ -115,3 +115,21 @@ func ProtoStringToUUIDPtr(v *string) *uuid.UUID {
 	id := uuid.MustParse(*v)
 	return &id
 }
+
+// UuidSliceToStringSlice converts []uuid.UUID to []string.
+func UuidSliceToStringSlice(vs []uuid.UUID) []string {
+	result := make([]string, len(vs))
+	for i, v := range vs {
+		result[i] = v.String()
+	}
+	return result
+}
+
+// StringSliceToUUIDSlice converts []string to []uuid.UUID.
+func StringSliceToUUIDSlice(vs []string) []uuid.UUID {
+	result := make([]uuid.UUID, len(vs))
+	for i, v := range vs {
+		result[i] = uuid.MustParse(v)
+	}
+	return result
+}

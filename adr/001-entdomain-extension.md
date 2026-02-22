@@ -138,7 +138,7 @@ type UserList []*User
 
 ### Generated Mapping Methods (`ent/domain.go`)
 
-Five methods are generated per entity on the ent-generated types. All entities are emitted into a single `ent/domain.go` file.
+Up to seven methods are generated per entity on the ent-generated types. All entities are emitted into a single `ent/domain.go` file. The two upsert methods (5 and 6) are only generated when `gen.FeatureUpsert` is present in `gen.Config.Features`.
 
 #### 1. Read — `*ent.User → *domain.User`
 
@@ -257,11 +257,83 @@ client.User.Update().
     ExecX(ctx)
 ```
 
+#### 5. Upsert (single) — `*ent.UserUpsertOne ← *domain.User`
+
+Generated only when `gen.FeatureUpsert` is enabled in `gen.Config.Features`. Entdomain auto-detects the feature — no annotation or config option is needed. The method wraps `u.Update(func(uu *UserUpsert) {...})` and applies scalar fields only.
+
+`*UserUpsert` has no `SetNillableX` methods, so nillable fields use an explicit nil guard with dereference. Edge IDs, immutable fields, and virtual fields are all excluded (ent's upsert type does not support edge or transformer setter calls).
+
+```go
+func (u *UserUpsertOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertOne {
+    cfg := entdomain.NewApplyConfig(opts...)
+    _ = cfg
+    return u.Update(func(uu *UserUpsert) {
+        if cfg.ShouldApply("name", d.Name) {
+            uu.SetName(d.Name)
+        }
+        // nillable scalar — nil guard + dereference (no SetNillable* on *UserUpsert)
+        if cfg.ShouldApplyPtr("bio", d.Bio) && d.Bio != nil {
+            uu.SetBio(*d.Bio)
+        }
+        // enum
+        if cfg.ShouldApply("status", d.Status) {
+            uu.SetStatus(user.Status(d.Status))
+        }
+        // immutable fields (created_at, username) — excluded
+        // edge IDs (post_ids, tag_ids) — excluded
+        // virtual fields — excluded
+    })
+}
+```
+
+Usage:
+```go
+client.User.Create().
+    ApplyDomain(d).
+    OnConflict(sql.ConflictColumns("username")).
+    ApplyDomain(d).
+    Exec(ctx)
+```
+
+#### 6. Upsert (bulk) — `*ent.UserUpsertBulk ← *domain.User`
+
+Same body as `UpsertOne`, applied to the bulk upsert builder. Suppressed for entities with `WithNoBulk` set — consistent with the existing `CreateBulkDomain` / `UpdateBulkDomain` gating.
+
+```go
+func (u *UserUpsertBulk) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertBulk {
+    cfg := entdomain.NewApplyConfig(opts...)
+    _ = cfg
+    return u.Update(func(uu *UserUpsert) {
+        // identical body to UpsertOne
+    })
+}
+```
+
+Usage:
+```go
+client.User.CreateBulkDomain(ds).
+    OnConflict(sql.ConflictColumns("username")).
+    ApplyDomain(ds[0]).
+    Exec(ctx)
+```
+
+#### Field Handling Comparison
+
+| Field type | Create | UpdateOne / Update | UpsertOne / UpsertBulk |
+|---|---|---|---|
+| Non-nillable scalar | `c.SetX(val)` | `u.SetX(val)` | `uu.SetX(val)` |
+| Non-nillable enum | `c.SetX(EntType(val))` | `u.SetX(EntType(val))` | `uu.SetX(EntType(val))` |
+| Nillable scalar | `c.SetNillableX(ptr)` | `u.SetNillableX(ptr)` | `if ptr != nil { uu.SetX(*ptr) }` |
+| Nillable enum | `c.SetNillableX(&entVal)` | `u.SetNillableX(&entVal)` | `if ptr != nil { uu.SetX(EntType(*ptr)) }` |
+| Immutable | included | **skipped** | **skipped** |
+| Edge IDs | included | replace / append | **skipped** |
+| Virtual fields | transformer | transformer | **skipped** |
+
 ---
 
 ### Bulk Operations
 
-Generated unless `WithNoBulk` is set for the entity.
+Generated unless `WithNoBulk` is set for the entity. Note: `XxxUpsertBulk.ApplyDomain` is also suppressed by `WithNoBulk` — see section 6 above.
 
 #### Slice mapper — `ent.Users → domain.UserList`
 
@@ -481,6 +553,7 @@ func (r *UserRepo) DeactivateAll(ctx context.Context) error {
 - Typed field constants provide **IDE autocomplete and refactor safety** for apply options
 - Bulk helpers eliminate boilerplate loops in repository adapters
 - Consistent pattern across all entities reduces boilerplate in repository adapters
+- Upsert `ApplyDomain` is **zero-config** — auto-detected from `gen.Config.Features`; the upsert story is complete with no additional annotation or config option
 
 ### Trade-offs
 - Virtual fields and nested edges require **manual hydration** after `ToDomain()` — caller must know what was eagerly loaded
@@ -489,6 +562,7 @@ func (r *UserRepo) DeactivateAll(ctx context.Context) error {
 - Transformer interface requires **app-startup wiring** — easy to forget in tests or secondary binaries
 - Nested edge mutations remain **fully manual** — no generation support, by design
 - `(*UserUpdate).ApplyDomain` does not call virtual field transformer hooks — transformer setters are typed to `*UserUpdateOne`
+- Upsert `ApplyDomain` **cannot set edge IDs or call transformers** — ent's `*EntityUpsert` type only exposes scalar/enum setters; these constraints are inherent to the ent upsert API and not a design choice of entdomain
 
 ### Out of Scope
 - Repository interface generation (managed manually by developers)

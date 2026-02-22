@@ -270,6 +270,80 @@ func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
     return u
 }
 
+{{- if hasUpsert $ }}
+// ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}UpsertOne builder on conflict.
+func (u *{{ $n.Name }}UpsertOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpsertOne {
+    cfg := entdomain.NewApplyConfig(opts...)
+    _ = cfg
+    return u.Update(func(uu *{{ $n.Name }}Upsert) {
+        {{- range $f := $n.Fields }}
+        {{- if not $f.IsEdgeField }}
+        {{- if not $f.Immutable }}
+        {{- if isNillable $f }}
+        {{- if isEnum $f }}
+        if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+            uu.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }}))
+        }
+        {{- else }}
+        if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+            uu.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
+        }
+        {{- end }}
+        {{- else }}
+        {{- if isEnum $f }}
+        if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+            uu.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(d.{{ $f.StructField }}))
+        }
+        {{- else }}
+        if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+            uu.Set{{ $f.StructField }}(d.{{ $f.StructField }})
+        }
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+    })
+}
+
+{{- if not $ant.NoBulk }}
+// ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}UpsertBulk builder on conflict.
+func (u *{{ $n.Name }}UpsertBulk) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpsertBulk {
+    cfg := entdomain.NewApplyConfig(opts...)
+    _ = cfg
+    return u.Update(func(uu *{{ $n.Name }}Upsert) {
+        {{- range $f := $n.Fields }}
+        {{- if not $f.IsEdgeField }}
+        {{- if not $f.Immutable }}
+        {{- if isNillable $f }}
+        {{- if isEnum $f }}
+        if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+            uu.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }}))
+        }
+        {{- else }}
+        if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+            uu.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
+        }
+        {{- end }}
+        {{- else }}
+        {{- if isEnum $f }}
+        if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+            uu.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(d.{{ $f.StructField }}))
+        }
+        {{- else }}
+        if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
+            uu.Set{{ $f.StructField }}(d.{{ $f.StructField }})
+        }
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+    })
+}
+{{- end }}
+{{- end }}
+
 // ToDomain maps a slice of ent {{ $n.Name }} to {{ $pkgName }}.{{ $n.Name }}List.
 func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
     ds := make({{ $pkgName }}.{{ $n.Name }}List, len(es))

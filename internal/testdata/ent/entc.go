@@ -25,7 +25,9 @@ func main() {
 		log.Fatalf("creating entdomain extension: %v", err)
 	}
 	if err := entc.Generate("./schema",
-		&gen.Config{},
+		&gen.Config{
+			Features: []gen.Feature{gen.FeatureUpsert},
+		},
 		entc.Extensions(ex),
 	); err != nil {
 		log.Fatalf("running ent codegen: %v", err)

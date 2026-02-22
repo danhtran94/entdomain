@@ -95,6 +95,20 @@ func (u *PostUpdate) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) 
 	return u
 }
 
+// ApplyDomain applies domain.Post fields to the PostUpsertOne builder on conflict.
+func (u *PostUpsertOne) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) *PostUpsertOne {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	return u.Update(func(uu *PostUpsert) {
+		if cfg.ShouldApply("title", d.Title) {
+			uu.SetTitle(d.Title)
+		}
+		if cfg.ShouldApply("published", d.Published) {
+			uu.SetPublished(d.Published)
+		}
+	})
+}
+
 // ToDomain maps a slice of ent Post to domain.PostList.
 func (es Posts) ToDomain() domain.PostList {
 	ds := make(domain.PostList, len(es))
@@ -171,6 +185,28 @@ func (u *TagUpdate) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *T
 		u = u.ClearUsers().AddUserIDs(d.UserIDs...)
 	}
 	return u
+}
+
+// ApplyDomain applies domain.Tag fields to the TagUpsertOne builder on conflict.
+func (u *TagUpsertOne) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *TagUpsertOne {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	return u.Update(func(uu *TagUpsert) {
+		if cfg.ShouldApply("name", d.Name) {
+			uu.SetName(d.Name)
+		}
+	})
+}
+
+// ApplyDomain applies domain.Tag fields to the TagUpsertBulk builder on conflict.
+func (u *TagUpsertBulk) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *TagUpsertBulk {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	return u.Update(func(uu *TagUpsert) {
+		if cfg.ShouldApply("name", d.Name) {
+			uu.SetName(d.Name)
+		}
+	})
 }
 
 // ToDomain maps a slice of ent Tag to domain.TagList.
@@ -456,6 +492,58 @@ func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 		u = u.ClearTags().AddTagIDs(d.TagIDs...)
 	}
 	return u
+}
+
+// ApplyDomain applies domain.User fields to the UserUpsertOne builder on conflict.
+func (u *UserUpsertOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertOne {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	return u.Update(func(uu *UserUpsert) {
+		if cfg.ShouldApply("name", d.Name) {
+			uu.SetName(d.Name)
+		}
+		if cfg.ShouldApplyPtr("bio", d.Bio) && d.Bio != nil {
+			uu.SetBio(*d.Bio)
+		}
+		if cfg.ShouldApply("status", d.Status) {
+			uu.SetStatus(user.Status(d.Status))
+		}
+		if cfg.ShouldApplyPtr("score", d.Score) && d.Score != nil {
+			uu.SetScore(*d.Score)
+		}
+		if cfg.ShouldApply("external_id", d.ExternalID) {
+			uu.SetExternalID(d.ExternalID)
+		}
+		if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) && d.UpdatedAt != nil {
+			uu.SetUpdatedAt(*d.UpdatedAt)
+		}
+	})
+}
+
+// ApplyDomain applies domain.User fields to the UserUpsertBulk builder on conflict.
+func (u *UserUpsertBulk) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertBulk {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	return u.Update(func(uu *UserUpsert) {
+		if cfg.ShouldApply("name", d.Name) {
+			uu.SetName(d.Name)
+		}
+		if cfg.ShouldApplyPtr("bio", d.Bio) && d.Bio != nil {
+			uu.SetBio(*d.Bio)
+		}
+		if cfg.ShouldApply("status", d.Status) {
+			uu.SetStatus(user.Status(d.Status))
+		}
+		if cfg.ShouldApplyPtr("score", d.Score) && d.Score != nil {
+			uu.SetScore(*d.Score)
+		}
+		if cfg.ShouldApply("external_id", d.ExternalID) {
+			uu.SetExternalID(d.ExternalID)
+		}
+		if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) && d.UpdatedAt != nil {
+			uu.SetUpdatedAt(*d.UpdatedAt)
+		}
+	})
 }
 
 // ToDomain maps a slice of ent User to domain.UserList.

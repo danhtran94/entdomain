@@ -18,6 +18,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -265,4 +266,32 @@ func TestGenerate_PostDomainStruct(t *testing.T) {
 		// plural From: IDs
 		assert.Equal(t, "[]int", findField(st, "PinnerIDs"))
 	})
+}
+
+// methodBodySource returns the source text of the body of the method with the given
+// receiver type and method name in internal/testdata/ent/domain.go. Returns "" if not found.
+func methodBodySource(t *testing.T, recv, method string) string {
+	t.Helper()
+	const file = "internal/testdata/ent/domain.go"
+	src, err := os.ReadFile(file)
+	require.NoError(t, err)
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, file, src, 0)
+	require.NoError(t, err)
+	for _, decl := range f.Decls {
+		fd, ok := decl.(*ast.FuncDecl)
+		if !ok || fd.Name.Name != method || fd.Recv == nil || len(fd.Recv.List) == 0 {
+			continue
+		}
+		if fieldTypeStr(fd.Recv.List[0].Type) != recv {
+			continue
+		}
+		if fd.Body == nil {
+			return ""
+		}
+		start := fset.Position(fd.Body.Pos()).Offset
+		end := fset.Position(fd.Body.End()).Offset
+		return string(src[start:end])
+	}
+	return ""
 }
