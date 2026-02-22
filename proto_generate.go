@@ -114,8 +114,13 @@ func generateProtoFiles(g *gen.Graph, cfg *ProtoConfig, outDir string) error {
 	}
 	sort.Strings(sortedImports)
 
+	pkgDecl := cfg.pkgName
+	if cfg.fullPkgName != "" {
+		pkgDecl = cfg.fullPkgName
+	}
+
 	fd := protoFileData{
-		PkgName:   cfg.pkgName,
+		PkgName:   pkgDecl,
 		GoPackage: cfg.goPackage,
 		Imports:   sortedImports,
 		Enums:     allEnums,

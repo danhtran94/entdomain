@@ -21,8 +21,9 @@ import (
 
 // ProtoConfig holds configuration for proto file generation.
 type ProtoConfig struct {
-	dir             string // relative to module root, e.g. "proto/entpb"
-	pkgName         string // proto package name, e.g. "entpb"
+	dir             string // relative to module root, e.g. "proto"
+	pkgName         string // directory suffix AND default proto package name, e.g. "entpb" or "v1"
+	fullPkgName     string // optional override for the proto `package` declaration, e.g. "entminimal.v1"
 	goPackage       string // go_package option, e.g. "github.com/example/proto/entpb;entpb"
 	helpersInDomain bool   // when true, mappers+helpers are generated flat in the domain package; default: domain/pbmap/ subpackage
 }
@@ -43,6 +44,14 @@ func WithProtoPackageName(name string) ProtoOption {
 // WithProtoGoPackage sets the go_package proto option value.
 func WithProtoGoPackage(goPackage string) ProtoOption {
 	return func(c *ProtoConfig) { c.goPackage = goPackage }
+}
+
+// WithProtoFullPackageName overrides the proto `package` declaration written into the
+// generated .proto file. By default the declaration uses pkgName (the directory suffix),
+// e.g. "entpb". Use this when the proto package name differs from the directory name,
+// e.g. WithProtoPackageName("v1") + WithProtoFullPackageName("entminimal.v1").
+func WithProtoFullPackageName(name string) ProtoOption {
+	return func(c *ProtoConfig) { c.fullPkgName = name }
 }
 
 // WithProtoHelpersInDomain places the generated proto helper functions (toInt64Slice, etc.)
