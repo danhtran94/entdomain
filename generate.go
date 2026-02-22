@@ -72,7 +72,7 @@ func generateDomainFiles(g *gen.Graph, pkgPath, pkgName string) error {
 		if err != nil {
 			return fmt.Errorf("entdomain: render domain file for %s: %w", t.Name, err)
 		}
-		outPath := filepath.Join(outDir, strings.ToLower(t.Name)+".go")
+		outPath := filepath.Join(outDir, strings.ToLower(t.Name)+"_gen.go")
 		if err := os.WriteFile(outPath, src, 0644); err != nil {
 			return fmt.Errorf("entdomain: write domain file %s: %w", outPath, err)
 		}
