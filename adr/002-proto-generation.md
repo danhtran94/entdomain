@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -41,7 +41,6 @@ entdomain.NewExtension(
         entdomain.WithProtoDir("proto"),           // output dir, relative to module root
         entdomain.WithProtoPackageName("entpb"),   // proto package name
         entdomain.WithProtoGoPackage("github.com/myorg/myrepo/proto/entpb;entpb"), // optional, auto-computed if omitted
-        entdomain.WithProtoSplitFiles(),           // one file per entity; default: single ent_messages.proto
     ),
 )
 ```
@@ -182,11 +181,7 @@ Well-known mappings are registered in a table and extended over time without API
 ```
 proto/entpb/                         ← configurable via WithProtoDir + WithProtoPackageName
   .entdomain.lock.json               ← field number registry, MUST be committed to source control
-  ent_messages.proto                 ← generated (default: single file)
-
-  # or with WithProtoSplitFiles():
-  user_messages.proto
-  post_messages.proto
+  ent_messages.proto                 ← single generated proto file (all entities)
 
 internal/domain/
   user_gen.go                        ← existing: pure Go domain struct
@@ -198,7 +193,7 @@ internal/domain/
     proto_helpers_gen.go             ← shared conversion helpers (ToInt64Slice, etc.)
 ```
 
-`pbmap` is a separate package that imports both the domain package and the proto package, keeping each side free of the other's dependency. Use `WithProtoHelpersInDomain()` to place mappers flat in the domain package instead (legacy mode).
+`pbmap` is a separate package that imports both the domain package and the proto package, keeping each side free of the other's dependency.
 
 ---
 
@@ -256,6 +251,13 @@ enum UserStatus {
   USER_STATUS_INACTIVE    = 2;
 }
 
+message Post {
+  int64          id        = 1;
+  int64          owner_id  = 2;
+  bool           published = 3;
+  string         title     = 4;
+}
+
 message User {
   int64                     id         = 1;
   string                    name       = 2;
@@ -265,8 +267,11 @@ message User {
   string                    full_name  = 6;  // virtual field: entdomain.String
   bool                      is_premium = 7;  // virtual field: entdomain.Bool
   repeated int64            post_ids   = 8;  // IDs edge
+  repeated Post             posts      = 9;  // Nest edge — embedded message
 }
 ```
+
+Nest fields (`repeated Post posts`) are included by default. If two entities mutually nest each other, proto3 supports the circular type reference at the wire level. Developers apply `SkipProto()` when they want to break the cycle in the generated proto.
 
 ---
 
@@ -399,16 +404,6 @@ Score: FromInt64Ptr(p.Score),          // *int64   → *int
 
 Note: `Optional()` without `Nillable()` in ent produces a `*string` in the domain struct (address of the zero value) — it is never nil in practice, but the proto declaration is still `optional string` to correctly represent the field semantics.
 
-Optional enum fields require a pointer cast helper since domain and proto enum types differ:
-
-```go
-// ToProto
-Status: (*entpb.UserStatus)(unsafe.Pointer(d.Status))  // or a named cast helper
-
-// FromProto
-Status: (*domain.UserStatus)(unsafe.Pointer(p.Status))
-```
-
 ---
 
 ### Edge Mapping in Proto
@@ -420,7 +415,7 @@ All annotated edges are included in the proto message by default. Developers app
 | Plural `IDs()` | `PostIDs []int` | `repeated int64 post_ids = N` |
 | Singular `IDs()` | `OwnerID int` | `int64 owner_id = N` |
 | Plural `Nest()` | `Posts PostList` | `repeated Post posts = N` |
-| Singular `Nest()` | `PinnedPost Post` | `Post pinned_post = N` |
+| Singular `Nest()` | `PinnedPost *Post` | `Post pinned_post = N` |
 | `IDs() + Nest()` | `PostIDs []int` + `Posts PostList` | both fields in proto |
 | `SkipProto()` | any | **excluded** |
 

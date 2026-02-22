@@ -141,16 +141,17 @@ const (
 )
 
 type User struct {
-    ID        int
-    Name      string
-    Bio       *string        // optional → pointer
-    Status    UserStatus
-    CreatedAt time.Time
-    PostIDs   []int          // IDs edge
-    Posts     []Post         // Nest edge
-    FullName  string         // virtual field
-    IsPremium bool           // virtual field
-    Metadata  map[string]any // virtual field
+    ID          int
+    Name        string
+    Bio         *string        // optional → pointer
+    Status      UserStatus
+    CreatedAt   time.Time
+    PostIDs     []int          // IDs edge
+    Posts       PostList       // Nest edge (plural)
+    PinnedPost  *Post          // Nest edge (singular) → pointer
+    FullName    string         // virtual field
+    IsPremium   bool           // virtual field
+    Metadata    map[string]any // virtual field
 }
 
 // UserList is generated unless WithNoBulk is set for the entity.
@@ -319,6 +320,124 @@ func (r *UserRepo) DeactivateAll(ctx context.Context) error {
         Exec(ctx)
 }
 ```
+
+## Proto Generation
+
+entdomain can generate `.proto` message files and domain↔proto mappers alongside the existing domain layer. This is opt-in and keeps the domain package itself proto-free.
+
+### Enable in `entc.go`
+
+```go
+ex, err := entdomain.NewExtension(
+    entdomain.WithPackagePath("internal/domain"),
+    entdomain.WithPackageName("domain"),
+
+    entdomain.WithProto(
+        entdomain.WithProtoDir("proto"),              // output dir, relative to module root
+        entdomain.WithProtoPackageName("entpb"),      // proto package name
+        entdomain.WithProtoGoPackage("github.com/myorg/myrepo/proto/entpb;entpb"),
+    ),
+)
+```
+
+### Generated Output
+
+```
+proto/entpb/
+  .entdomain.lock.json     ← stable field number registry — commit this file
+  ent_messages.proto       ← all entity messages in one file
+
+internal/domain/
+  pbmap/                   ← domain ↔ proto mappers (package pbmap)
+    user_proto_gen.go
+    post_proto_gen.go
+    proto_helpers_gen.go   ← shared helpers (ToInt64Slice, etc.)
+```
+
+### Mapper Usage
+
+```go
+import "github.com/myorg/myrepo/internal/domain/pbmap"
+
+// domain → proto
+p := pbmap.UserToProto(user)
+ps := pbmap.UserListToProto(users)
+
+// proto → domain
+d := pbmap.UserFromProto(req.User)
+ds := pbmap.UserListFromProto(req.Users)
+```
+
+### Field Opt-out (`SkipProto`)
+
+Any ent field or edge can be excluded from proto output:
+
+```go
+func (User) Fields() []ent.Field {
+    return []ent.Field{
+        field.String("name"),
+        field.String("password_hash").
+            Annotations(entdomain.Field(entdomain.SkipProto())),
+    }
+}
+
+func (User) Edges() []ent.Edge {
+    return []ent.Edge{
+        // Break a mutual Nest cycle on one side:
+        edge.From("owner", User.Type).Ref("posts").Unique().
+            Annotations(
+                entdomain.Edge(entdomain.IDs(), entdomain.Nest()),
+                entdomain.Field(entdomain.SkipProto()),
+            ),
+    }
+}
+```
+
+### Custom Proto Type for Virtual Fields
+
+Virtual fields with a `GoType` that has no well-known proto mapping are silently excluded from proto output. Supply an explicit type to include them:
+
+```go
+entdomain.VirtualField("amount",
+    entdomain.GoType("github.com/shopspring/decimal", "Decimal"),
+    entdomain.ProtoType("google.type.Money", "google/type/money.proto"),
+),
+```
+
+### Built-in Auto-Mappings
+
+| entdomain / ent type | Proto type | Import |
+|---|---|---|
+| `entdomain.String` | `string` | — |
+| `entdomain.Bool` | `bool` | — |
+| `entdomain.Int` | `int64` | — |
+| `entdomain.Float64` | `double` | — |
+| `GoType("time", "Time")` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
+| `GoType("time", "Duration")` | `google.protobuf.Duration` | `google/protobuf/duration.proto` |
+| `GoType("github.com/google/uuid", "UUID")` | `string` | — |
+| `field.Time(...)` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
+| `field.UUID(...)` | `string` | — |
+| `field.Enum(...)` | top-level enum | — |
+| `field.JSON(...)` | **excluded** | — |
+
+### Nest Edges in Proto
+
+Nest edges are included in the proto output by default, generating embedded messages:
+
+```protobuf
+message User {
+  repeated int64 post_ids = 8;   // IDs edge
+  repeated Post  posts    = 9;   // Nest edge
+}
+```
+
+Proto3 supports circular message types at the wire level (e.g. `User` nests `Tag` and `Tag` nests `User`). Use `SkipProto()` on one side to break the cycle in the generated proto if desired.
+
+### Field Number Stability
+
+Proto field numbers are tracked in `.entdomain.lock.json`. Commit this file — it ensures wire compatibility across schema changes. Removed fields are permanently reserved and never reused.
+
+---
 
 ## Design Notes
 
