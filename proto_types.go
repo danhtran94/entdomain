@@ -44,6 +44,10 @@ type ProtoFieldSpec struct {
 	FromProtoExpr string
 	// EnumTypeName is the proto enum type name (e.g., "UserStatus"). Only set when IsEnum=true.
 	EnumTypeName string
+	// NestEntityName is set for Nest edge specs and holds the referenced entity type name
+	// (e.g., "Post"). The mapper uses it to build mode-appropriate converter calls
+	// (e.g., PostToProto / PostFromProto in subpackage mode).
+	NestEntityName string
 }
 
 // wellKnownGoTypeMap maps (pkgPath, typeName) → proto type + proto import.
@@ -55,13 +59,27 @@ var wellKnownGoTypeMap = map[[2]string][2]string{
 
 // resolveEntFieldProtoSpec resolves the proto spec for a regular ent schema field.
 // Resolution order:
-//  1. SkipProto annotation → IsExcluded
+//  1. TypeUUID → explicit string with conversion expressions
 //  2. TypeJSON / TypeBytes / TypeOther → IsExcluded
 //  3. Custom GoType → attempt well-known map or exclude
 //  4. TypeEnum → proto enum
 //  5. Primitive types → direct mapping
 func resolveEntFieldProtoSpec(entityName string, f *gen.Field) ProtoFieldSpec {
 	optional := f.Optional || f.Nillable
+
+	// UUID fields: always use string representation with explicit converters.
+	// Check this BEFORE HasGoType since ent represents uuid fields as a GoType.
+	if f.Type.Type == field.TypeUUID {
+		spec := ProtoFieldSpec{ProtoType: "string", IsOptional: optional}
+		if optional {
+			spec.ToProtoExpr = "uuidPtrToProtoString(%s)"
+			spec.FromProtoExpr = "protoStringToUUIDPtr(%s)"
+		} else {
+			spec.ToProtoExpr = "%s.String()"
+			spec.FromProtoExpr = "uuid.MustParse(%s)"
+		}
+		return spec
+	}
 
 	// Custom Go type: try well-known map, else exclude.
 	if f.HasGoType() && f.Type.RType != nil {
@@ -271,8 +289,20 @@ func resolveEdgeProtoSpec(e *gen.Edge, ea *EdgeAnnotation, fa *FieldAnnotation) 
 	}
 
 	if ea.HasNest() {
-		// Nested structs are always excluded from proto to avoid circular references.
-		specs = append(specs, ProtoFieldSpec{IsExcluded: true})
+		if skipAll {
+			specs = append(specs, ProtoFieldSpec{IsExcluded: true})
+		} else if e.Unique {
+			specs = append(specs, ProtoFieldSpec{
+				ProtoType:      e.Type.Name,
+				NestEntityName: e.Type.Name,
+			})
+		} else {
+			specs = append(specs, ProtoFieldSpec{
+				ProtoType:      e.Type.Name,
+				IsRepeated:     true,
+				NestEntityName: e.Type.Name,
+			})
+		}
 	}
 
 	return specs

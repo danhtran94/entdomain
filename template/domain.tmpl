@@ -102,7 +102,7 @@ func (e *{{ $n.Name }}) ToDomain() *{{ $pkgName }}.{{ $n.Name }} {
         d.{{ pascal $e.Name }}ID = _e.ID
         {{- end }}
         {{- if $ea.HasNest }}
-        d.{{ pascal $e.Name }} = *_e.ToDomain()
+        d.{{ pascal $e.Name }} = _e.ToDomain()
         {{- end }}
     }
     {{- else }}

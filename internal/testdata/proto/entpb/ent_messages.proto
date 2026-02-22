@@ -7,6 +7,7 @@ package entpb;
 
 option go_package = "github.com/danhtran94/entdomain/internal/testdata/proto/entpb;entpb";
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 enum UserStatus {
@@ -23,6 +24,13 @@ message Post {
   string title = 5;
 }
 
+message Tag {
+  int64 id = 1;
+  string name = 2;
+  repeated int64 user_ids = 3;
+  repeated User users = 4;
+}
+
 message User {
   int64 id = 1;
   optional string bio = 2;
@@ -34,5 +42,13 @@ message User {
   repeated int64 post_ids = 8;
   optional int64 score = 9;
   UserStatus status = 10;
+  string external_id = 11;
+  google.protobuf.Duration subscription_duration = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  int64 pinned_post_id = 14;
+  repeated int64 tag_ids = 15;
+  Post pinned_post = 16;
+  repeated Post posts = 17;
+  repeated Tag tags = 18;
 }
 

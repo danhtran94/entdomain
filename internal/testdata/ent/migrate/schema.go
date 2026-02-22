@@ -29,6 +29,17 @@ var (
 			},
 		},
 	}
+	// TagsColumns holds the columns for the "tags" table.
+	TagsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString},
+	}
+	// TagsTable holds the schema information for the "tags" table.
+	TagsTable = &schema.Table{
+		Name:       "tags",
+		Columns:    TagsColumns,
+		PrimaryKey: []*schema.Column{TagsColumns[0]},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -38,6 +49,8 @@ var (
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "username", Type: field.TypeString},
 		{Name: "score", Type: field.TypeInt, Nullable: true},
+		{Name: "external_id", Type: field.TypeUUID},
+		{Name: "updated_at", Type: field.TypeTime, Nullable: true},
 		{Name: "user_pinned_post", Type: field.TypeInt, Nullable: true},
 	}
 	// UsersTable holds the schema information for the "users" table.
@@ -48,20 +61,49 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_posts_pinned_post",
-				Columns:    []*schema.Column{UsersColumns[7]},
+				Columns:    []*schema.Column{UsersColumns[9]},
 				RefColumns: []*schema.Column{PostsColumns[0]},
 				OnDelete:   schema.SetNull,
+			},
+		},
+	}
+	// UserTagsColumns holds the columns for the "user_tags" table.
+	UserTagsColumns = []*schema.Column{
+		{Name: "user_id", Type: field.TypeInt},
+		{Name: "tag_id", Type: field.TypeInt},
+	}
+	// UserTagsTable holds the schema information for the "user_tags" table.
+	UserTagsTable = &schema.Table{
+		Name:       "user_tags",
+		Columns:    UserTagsColumns,
+		PrimaryKey: []*schema.Column{UserTagsColumns[0], UserTagsColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "user_tags_user_id",
+				Columns:    []*schema.Column{UserTagsColumns[0]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "user_tags_tag_id",
+				Columns:    []*schema.Column{UserTagsColumns[1]},
+				RefColumns: []*schema.Column{TagsColumns[0]},
+				OnDelete:   schema.Cascade,
 			},
 		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		PostsTable,
+		TagsTable,
 		UsersTable,
+		UserTagsTable,
 	}
 )
 
 func init() {
 	PostsTable.ForeignKeys[0].RefTable = UsersTable
 	UsersTable.ForeignKeys[0].RefTable = PostsTable
+	UserTagsTable.ForeignKeys[0].RefTable = UsersTable
+	UserTagsTable.ForeignKeys[1].RefTable = TagsTable
 }

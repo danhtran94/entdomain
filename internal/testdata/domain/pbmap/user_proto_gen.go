@@ -5,6 +5,8 @@ package pbmap
 import (
 	domain "github.com/danhtran94/entdomain/internal/testdata/domain"
 	entpb "github.com/danhtran94/entdomain/internal/testdata/proto/entpb"
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -36,16 +38,24 @@ func UserToProto(d *domain.User) *entpb.User {
 		return nil
 	}
 	return &entpb.User{
-		Id:        int64(d.ID),
-		Name:      d.Name,
-		Bio:       d.Bio,
-		Status:    userStatusToProto(d.Status),
-		CreatedAt: timestamppb.New(d.CreatedAt),
-		Score:     ToInt64Ptr(d.Score),
-		PostIds:   ToInt64Slice(d.PostIDs),
-		FullName:  d.FullName,
-		IsPremium: d.IsPremium,
-		ExpiresAt: timestamppb.New(d.ExpiresAt),
+		Id:                   int64(d.ID),
+		Name:                 d.Name,
+		Bio:                  d.Bio,
+		Status:               userStatusToProto(d.Status),
+		CreatedAt:            timestamppb.New(d.CreatedAt),
+		Score:                ToInt64Ptr(d.Score),
+		ExternalId:           d.ExternalID.String(),
+		UpdatedAt:            TimeToTimestampProto(d.UpdatedAt),
+		PostIds:              ToInt64Slice(d.PostIDs),
+		Posts:                PostListToProto(d.Posts),
+		PinnedPostId:         int64(d.PinnedPostID),
+		PinnedPost:           PostToProto(d.PinnedPost),
+		TagIds:               ToInt64Slice(d.TagIDs),
+		Tags:                 TagListToProto(d.Tags),
+		FullName:             d.FullName,
+		IsPremium:            d.IsPremium,
+		ExpiresAt:            timestamppb.New(d.ExpiresAt),
+		SubscriptionDuration: durationpb.New(d.SubscriptionDuration),
 	}
 }
 
@@ -55,16 +65,24 @@ func UserFromProto(p *entpb.User) *domain.User {
 		return nil
 	}
 	return &domain.User{
-		ID:        int(p.Id),
-		Name:      p.Name,
-		Bio:       p.Bio,
-		Status:    userStatusFromProto(p.Status),
-		CreatedAt: p.CreatedAt.AsTime(),
-		Score:     FromInt64Ptr(p.Score),
-		PostIDs:   FromInt64Slice(p.PostIds),
-		FullName:  p.FullName,
-		IsPremium: p.IsPremium,
-		ExpiresAt: p.ExpiresAt.AsTime(),
+		ID:                   int(p.Id),
+		Name:                 p.Name,
+		Bio:                  p.Bio,
+		Status:               userStatusFromProto(p.Status),
+		CreatedAt:            p.CreatedAt.AsTime(),
+		Score:                FromInt64Ptr(p.Score),
+		ExternalID:           uuid.MustParse(p.ExternalId),
+		UpdatedAt:            TimestampProtoToTime(p.UpdatedAt),
+		PostIDs:              FromInt64Slice(p.PostIds),
+		Posts:                PostListFromProto(p.Posts),
+		PinnedPostID:         int(p.PinnedPostId),
+		PinnedPost:           PostFromProto(p.PinnedPost),
+		TagIDs:               FromInt64Slice(p.TagIds),
+		Tags:                 TagListFromProto(p.Tags),
+		FullName:             p.FullName,
+		IsPremium:            p.IsPremium,
+		ExpiresAt:            p.ExpiresAt.AsTime(),
+		SubscriptionDuration: p.SubscriptionDuration.AsDuration(),
 	}
 }
 

@@ -104,33 +104,177 @@ func (es Posts) ToDomain() domain.PostList {
 	return ds
 }
 
+// TagDomainField is the type for Tag domain field constants.
+type TagDomainField = string
+
+const (
+	TagDomainFieldName    TagDomainField = "name"
+	TagDomainFieldUserIDs TagDomainField = "user_ids"
+)
+
+// TagDomainTransformer holds optional transformer functions for Tag → domain mapping.
+type TagDomainTransformer struct {
+}
+
+// TagTransformer is the package-level transformer for Tag (nil by default).
+var TagTransformer *TagDomainTransformer
+
+// ToDomain maps the ent Tag to a domain.Tag.
+func (e *Tag) ToDomain() *domain.Tag {
+	d := &domain.Tag{
+		ID:   e.ID,
+		Name: e.Name,
+	}
+	for _, _e := range e.Edges.Users {
+		d.UserIDs = append(d.UserIDs, _e.ID)
+		d.Users = append(d.Users, _e.ToDomain())
+	}
+	return d
+}
+
+// ApplyDomain applies domain.Tag fields to the TagCreate builder.
+func (c *TagCreate) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *TagCreate {
+	cfg := entdomain.NewApplyConfig(opts...)
+	if cfg.ShouldApply("name", d.Name) {
+		c = c.SetName(d.Name)
+	}
+	if len(d.UserIDs) > 0 {
+		c = c.AddUserIDs(d.UserIDs...)
+	}
+	return c
+}
+
+// ApplyDomain applies domain.Tag fields to the TagUpdateOne builder.
+func (u *TagUpdateOne) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *TagUpdateOne {
+	cfg := entdomain.NewApplyConfig(opts...)
+	if cfg.ShouldApply("name", d.Name) {
+		u = u.SetName(d.Name)
+	}
+	if cfg.IsAppendEdge("user_ids") {
+		u = u.AddUserIDs(d.UserIDs...)
+	} else {
+		u = u.ClearUsers().AddUserIDs(d.UserIDs...)
+	}
+	return u
+}
+
+// ApplyDomain applies domain.Tag fields to the TagUpdate builder.
+// Chain .Where(...) conditions to target specific records.
+func (u *TagUpdate) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *TagUpdate {
+	cfg := entdomain.NewApplyConfig(opts...)
+	if cfg.ShouldApply("name", d.Name) {
+		u = u.SetName(d.Name)
+	}
+	if cfg.IsAppendEdge("user_ids") {
+		u = u.AddUserIDs(d.UserIDs...)
+	} else {
+		u = u.ClearUsers().AddUserIDs(d.UserIDs...)
+	}
+	return u
+}
+
+// ToDomain maps a slice of ent Tag to domain.TagList.
+func (es Tags) ToDomain() domain.TagList {
+	ds := make(domain.TagList, len(es))
+	for i, e := range es {
+		ds[i] = e.ToDomain()
+	}
+	return ds
+}
+
+// CreateBulkDomain creates a TagCreateBulk from domain.TagList.
+func (c *TagClient) CreateBulkDomain(ds domain.TagList, opts ...entdomain.ApplyOption) *TagCreateBulk {
+	builders := make([]*TagCreate, len(ds))
+	for i := range ds {
+		builders[i] = c.Create().ApplyDomain(ds[i], opts...)
+	}
+	return c.CreateBulk(builders...)
+}
+
+// TagUpdateOneBulk holds a set of TagUpdateOne builders.
+type TagUpdateOneBulk struct {
+	builders []*TagUpdateOne
+}
+
+// Save executes all builders and returns the updated entities as domain.TagList.
+func (b *TagUpdateOneBulk) Save(ctx context.Context) (domain.TagList, error) {
+	result := make(domain.TagList, 0, len(b.builders))
+	for _, builder := range b.builders {
+		updated, err := builder.Save(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, updated.ToDomain())
+	}
+	return result, nil
+}
+
+// SaveX is like Save but panics on error.
+func (b *TagUpdateOneBulk) SaveX(ctx context.Context) domain.TagList {
+	result, err := b.Save(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+// Exec executes all builders without returning the updated entities.
+func (b *TagUpdateOneBulk) Exec(ctx context.Context) error {
+	_, err := b.Save(ctx)
+	return err
+}
+
+// ExecX is like Exec but panics on error.
+func (b *TagUpdateOneBulk) ExecX(ctx context.Context) {
+	if err := b.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// UpdateBulkDomain returns a TagUpdateOneBulk from domain.TagList.
+// Each builder is keyed on ds[i].ID.
+func (c *TagClient) UpdateBulkDomain(ds domain.TagList, opts ...entdomain.ApplyOption) *TagUpdateOneBulk {
+	builders := make([]*TagUpdateOne, len(ds))
+	for i := range ds {
+		builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(ds[i], opts...)
+	}
+	return &TagUpdateOneBulk{builders: builders}
+}
+
 // UserDomainField is the type for User domain field constants.
 type UserDomainField = string
 
 const (
-	UserDomainFieldName      UserDomainField = "name"
-	UserDomainFieldBio       UserDomainField = "bio"
-	UserDomainFieldStatus    UserDomainField = "status"
-	UserDomainFieldCreatedAt UserDomainField = "created_at"
-	UserDomainFieldUsername  UserDomainField = "username"
-	UserDomainFieldScore     UserDomainField = "score"
-	UserDomainFieldPostIDs   UserDomainField = "post_ids"
+	UserDomainFieldName         UserDomainField = "name"
+	UserDomainFieldBio          UserDomainField = "bio"
+	UserDomainFieldStatus       UserDomainField = "status"
+	UserDomainFieldCreatedAt    UserDomainField = "created_at"
+	UserDomainFieldUsername     UserDomainField = "username"
+	UserDomainFieldScore        UserDomainField = "score"
+	UserDomainFieldExternalID   UserDomainField = "external_id"
+	UserDomainFieldUpdatedAt    UserDomainField = "updated_at"
+	UserDomainFieldPostIDs      UserDomainField = "post_ids"
+	UserDomainFieldPinnedPostID UserDomainField = "pinned_post_id"
+	UserDomainFieldTagIDs       UserDomainField = "tag_ids"
 )
 
 // UserDomainTransformer holds optional transformer functions for User → domain mapping.
 type UserDomainTransformer struct {
-	GetFullName          func(e *User) string
-	SetFullNameOnCreate  func(c *UserCreate, val string)
-	SetFullNameOnUpdate  func(u *UserUpdateOne, val string)
-	GetIsPremium         func(e *User) bool
-	SetIsPremiumOnCreate func(c *UserCreate, val bool)
-	SetIsPremiumOnUpdate func(u *UserUpdateOne, val bool)
-	GetMetadata          func(e *User) map[string]any
-	SetMetadataOnCreate  func(c *UserCreate, val map[string]any)
-	SetMetadataOnUpdate  func(u *UserUpdateOne, val map[string]any)
-	GetExpiresAt         func(e *User) time.Time
-	SetExpiresAtOnCreate func(c *UserCreate, val time.Time)
-	SetExpiresAtOnUpdate func(u *UserUpdateOne, val time.Time)
+	GetFullName                     func(e *User) string
+	SetFullNameOnCreate             func(c *UserCreate, val string)
+	SetFullNameOnUpdate             func(u *UserUpdateOne, val string)
+	GetIsPremium                    func(e *User) bool
+	SetIsPremiumOnCreate            func(c *UserCreate, val bool)
+	SetIsPremiumOnUpdate            func(u *UserUpdateOne, val bool)
+	GetMetadata                     func(e *User) map[string]any
+	SetMetadataOnCreate             func(c *UserCreate, val map[string]any)
+	SetMetadataOnUpdate             func(u *UserUpdateOne, val map[string]any)
+	GetExpiresAt                    func(e *User) time.Time
+	SetExpiresAtOnCreate            func(c *UserCreate, val time.Time)
+	SetExpiresAtOnUpdate            func(u *UserUpdateOne, val time.Time)
+	GetSubscriptionDuration         func(e *User) time.Duration
+	SetSubscriptionDurationOnCreate func(c *UserCreate, val time.Duration)
+	SetSubscriptionDurationOnUpdate func(u *UserUpdateOne, val time.Duration)
 }
 
 // UserTransformer is the package-level transformer for User (nil by default).
@@ -139,20 +283,27 @@ var UserTransformer *UserDomainTransformer
 // ToDomain maps the ent User to a domain.User.
 func (e *User) ToDomain() *domain.User {
 	d := &domain.User{
-		ID:        e.ID,
-		Name:      e.Name,
-		Bio:       &e.Bio,
-		Status:    domain.UserStatus(e.Status),
-		CreatedAt: e.CreatedAt,
-		Username:  e.Username,
-		Score:     &e.Score,
+		ID:         e.ID,
+		Name:       e.Name,
+		Bio:        &e.Bio,
+		Status:     domain.UserStatus(e.Status),
+		CreatedAt:  e.CreatedAt,
+		Username:   e.Username,
+		Score:      &e.Score,
+		ExternalID: e.ExternalID,
+		UpdatedAt:  &e.UpdatedAt,
 	}
 	for _, _e := range e.Edges.Posts {
 		d.PostIDs = append(d.PostIDs, _e.ID)
 		d.Posts = append(d.Posts, _e.ToDomain())
 	}
 	if _e := e.Edges.PinnedPost; _e != nil {
-		d.PinnedPost = *_e.ToDomain()
+		d.PinnedPostID = _e.ID
+		d.PinnedPost = _e.ToDomain()
+	}
+	for _, _e := range e.Edges.Tags {
+		d.TagIDs = append(d.TagIDs, _e.ID)
+		d.Tags = append(d.Tags, _e.ToDomain())
 	}
 	if UserTransformer != nil && UserTransformer.GetFullName != nil {
 		d.FullName = UserTransformer.GetFullName(e)
@@ -165,6 +316,9 @@ func (e *User) ToDomain() *domain.User {
 	}
 	if UserTransformer != nil && UserTransformer.GetExpiresAt != nil {
 		d.ExpiresAt = UserTransformer.GetExpiresAt(e)
+	}
+	if UserTransformer != nil && UserTransformer.GetSubscriptionDuration != nil {
+		d.SubscriptionDuration = UserTransformer.GetSubscriptionDuration(e)
 	}
 	return d
 }
@@ -190,8 +344,17 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	if cfg.ShouldApplyPtr("score", d.Score) {
 		c = c.SetNillableScore(d.Score)
 	}
+	if cfg.ShouldApply("external_id", d.ExternalID) {
+		c = c.SetExternalID(d.ExternalID)
+	}
+	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
+		c = c.SetNillableUpdatedAt(d.UpdatedAt)
+	}
 	if len(d.PostIDs) > 0 {
 		c = c.AddPostIDs(d.PostIDs...)
+	}
+	if len(d.TagIDs) > 0 {
+		c = c.AddTagIDs(d.TagIDs...)
 	}
 	if UserTransformer != nil && UserTransformer.SetFullNameOnCreate != nil {
 		UserTransformer.SetFullNameOnCreate(c, d.FullName)
@@ -204,6 +367,9 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	}
 	if UserTransformer != nil && UserTransformer.SetExpiresAtOnCreate != nil {
 		UserTransformer.SetExpiresAtOnCreate(c, d.ExpiresAt)
+	}
+	if UserTransformer != nil && UserTransformer.SetSubscriptionDurationOnCreate != nil {
+		UserTransformer.SetSubscriptionDurationOnCreate(c, d.SubscriptionDuration)
 	}
 	return c
 }
@@ -223,10 +389,21 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 	if cfg.ShouldApplyPtr("score", d.Score) {
 		u = u.SetNillableScore(d.Score)
 	}
+	if cfg.ShouldApply("external_id", d.ExternalID) {
+		u = u.SetExternalID(d.ExternalID)
+	}
+	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
+		u = u.SetNillableUpdatedAt(d.UpdatedAt)
+	}
 	if cfg.IsAppendEdge("post_ids") {
 		u = u.AddPostIDs(d.PostIDs...)
 	} else {
 		u = u.ClearPosts().AddPostIDs(d.PostIDs...)
+	}
+	if cfg.IsAppendEdge("tag_ids") {
+		u = u.AddTagIDs(d.TagIDs...)
+	} else {
+		u = u.ClearTags().AddTagIDs(d.TagIDs...)
 	}
 	if UserTransformer != nil && UserTransformer.SetFullNameOnUpdate != nil {
 		UserTransformer.SetFullNameOnUpdate(u, d.FullName)
@@ -239,6 +416,9 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 	}
 	if UserTransformer != nil && UserTransformer.SetExpiresAtOnUpdate != nil {
 		UserTransformer.SetExpiresAtOnUpdate(u, d.ExpiresAt)
+	}
+	if UserTransformer != nil && UserTransformer.SetSubscriptionDurationOnUpdate != nil {
+		UserTransformer.SetSubscriptionDurationOnUpdate(u, d.SubscriptionDuration)
 	}
 	return u
 }
@@ -259,10 +439,21 @@ func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	if cfg.ShouldApplyPtr("score", d.Score) {
 		u = u.SetNillableScore(d.Score)
 	}
+	if cfg.ShouldApply("external_id", d.ExternalID) {
+		u = u.SetExternalID(d.ExternalID)
+	}
+	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
+		u = u.SetNillableUpdatedAt(d.UpdatedAt)
+	}
 	if cfg.IsAppendEdge("post_ids") {
 		u = u.AddPostIDs(d.PostIDs...)
 	} else {
 		u = u.ClearPosts().AddPostIDs(d.PostIDs...)
+	}
+	if cfg.IsAppendEdge("tag_ids") {
+		u = u.AddTagIDs(d.TagIDs...)
+	} else {
+		u = u.ClearTags().AddTagIDs(d.TagIDs...)
 	}
 	return u
 }

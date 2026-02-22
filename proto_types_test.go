@@ -161,6 +161,66 @@ func TestResolveVirtualFieldProtoSpec_ConversionExprs(t *testing.T) {
 	})
 }
 
+func TestResolveVirtualFieldProtoSpec_DurationConversionExprs(t *testing.T) {
+	t.Run("time.Duration non-optional", func(t *testing.T) {
+		vf := VirtualFieldConfig{Name: "ttl", FieldType: GoType("time", "Duration")}
+		spec := resolveVirtualFieldProtoSpec(vf)
+		assert.False(t, spec.IsExcluded)
+		assert.Equal(t, "google.protobuf.Duration", spec.ProtoType)
+		assert.Equal(t, "google/protobuf/duration.proto", spec.ImportPath)
+		assert.Equal(t, "durationpb.New(%s)", spec.ToProtoExpr)
+		assert.Equal(t, "%s.AsDuration()", spec.FromProtoExpr)
+		assert.False(t, spec.IsOptional)
+	})
+	t.Run("*time.Duration optional", func(t *testing.T) {
+		vf := VirtualFieldConfig{Name: "ttl", FieldType: GoType("time", "*Duration")}
+		spec := resolveVirtualFieldProtoSpec(vf)
+		assert.False(t, spec.IsExcluded)
+		assert.Equal(t, "google.protobuf.Duration", spec.ProtoType)
+		assert.Equal(t, "durationToDurationProto(%s)", spec.ToProtoExpr)
+		assert.Equal(t, "durationProtoToDuration(%s)", spec.FromProtoExpr)
+		assert.True(t, spec.IsOptional)
+	})
+}
+
+func TestResolveVirtualFieldProtoSpec_OptionalTimeConversionExprs(t *testing.T) {
+	// *time.Time should use the nullable helper functions.
+	vf := VirtualFieldConfig{Name: "deleted_at", FieldType: GoType("time", "*Time")}
+	spec := resolveVirtualFieldProtoSpec(vf)
+	assert.False(t, spec.IsExcluded)
+	assert.Equal(t, "google.protobuf.Timestamp", spec.ProtoType)
+	assert.True(t, spec.IsOptional)
+	assert.Equal(t, "timeToTimestampProto(%s)", spec.ToProtoExpr)
+	assert.Equal(t, "timestampProtoToTime(%s)", spec.FromProtoExpr)
+}
+
+func TestTrackExprImports(t *testing.T) {
+	t.Run("timestamppb expr", func(t *testing.T) {
+		imports := map[string]bool{}
+		trackExprImports("timestamppb.New(d.CreatedAt)", "p.CreatedAt.AsTime()", imports)
+		assert.True(t, imports["google.golang.org/protobuf/types/known/timestamppb"])
+		assert.False(t, imports["google.golang.org/protobuf/types/known/durationpb"])
+		assert.False(t, imports["github.com/google/uuid"])
+	})
+	t.Run("durationpb expr", func(t *testing.T) {
+		imports := map[string]bool{}
+		trackExprImports("durationpb.New(d.TTL)", "p.TTL.AsDuration()", imports)
+		assert.True(t, imports["google.golang.org/protobuf/types/known/durationpb"])
+		assert.False(t, imports["google.golang.org/protobuf/types/known/timestamppb"])
+	})
+	t.Run("uuid.MustParse in FromProto", func(t *testing.T) {
+		imports := map[string]bool{}
+		trackExprImports("d.ExternalID.String()", "uuid.MustParse(p.ExternalId)", imports)
+		assert.True(t, imports["github.com/google/uuid"])
+		assert.False(t, imports["google.golang.org/protobuf/types/known/timestamppb"])
+	})
+	t.Run("no special imports for plain string", func(t *testing.T) {
+		imports := map[string]bool{}
+		trackExprImports("d.Name", "p.Name", imports)
+		assert.Empty(t, imports)
+	})
+}
+
 func TestApplyExprTemplate(t *testing.T) {
 	assert.Equal(t, "d.Name", applyExprTemplate("", "d.Name"))
 	assert.Equal(t, "int64(d.Score)", applyExprTemplate("int64(%s)", "d.Score"))

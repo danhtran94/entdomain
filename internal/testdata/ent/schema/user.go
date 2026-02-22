@@ -22,6 +22,7 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"github.com/danhtran94/entdomain"
+	"github.com/google/uuid"
 )
 
 // User holds the schema definition for the User entity.
@@ -39,19 +40,24 @@ func (User) Fields() []ent.Field {
 		field.String("username").Immutable().
 			Annotations(entdomain.Field(entdomain.SkipProto())),
 		field.Int("score").Optional(),
+		field.UUID("external_id", uuid.UUID{}),
+		field.Time("updated_at").Optional(),
 	}
 }
 
 // Edges of the User.
 func (User) Edges() []ent.Edge {
 	return []ent.Edge{
-		// plural To: IDs + Nest → PostIDs []int, Posts PostList
+		// O2M To: IDs + Nest → PostIDs []int, Posts PostList
 		edge.To("posts", Post.Type).
 			Annotations(entdomain.Edge(entdomain.IDs(), entdomain.Nest())),
-		// singular To: Nest only → PinnedPost Post
+		// O2O To: IDs + Nest → PinnedPostID int, PinnedPost Post
 		edge.To("pinned_post", Post.Type).
 			Unique().
-			Annotations(entdomain.Edge(entdomain.Nest())),
+			Annotations(entdomain.Edge(entdomain.IDs(), entdomain.Nest())),
+		// M2M To: IDs + Nest → TagIDs []int, Tags TagList
+		edge.To("tags", Tag.Type).
+			Annotations(entdomain.Edge(entdomain.IDs(), entdomain.Nest())),
 	}
 }
 
@@ -64,6 +70,7 @@ func (User) Annotations() []schema.Annotation {
 			entdomain.VirtualField("metadata", entdomain.GoType("", "map[string]any")),
 			entdomain.VirtualField("expires_at", entdomain.GoType("time", "Time"),
 				entdomain.ProtoType("google.protobuf.Timestamp", "google/protobuf/timestamp.proto")),
+			entdomain.VirtualField("subscription_duration", entdomain.GoType("time", "Duration")),
 		),
 	}
 }

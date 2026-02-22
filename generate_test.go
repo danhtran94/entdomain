@@ -155,8 +155,8 @@ func TestGenerate_UserDomainStruct(t *testing.T) {
 		// plural To: IDs + Nest
 		assert.Equal(t, "[]int", findField(st, "PostIDs"))
 		assert.Equal(t, "PostList", findField(st, "Posts"))
-		// singular To: Nest only
-		assert.Equal(t, "Post", findField(st, "PinnedPost"))
+		// singular To: IDs + Nest → pointer type (may not be loaded)
+		assert.Equal(t, "*Post", findField(st, "PinnedPost"))
 		// Virtual fields
 		assert.Equal(t, "string", findField(st, "FullName"))
 		assert.Equal(t, "bool", findField(st, "IsPremium"))

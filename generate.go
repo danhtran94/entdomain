@@ -195,7 +195,7 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 			if e.Unique {
 				data.EdgeFields = append(data.EdgeFields, domainEdgeField{
 					StructName: pascal(e.Name),
-					TypeStr:    e.Type.Name,
+					TypeStr:    "*" + e.Type.Name,
 				})
 			} else {
 				data.EdgeFields = append(data.EdgeFields, domainEdgeField{

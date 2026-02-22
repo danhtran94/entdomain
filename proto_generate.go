@@ -232,8 +232,12 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 			}
 		}
 		if ea.HasNest() && specIdx < len(specs) {
-			// Nest is always excluded; just skip it.
+			spec := specs[specIdx]
 			specIdx++
+			if !spec.IsExcluded {
+				// Field name is the snake-case edge name (e.g., "posts", "pinned_post").
+				pending = append(pending, pendingField{snakeName: snake(e.Name), spec: spec})
+			}
 		}
 	}
 

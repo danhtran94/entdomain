@@ -9,5 +9,8 @@ import (
 // Post is the predicate function for post builders.
 type Post func(*sql.Selector)
 
+// Tag is the predicate function for tag builders.
+type Tag func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)

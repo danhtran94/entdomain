@@ -6,13 +6,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/predicate"
+	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	"github.com/google/uuid"
 )
 
 // UserUpdate is the builder for updating User entities.
@@ -103,6 +106,40 @@ func (_u *UserUpdate) ClearScore() *UserUpdate {
 	return _u
 }
 
+// SetExternalID sets the "external_id" field.
+func (_u *UserUpdate) SetExternalID(v uuid.UUID) *UserUpdate {
+	_u.mutation.SetExternalID(v)
+	return _u
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableExternalID(v *uuid.UUID) *UserUpdate {
+	if v != nil {
+		_u.SetExternalID(*v)
+	}
+	return _u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *UserUpdate) SetUpdatedAt(v time.Time) *UserUpdate {
+	_u.mutation.SetUpdatedAt(v)
+	return _u
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableUpdatedAt(v *time.Time) *UserUpdate {
+	if v != nil {
+		_u.SetUpdatedAt(*v)
+	}
+	return _u
+}
+
+// ClearUpdatedAt clears the value of the "updated_at" field.
+func (_u *UserUpdate) ClearUpdatedAt() *UserUpdate {
+	_u.mutation.ClearUpdatedAt()
+	return _u
+}
+
 // AddPostIDs adds the "posts" edge to the Post entity by IDs.
 func (_u *UserUpdate) AddPostIDs(ids ...int) *UserUpdate {
 	_u.mutation.AddPostIDs(ids...)
@@ -137,6 +174,21 @@ func (_u *UserUpdate) SetPinnedPost(v *Post) *UserUpdate {
 	return _u.SetPinnedPostID(v.ID)
 }
 
+// AddTagIDs adds the "tags" edge to the Tag entity by IDs.
+func (_u *UserUpdate) AddTagIDs(ids ...int) *UserUpdate {
+	_u.mutation.AddTagIDs(ids...)
+	return _u
+}
+
+// AddTags adds the "tags" edges to the Tag entity.
+func (_u *UserUpdate) AddTags(v ...*Tag) *UserUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTagIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -167,6 +219,27 @@ func (_u *UserUpdate) RemovePosts(v ...*Post) *UserUpdate {
 func (_u *UserUpdate) ClearPinnedPost() *UserUpdate {
 	_u.mutation.ClearPinnedPost()
 	return _u
+}
+
+// ClearTags clears all "tags" edges to the Tag entity.
+func (_u *UserUpdate) ClearTags() *UserUpdate {
+	_u.mutation.ClearTags()
+	return _u
+}
+
+// RemoveTagIDs removes the "tags" edge to Tag entities by IDs.
+func (_u *UserUpdate) RemoveTagIDs(ids ...int) *UserUpdate {
+	_u.mutation.RemoveTagIDs(ids...)
+	return _u
+}
+
+// RemoveTags removes "tags" edges to Tag entities.
+func (_u *UserUpdate) RemoveTags(v ...*Tag) *UserUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTagIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -239,6 +312,15 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.ScoreCleared() {
 		_spec.ClearField(user.FieldScore, field.TypeInt)
 	}
+	if value, ok := _u.mutation.ExternalID(); ok {
+		_spec.SetField(user.FieldExternalID, field.TypeUUID, value)
+	}
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.UpdatedAtCleared() {
+		_spec.ClearField(user.FieldUpdatedAt, field.TypeTime)
+	}
 	if _u.mutation.PostsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -306,6 +388,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TagsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.TagsTable,
+			Columns: user.TagsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTagsIDs(); len(nodes) > 0 && !_u.mutation.TagsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.TagsTable,
+			Columns: user.TagsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TagsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.TagsTable,
+			Columns: user.TagsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -408,6 +535,40 @@ func (_u *UserUpdateOne) ClearScore() *UserUpdateOne {
 	return _u
 }
 
+// SetExternalID sets the "external_id" field.
+func (_u *UserUpdateOne) SetExternalID(v uuid.UUID) *UserUpdateOne {
+	_u.mutation.SetExternalID(v)
+	return _u
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableExternalID(v *uuid.UUID) *UserUpdateOne {
+	if v != nil {
+		_u.SetExternalID(*v)
+	}
+	return _u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *UserUpdateOne) SetUpdatedAt(v time.Time) *UserUpdateOne {
+	_u.mutation.SetUpdatedAt(v)
+	return _u
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableUpdatedAt(v *time.Time) *UserUpdateOne {
+	if v != nil {
+		_u.SetUpdatedAt(*v)
+	}
+	return _u
+}
+
+// ClearUpdatedAt clears the value of the "updated_at" field.
+func (_u *UserUpdateOne) ClearUpdatedAt() *UserUpdateOne {
+	_u.mutation.ClearUpdatedAt()
+	return _u
+}
+
 // AddPostIDs adds the "posts" edge to the Post entity by IDs.
 func (_u *UserUpdateOne) AddPostIDs(ids ...int) *UserUpdateOne {
 	_u.mutation.AddPostIDs(ids...)
@@ -442,6 +603,21 @@ func (_u *UserUpdateOne) SetPinnedPost(v *Post) *UserUpdateOne {
 	return _u.SetPinnedPostID(v.ID)
 }
 
+// AddTagIDs adds the "tags" edge to the Tag entity by IDs.
+func (_u *UserUpdateOne) AddTagIDs(ids ...int) *UserUpdateOne {
+	_u.mutation.AddTagIDs(ids...)
+	return _u
+}
+
+// AddTags adds the "tags" edges to the Tag entity.
+func (_u *UserUpdateOne) AddTags(v ...*Tag) *UserUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTagIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -472,6 +648,27 @@ func (_u *UserUpdateOne) RemovePosts(v ...*Post) *UserUpdateOne {
 func (_u *UserUpdateOne) ClearPinnedPost() *UserUpdateOne {
 	_u.mutation.ClearPinnedPost()
 	return _u
+}
+
+// ClearTags clears all "tags" edges to the Tag entity.
+func (_u *UserUpdateOne) ClearTags() *UserUpdateOne {
+	_u.mutation.ClearTags()
+	return _u
+}
+
+// RemoveTagIDs removes the "tags" edge to Tag entities by IDs.
+func (_u *UserUpdateOne) RemoveTagIDs(ids ...int) *UserUpdateOne {
+	_u.mutation.RemoveTagIDs(ids...)
+	return _u
+}
+
+// RemoveTags removes "tags" edges to Tag entities.
+func (_u *UserUpdateOne) RemoveTags(v ...*Tag) *UserUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTagIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -574,6 +771,15 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	if _u.mutation.ScoreCleared() {
 		_spec.ClearField(user.FieldScore, field.TypeInt)
 	}
+	if value, ok := _u.mutation.ExternalID(); ok {
+		_spec.SetField(user.FieldExternalID, field.TypeUUID, value)
+	}
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.UpdatedAtCleared() {
+		_spec.ClearField(user.FieldUpdatedAt, field.TypeTime)
+	}
 	if _u.mutation.PostsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -641,6 +847,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(post.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TagsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.TagsTable,
+			Columns: user.TagsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTagsIDs(); len(nodes) > 0 && !_u.mutation.TagsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.TagsTable,
+			Columns: user.TagsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TagsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.TagsTable,
+			Columns: user.TagsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

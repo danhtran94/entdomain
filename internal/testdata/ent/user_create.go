@@ -11,7 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
+	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	"github.com/google/uuid"
 )
 
 // UserCreate is the builder for creating a User entity.
@@ -89,6 +91,26 @@ func (_c *UserCreate) SetNillableScore(v *int) *UserCreate {
 	return _c
 }
 
+// SetExternalID sets the "external_id" field.
+func (_c *UserCreate) SetExternalID(v uuid.UUID) *UserCreate {
+	_c.mutation.SetExternalID(v)
+	return _c
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_c *UserCreate) SetUpdatedAt(v time.Time) *UserCreate {
+	_c.mutation.SetUpdatedAt(v)
+	return _c
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (_c *UserCreate) SetNillableUpdatedAt(v *time.Time) *UserCreate {
+	if v != nil {
+		_c.SetUpdatedAt(*v)
+	}
+	return _c
+}
+
 // AddPostIDs adds the "posts" edge to the Post entity by IDs.
 func (_c *UserCreate) AddPostIDs(ids ...int) *UserCreate {
 	_c.mutation.AddPostIDs(ids...)
@@ -121,6 +143,21 @@ func (_c *UserCreate) SetNillablePinnedPostID(id *int) *UserCreate {
 // SetPinnedPost sets the "pinned_post" edge to the Post entity.
 func (_c *UserCreate) SetPinnedPost(v *Post) *UserCreate {
 	return _c.SetPinnedPostID(v.ID)
+}
+
+// AddTagIDs adds the "tags" edge to the Tag entity by IDs.
+func (_c *UserCreate) AddTagIDs(ids ...int) *UserCreate {
+	_c.mutation.AddTagIDs(ids...)
+	return _c
+}
+
+// AddTags adds the "tags" edges to the Tag entity.
+func (_c *UserCreate) AddTags(v ...*Tag) *UserCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddTagIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -187,6 +224,9 @@ func (_c *UserCreate) check() error {
 	if _, ok := _c.mutation.Username(); !ok {
 		return &ValidationError{Name: "username", err: errors.New(`ent: missing required field "User.username"`)}
 	}
+	if _, ok := _c.mutation.ExternalID(); !ok {
+		return &ValidationError{Name: "external_id", err: errors.New(`ent: missing required field "User.external_id"`)}
+	}
 	return nil
 }
 
@@ -237,6 +277,14 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_spec.SetField(user.FieldScore, field.TypeInt, value)
 		_node.Score = value
 	}
+	if value, ok := _c.mutation.ExternalID(); ok {
+		_spec.SetField(user.FieldExternalID, field.TypeUUID, value)
+		_node.ExternalID = value
+	}
+	if value, ok := _c.mutation.UpdatedAt(); ok {
+		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+		_node.UpdatedAt = value
+	}
 	if nodes := _c.mutation.PostsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -268,6 +316,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.user_pinned_post = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.TagsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.TagsTable,
+			Columns: user.TagsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tag.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

@@ -3,6 +3,7 @@
 package domain
 
 import (
+	"github.com/google/uuid"
 	"time"
 )
 
@@ -14,20 +15,26 @@ const (
 )
 
 type User struct {
-	ID         int
-	Name       string
-	Bio        *string
-	Status     UserStatus
-	CreatedAt  time.Time
-	Username   string
-	Score      *int
-	PostIDs    []int
-	Posts      PostList
-	PinnedPost Post
-	FullName   string
-	IsPremium  bool
-	Metadata   map[string]any
-	ExpiresAt  time.Time
+	ID                   int
+	Name                 string
+	Bio                  *string
+	Status               UserStatus
+	CreatedAt            time.Time
+	Username             string
+	Score                *int
+	ExternalID           uuid.UUID
+	UpdatedAt            *time.Time
+	PostIDs              []int
+	Posts                PostList
+	PinnedPostID         int
+	PinnedPost           *Post
+	TagIDs               []int
+	Tags                 TagList
+	FullName             string
+	IsPremium            bool
+	Metadata             map[string]any
+	ExpiresAt            time.Time
+	SubscriptionDuration time.Duration
 }
 
 // UserList is a slice of User.

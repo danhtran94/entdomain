@@ -12,6 +12,7 @@ package entpb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -150,25 +151,101 @@ func (x *Post) GetTitle() string {
 	return ""
 }
 
-type User struct {
+type Tag struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Bio           *string                `protobuf:"bytes,2,opt,name=bio,proto3,oneof" json:"bio,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	FullName      string                 `protobuf:"bytes,5,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
-	IsPremium     bool                   `protobuf:"varint,6,opt,name=is_premium,json=isPremium,proto3" json:"is_premium,omitempty"`
-	Name          string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
-	PostIds       []int64                `protobuf:"varint,8,rep,packed,name=post_ids,json=postIds,proto3" json:"post_ids,omitempty"`
-	Score         *int64                 `protobuf:"varint,9,opt,name=score,proto3,oneof" json:"score,omitempty"`
-	Status        UserStatus             `protobuf:"varint,10,opt,name=status,proto3,enum=entpb.UserStatus" json:"status,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	UserIds       []int64                `protobuf:"varint,3,rep,packed,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	Users         []*User                `protobuf:"bytes,4,rep,name=users,proto3" json:"users,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
+func (x *Tag) Reset() {
+	*x = Tag{}
+	mi := &file_entpb_ent_messages_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Tag) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Tag) ProtoMessage() {}
+
+func (x *Tag) ProtoReflect() protoreflect.Message {
+	mi := &file_entpb_ent_messages_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Tag.ProtoReflect.Descriptor instead.
+func (*Tag) Descriptor() ([]byte, []int) {
+	return file_entpb_ent_messages_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Tag) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Tag) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Tag) GetUserIds() []int64 {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
+}
+
+func (x *Tag) GetUsers() []*User {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+type User struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Id                   int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Bio                  *string                `protobuf:"bytes,2,opt,name=bio,proto3,oneof" json:"bio,omitempty"`
+	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ExpiresAt            *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	FullName             string                 `protobuf:"bytes,5,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	IsPremium            bool                   `protobuf:"varint,6,opt,name=is_premium,json=isPremium,proto3" json:"is_premium,omitempty"`
+	Name                 string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
+	PostIds              []int64                `protobuf:"varint,8,rep,packed,name=post_ids,json=postIds,proto3" json:"post_ids,omitempty"`
+	Score                *int64                 `protobuf:"varint,9,opt,name=score,proto3,oneof" json:"score,omitempty"`
+	Status               UserStatus             `protobuf:"varint,10,opt,name=status,proto3,enum=entpb.UserStatus" json:"status,omitempty"`
+	ExternalId           string                 `protobuf:"bytes,11,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
+	SubscriptionDuration *durationpb.Duration   `protobuf:"bytes,12,opt,name=subscription_duration,json=subscriptionDuration,proto3" json:"subscription_duration,omitempty"`
+	UpdatedAt            *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	PinnedPostId         int64                  `protobuf:"varint,14,opt,name=pinned_post_id,json=pinnedPostId,proto3" json:"pinned_post_id,omitempty"`
+	TagIds               []int64                `protobuf:"varint,15,rep,packed,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
+	PinnedPost           *Post                  `protobuf:"bytes,16,opt,name=pinned_post,json=pinnedPost,proto3" json:"pinned_post,omitempty"`
+	Posts                []*Post                `protobuf:"bytes,17,rep,name=posts,proto3" json:"posts,omitempty"`
+	Tags                 []*Tag                 `protobuf:"bytes,18,rep,name=tags,proto3" json:"tags,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_entpb_ent_messages_proto_msgTypes[1]
+	mi := &file_entpb_ent_messages_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -180,7 +257,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_entpb_ent_messages_proto_msgTypes[1]
+	mi := &file_entpb_ent_messages_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -193,7 +270,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_entpb_ent_messages_proto_rawDescGZIP(), []int{1}
+	return file_entpb_ent_messages_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *User) GetId() int64 {
@@ -266,18 +343,79 @@ func (x *User) GetStatus() UserStatus {
 	return UserStatus_USER_STATUS_UNSPECIFIED
 }
 
+func (x *User) GetExternalId() string {
+	if x != nil {
+		return x.ExternalId
+	}
+	return ""
+}
+
+func (x *User) GetSubscriptionDuration() *durationpb.Duration {
+	if x != nil {
+		return x.SubscriptionDuration
+	}
+	return nil
+}
+
+func (x *User) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *User) GetPinnedPostId() int64 {
+	if x != nil {
+		return x.PinnedPostId
+	}
+	return 0
+}
+
+func (x *User) GetTagIds() []int64 {
+	if x != nil {
+		return x.TagIds
+	}
+	return nil
+}
+
+func (x *User) GetPinnedPost() *Post {
+	if x != nil {
+		return x.PinnedPost
+	}
+	return nil
+}
+
+func (x *User) GetPosts() []*Post {
+	if x != nil {
+		return x.Posts
+	}
+	return nil
+}
+
+func (x *User) GetTags() []*Tag {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
 var File_entpb_ent_messages_proto protoreflect.FileDescriptor
 
 const file_entpb_ent_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x18entpb/ent_messages.proto\x12\x05entpb\x1a\x1fgoogle/protobuf/timestamp.proto\"\x84\x01\n" +
+	"\x18entpb/ent_messages.proto\x12\x05entpb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x84\x01\n" +
 	"\x04Post\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\x03R\aownerId\x12\x1d\n" +
 	"\n" +
 	"pinner_ids\x18\x03 \x03(\x03R\tpinnerIds\x12\x1c\n" +
 	"\tpublished\x18\x04 \x01(\bR\tpublished\x12\x14\n" +
-	"\x05title\x18\x05 \x01(\tR\x05title\"\xe6\x02\n" +
+	"\x05title\x18\x05 \x01(\tR\x05title\"g\n" +
+	"\x03Tag\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
+	"\buser_ids\x18\x03 \x03(\x03R\auserIds\x12!\n" +
+	"\x05users\x18\x04 \x03(\v2\v.entpb.UserR\x05users\"\xc2\x05\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x15\n" +
 	"\x03bio\x18\x02 \x01(\tH\x00R\x03bio\x88\x01\x01\x129\n" +
@@ -292,7 +430,19 @@ const file_entpb_ent_messages_proto_rawDesc = "" +
 	"\bpost_ids\x18\b \x03(\x03R\apostIds\x12\x19\n" +
 	"\x05score\x18\t \x01(\x03H\x01R\x05score\x88\x01\x01\x12)\n" +
 	"\x06status\x18\n" +
-	" \x01(\x0e2\x11.entpb.UserStatusR\x06statusB\x06\n" +
+	" \x01(\x0e2\x11.entpb.UserStatusR\x06status\x12\x1f\n" +
+	"\vexternal_id\x18\v \x01(\tR\n" +
+	"externalId\x12N\n" +
+	"\x15subscription_duration\x18\f \x01(\v2\x19.google.protobuf.DurationR\x14subscriptionDuration\x129\n" +
+	"\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12$\n" +
+	"\x0epinned_post_id\x18\x0e \x01(\x03R\fpinnedPostId\x12\x17\n" +
+	"\atag_ids\x18\x0f \x03(\x03R\x06tagIds\x12,\n" +
+	"\vpinned_post\x18\x10 \x01(\v2\v.entpb.PostR\n" +
+	"pinnedPost\x12!\n" +
+	"\x05posts\x18\x11 \x03(\v2\v.entpb.PostR\x05posts\x12\x1e\n" +
+	"\x04tags\x18\x12 \x03(\v2\n" +
+	".entpb.TagR\x04tagsB\x06\n" +
 	"\x04_bioB\b\n" +
 	"\x06_score*[\n" +
 	"\n" +
@@ -314,22 +464,30 @@ func file_entpb_ent_messages_proto_rawDescGZIP() []byte {
 }
 
 var file_entpb_ent_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_entpb_ent_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_entpb_ent_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_entpb_ent_messages_proto_goTypes = []any{
 	(UserStatus)(0),               // 0: entpb.UserStatus
 	(*Post)(nil),                  // 1: entpb.Post
-	(*User)(nil),                  // 2: entpb.User
-	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
+	(*Tag)(nil),                   // 2: entpb.Tag
+	(*User)(nil),                  // 3: entpb.User
+	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),   // 5: google.protobuf.Duration
 }
 var file_entpb_ent_messages_proto_depIdxs = []int32{
-	3, // 0: entpb.User.created_at:type_name -> google.protobuf.Timestamp
-	3, // 1: entpb.User.expires_at:type_name -> google.protobuf.Timestamp
-	0, // 2: entpb.User.status:type_name -> entpb.UserStatus
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 0: entpb.Tag.users:type_name -> entpb.User
+	4, // 1: entpb.User.created_at:type_name -> google.protobuf.Timestamp
+	4, // 2: entpb.User.expires_at:type_name -> google.protobuf.Timestamp
+	0, // 3: entpb.User.status:type_name -> entpb.UserStatus
+	5, // 4: entpb.User.subscription_duration:type_name -> google.protobuf.Duration
+	4, // 5: entpb.User.updated_at:type_name -> google.protobuf.Timestamp
+	1, // 6: entpb.User.pinned_post:type_name -> entpb.Post
+	1, // 7: entpb.User.posts:type_name -> entpb.Post
+	2, // 8: entpb.User.tags:type_name -> entpb.Tag
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_entpb_ent_messages_proto_init() }
@@ -337,14 +495,14 @@ func file_entpb_ent_messages_proto_init() {
 	if File_entpb_ent_messages_proto != nil {
 		return
 	}
-	file_entpb_ent_messages_proto_msgTypes[1].OneofWrappers = []any{}
+	file_entpb_ent_messages_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_entpb_ent_messages_proto_rawDesc), len(file_entpb_ent_messages_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

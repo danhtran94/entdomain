@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
 	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	"github.com/google/uuid"
 )
 
 // User is the model entity for the User schema.
@@ -30,6 +31,10 @@ type User struct {
 	Username string `json:"username,omitempty"`
 	// Score holds the value of the "score" field.
 	Score int `json:"score,omitempty"`
+	// ExternalID holds the value of the "external_id" field.
+	ExternalID uuid.UUID `json:"external_id,omitempty"`
+	// UpdatedAt holds the value of the "updated_at" field.
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges            UserEdges `json:"edges"`
@@ -43,9 +48,11 @@ type UserEdges struct {
 	Posts []*Post `json:"posts,omitempty"`
 	// PinnedPost holds the value of the pinned_post edge.
 	PinnedPost *Post `json:"pinned_post,omitempty"`
+	// Tags holds the value of the tags edge.
+	Tags []*Tag `json:"tags,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // PostsOrErr returns the Posts value or an error if the edge
@@ -68,6 +75,15 @@ func (e UserEdges) PinnedPostOrErr() (*Post, error) {
 	return nil, &NotLoadedError{edge: "pinned_post"}
 }
 
+// TagsOrErr returns the Tags value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) TagsOrErr() ([]*Tag, error) {
+	if e.loadedTypes[2] {
+		return e.Tags, nil
+	}
+	return nil, &NotLoadedError{edge: "tags"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*User) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -77,8 +93,10 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case user.FieldName, user.FieldBio, user.FieldStatus, user.FieldUsername:
 			values[i] = new(sql.NullString)
-		case user.FieldCreatedAt:
+		case user.FieldCreatedAt, user.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
+		case user.FieldExternalID:
+			values[i] = new(uuid.UUID)
 		case user.ForeignKeys[0]: // user_pinned_post
 			values[i] = new(sql.NullInt64)
 		default:
@@ -138,6 +156,18 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Score = int(value.Int64)
 			}
+		case user.FieldExternalID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field external_id", values[i])
+			} else if value != nil {
+				_m.ExternalID = *value
+			}
+		case user.FieldUpdatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
+			} else if value.Valid {
+				_m.UpdatedAt = value.Time
+			}
 		case user.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field user_pinned_post", value)
@@ -166,6 +196,11 @@ func (_m *User) QueryPosts() *PostQuery {
 // QueryPinnedPost queries the "pinned_post" edge of the User entity.
 func (_m *User) QueryPinnedPost() *PostQuery {
 	return NewUserClient(_m.config).QueryPinnedPost(_m)
+}
+
+// QueryTags queries the "tags" edge of the User entity.
+func (_m *User) QueryTags() *TagQuery {
+	return NewUserClient(_m.config).QueryTags(_m)
 }
 
 // Update returns a builder for updating this User.
@@ -208,6 +243,12 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("score=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Score))
+	builder.WriteString(", ")
+	builder.WriteString("external_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ExternalID))
+	builder.WriteString(", ")
+	builder.WriteString("updated_at=")
+	builder.WriteString(_m.UpdatedAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }
