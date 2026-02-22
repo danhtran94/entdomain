@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "entities": {
+    "Post": {
+      "fields": {
+        "id": 1,
+        "owner_id": 2,
+        "pinner_ids": 3,
+        "published": 4,
+        "title": 5
+      },
+      "reserved": null
+    },
+    "User": {
+      "fields": {
+        "bio": 2,
+        "created_at": 3,
+        "expires_at": 4,
+        "full_name": 5,
+        "id": 1,
+        "is_premium": 6,
+        "name": 7,
+        "post_ids": 8,
+        "score": 9,
+        "status": 10
+      },
+      "reserved": null
+    }
+  }
+}

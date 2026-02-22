@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"time"
 
 	"github.com/danhtran94/entdomain"
 
@@ -127,6 +128,9 @@ type UserDomainTransformer struct {
 	GetMetadata          func(e *User) map[string]any
 	SetMetadataOnCreate  func(c *UserCreate, val map[string]any)
 	SetMetadataOnUpdate  func(u *UserUpdateOne, val map[string]any)
+	GetExpiresAt         func(e *User) time.Time
+	SetExpiresAtOnCreate func(c *UserCreate, val time.Time)
+	SetExpiresAtOnUpdate func(u *UserUpdateOne, val time.Time)
 }
 
 // UserTransformer is the package-level transformer for User (nil by default).
@@ -158,6 +162,9 @@ func (e *User) ToDomain() *domain.User {
 	}
 	if UserTransformer != nil && UserTransformer.GetMetadata != nil {
 		d.Metadata = UserTransformer.GetMetadata(e)
+	}
+	if UserTransformer != nil && UserTransformer.GetExpiresAt != nil {
+		d.ExpiresAt = UserTransformer.GetExpiresAt(e)
 	}
 	return d
 }
@@ -195,6 +202,9 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	if UserTransformer != nil && UserTransformer.SetMetadataOnCreate != nil {
 		UserTransformer.SetMetadataOnCreate(c, d.Metadata)
 	}
+	if UserTransformer != nil && UserTransformer.SetExpiresAtOnCreate != nil {
+		UserTransformer.SetExpiresAtOnCreate(c, d.ExpiresAt)
+	}
 	return c
 }
 
@@ -226,6 +236,9 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 	}
 	if UserTransformer != nil && UserTransformer.SetMetadataOnUpdate != nil {
 		UserTransformer.SetMetadataOnUpdate(u, d.Metadata)
+	}
+	if UserTransformer != nil && UserTransformer.SetExpiresAtOnUpdate != nil {
+		UserTransformer.SetExpiresAtOnUpdate(u, d.ExpiresAt)
 	}
 	return u
 }

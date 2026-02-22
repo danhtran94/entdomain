@@ -19,6 +19,38 @@ import (
 	"entgo.io/ent/entc/gen"
 )
 
+// ProtoConfig holds configuration for proto file generation.
+type ProtoConfig struct {
+	dir             string // relative to module root, e.g. "proto/entpb"
+	pkgName         string // proto package name, e.g. "entpb"
+	goPackage       string // go_package option, e.g. "github.com/example/proto/entpb;entpb"
+	helpersInDomain bool   // when true, mappers+helpers are generated flat in the domain package; default: domain/pbmap/ subpackage
+}
+
+// ProtoOption is a functional option for ProtoConfig.
+type ProtoOption func(*ProtoConfig)
+
+// WithProtoDir sets the directory for generated .proto files, relative to the module root.
+func WithProtoDir(dir string) ProtoOption {
+	return func(c *ProtoConfig) { c.dir = dir }
+}
+
+// WithProtoPackageName sets the proto package name.
+func WithProtoPackageName(name string) ProtoOption {
+	return func(c *ProtoConfig) { c.pkgName = name }
+}
+
+// WithProtoGoPackage sets the go_package proto option value.
+func WithProtoGoPackage(goPackage string) ProtoOption {
+	return func(c *ProtoConfig) { c.goPackage = goPackage }
+}
+
+// WithProtoHelpersInDomain places the generated proto helper functions (toInt64Slice, etc.)
+// in the domain package instead of the proto package (the default).
+func WithProtoHelpersInDomain() ProtoOption {
+	return func(c *ProtoConfig) { c.helpersInDomain = true }
+}
+
 // Extension implements entc.Extension for generating a pure Go domain layer.
 type Extension struct {
 	entc.DefaultExtension
@@ -26,6 +58,7 @@ type Extension struct {
 	pkgName        string          // e.g. "domain"
 	noBulkAll      bool            // disables bulk generation for all entities
 	noBulkEntities map[string]bool // entity names that opt out of bulk generation
+	proto          *ProtoConfig    // nil if proto generation is disabled
 }
 
 // ExtensionOption is a functional option for configuring Extension.
@@ -66,6 +99,19 @@ func WithNoBulk(entityNames ...string) ExtensionOption {
 		for _, name := range entityNames {
 			e.noBulkEntities[name] = true
 		}
+		return nil
+	}
+}
+
+// WithProto enables proto file generation with the given options.
+// When enabled, the extension generates .proto message files and domain ↔ proto mapper files.
+func WithProto(opts ...ProtoOption) ExtensionOption {
+	return func(e *Extension) error {
+		cfg := &ProtoConfig{}
+		for _, opt := range opts {
+			opt(cfg)
+		}
+		e.proto = cfg
 		return nil
 	}
 }
@@ -118,6 +164,16 @@ func (e *Extension) generateDomainHook() gen.Hook {
 			// package when it processes the ent/domain.go mapper file.
 			if err := generateDomainFiles(g, e.pkgPath, e.pkgName); err != nil {
 				return err
+			}
+			// Generate proto files and domain ↔ proto mapper files if enabled.
+			if e.proto != nil {
+				outDir := moduleRoot(g)
+				if err := generateProtoFiles(g, e.proto, outDir); err != nil {
+					return err
+				}
+				if err := generateProtoMapperFiles(g, e.proto, outDir, e.pkgPath, e.pkgName); err != nil {
+					return err
+				}
 			}
 			if g.Annotations == nil {
 				g.Annotations = make(gen.Annotations)

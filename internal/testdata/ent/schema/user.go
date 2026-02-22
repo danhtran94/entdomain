@@ -36,7 +36,8 @@ func (User) Fields() []ent.Field {
 		field.String("bio").Optional(),
 		field.Enum("status").Values("active", "inactive").Default("active"),
 		field.Time("created_at").Default(time.Now).Immutable(),
-		field.String("username").Immutable(),
+		field.String("username").Immutable().
+			Annotations(entdomain.Field(entdomain.SkipProto())),
 		field.Int("score").Optional(),
 	}
 }
@@ -61,6 +62,8 @@ func (User) Annotations() []schema.Annotation {
 			entdomain.VirtualField("full_name", entdomain.String),
 			entdomain.VirtualField("is_premium", entdomain.Bool),
 			entdomain.VirtualField("metadata", entdomain.GoType("", "map[string]any")),
+			entdomain.VirtualField("expires_at", entdomain.GoType("time", "Time"),
+				entdomain.ProtoType("google.protobuf.Timestamp", "google/protobuf/timestamp.proto")),
 		),
 	}
 }

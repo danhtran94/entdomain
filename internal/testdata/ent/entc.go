@@ -15,6 +15,11 @@ func main() {
 		entdomain.WithPackagePath("domain"),
 		entdomain.WithPackageName("domain"),
 		entdomain.WithNoBulk("Post"),
+		entdomain.WithProto(
+			entdomain.WithProtoDir("proto"),
+			entdomain.WithProtoPackageName("entpb"),
+			entdomain.WithProtoGoPackage("github.com/danhtran94/entdomain/internal/testdata/proto/entpb;entpb"),
+		),
 	)
 	if err != nil {
 		log.Fatalf("creating entdomain extension: %v", err)

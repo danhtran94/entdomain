@@ -27,6 +27,7 @@ type User struct {
 	FullName   string
 	IsPremium  bool
 	Metadata   map[string]any
+	ExpiresAt  time.Time
 }
 
 // UserList is a slice of User.
