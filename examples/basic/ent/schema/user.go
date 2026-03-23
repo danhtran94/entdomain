@@ -34,13 +34,17 @@ type User struct {
 // Fields of the User.
 func (User) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("name"),
+		field.String("name").
+			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ, entdomain.Contains))),
 		field.String("bio").Optional(),
-		field.Enum("status").Values("active", "inactive").Default("active"),
-		field.Time("created_at").Default(time.Now).Immutable(),
+		field.Enum("status").Values("active", "inactive").Default("active").
+			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ))),
+		field.Time("created_at").Default(time.Now).Immutable().
+			Annotations(entdomain.Field(entdomain.FIQL(entdomain.GTE, entdomain.LTE))),
 		field.String("username").Immutable().
 			Annotations(entdomain.Field(entdomain.SkipProto())),
-		field.Int("score").Optional(),
+		field.Int("score").Optional().
+			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.GT, entdomain.LT, entdomain.GTE, entdomain.LTE))),
 		field.UUID("external_id", uuid.UUID{}),
 		field.Time("updated_at").Optional(),
 		field.JSON("settings", map[string]any{}).Optional(),

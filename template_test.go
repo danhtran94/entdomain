@@ -18,6 +18,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -261,6 +262,124 @@ func TestTemplate_ApplyDomain_Upsert(t *testing.T) {
 		require.NotEmpty(t, body)
 		assert.NotContains(t, body, "Transformer", "virtual field transformer must be absent from upsert body")
 	})
+}
+
+// entFIQLFile parses examples/basic/ent/fiql.go and returns the AST.
+func entFIQLFile(t *testing.T) *ast.File {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "examples/basic/ent/fiql.go", nil, parser.ParseComments)
+	require.NoError(t, err)
+	return f
+}
+
+// findVar reports whether a package-level var with the given name exists in the file.
+func findVarDecl(f *ast.File, name string) bool {
+	for _, decl := range f.Decls {
+		gd, ok := decl.(*ast.GenDecl)
+		if !ok || gd.Tok != token.VAR {
+			continue
+		}
+		for _, spec := range gd.Specs {
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+			for _, n := range vs.Names {
+				if n.Name == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// findFuncDeclTop finds a top-level (non-method) func by name.
+func findFuncDeclTop(f *ast.File, name string) *ast.FuncDecl {
+	for _, decl := range f.Decls {
+		fd, ok := decl.(*ast.FuncDecl)
+		if !ok || fd.Recv != nil {
+			continue
+		}
+		if fd.Name.Name == name {
+			return fd
+		}
+	}
+	return nil
+}
+
+func TestTemplate_FIQL_Generated(t *testing.T) {
+	f := entFIQLFile(t)
+
+	t.Run("imports predicate and user sub-packages", func(t *testing.T) {
+		assert.True(t, hasImport(f, "github.com/danhtran94/entdomain"), "must import entdomain")
+		assert.True(t, hasImport(f, "github.com/danhtran94/entdomain/examples/basic/ent/predicate"), "must import predicate sub-package")
+		assert.True(t, hasImport(f, "github.com/danhtran94/entdomain/examples/basic/ent/user"), "must import user sub-package for field predicates")
+	})
+
+	t.Run("UserFIQLFields var declared", func(t *testing.T) {
+		assert.True(t, findVarDecl(f, "UserFIQLFields"), "UserFIQLFields var must be declared")
+	})
+
+	t.Run("UserFIQL function declared", func(t *testing.T) {
+		fd := findFuncDeclTop(f, "UserFIQL")
+		require.NotNil(t, fd, "UserFIQL function must be declared")
+	})
+
+	t.Run("name field uses FIQLString with EQ, NEQ, Contains", func(t *testing.T) {
+		src := fileSource(t, "examples/basic/ent/fiql.go")
+		assert.Contains(t, src, `"name": entdomain.FIQLString[predicate.User]`)
+		assert.Contains(t, src, "user.NameEQ")
+		assert.Contains(t, src, "user.NameNEQ")
+		assert.Contains(t, src, "user.NameContains")
+		assert.NotContains(t, src, "user.NameGT", "GT not annotated on name field")
+	})
+
+	t.Run("score field uses FIQLInt with all 5 ops", func(t *testing.T) {
+		src := fileSource(t, "examples/basic/ent/fiql.go")
+		assert.Contains(t, src, `"score": entdomain.FIQLInt[predicate.User]`)
+		assert.Contains(t, src, "user.ScoreEQ")
+		assert.Contains(t, src, "user.ScoreGT")
+		assert.Contains(t, src, "user.ScoreLT")
+		assert.Contains(t, src, "user.ScoreGTE")
+		assert.Contains(t, src, "user.ScoreLTE")
+	})
+
+	t.Run("status field uses FIQLEnum with pre-built maps", func(t *testing.T) {
+		src := fileSource(t, "examples/basic/ent/fiql.go")
+		assert.Contains(t, src, `"status": entdomain.FIQLEnum[predicate.User]`)
+		assert.Contains(t, src, `"active":`)
+		assert.Contains(t, src, `"inactive":`)
+		assert.Contains(t, src, "user.StatusEQ(user.StatusActive)")
+		assert.Contains(t, src, "user.StatusNEQ(user.StatusActive)")
+	})
+
+	t.Run("created_at field uses FIQLTime with GTE and LTE only", func(t *testing.T) {
+		src := fileSource(t, "examples/basic/ent/fiql.go")
+		assert.Contains(t, src, `"created_at": entdomain.FIQLTime[predicate.User]`)
+		assert.Contains(t, src, "user.CreatedAtGTE")
+		assert.Contains(t, src, "user.CreatedAtLTE")
+		assert.NotContains(t, src, "user.CreatedAtEQ", "EQ not annotated on created_at")
+	})
+
+	t.Run("password_hash not in registry (unannotated)", func(t *testing.T) {
+		src := fileSource(t, "examples/basic/ent/fiql.go")
+		assert.NotContains(t, src, `"password_hash"`, "unannotated fields must not appear in FIQL registry")
+	})
+
+	t.Run("bio not in registry (no FIQL annotation)", func(t *testing.T) {
+		src := fileSource(t, "examples/basic/ent/fiql.go")
+		assert.NotContains(t, src, `"bio"`, "bio has no FIQL annotation and must not appear")
+	})
+}
+
+// fileSource reads the raw source text of a file.
+func fileSource(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(data)
 }
 
 func TestTemplate_TransformerVar(t *testing.T) {

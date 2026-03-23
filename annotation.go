@@ -264,6 +264,7 @@ func Nest() EdgeOption {
 type FieldAnnotation struct {
 	SkipProto bool
 	ProtoType *ProtoTypeConfig
+	FIQLOps   []FIQLOp
 }
 
 // Name implements schema.Annotation.
@@ -285,6 +286,9 @@ func (a FieldAnnotation) Merge(other schema.Annotation) schema.Annotation {
 	a.SkipProto = a.SkipProto || ant.SkipProto
 	if a.ProtoType == nil && ant.ProtoType != nil {
 		a.ProtoType = ant.ProtoType
+	}
+	if len(a.FIQLOps) == 0 && len(ant.FIQLOps) > 0 {
+		a.FIQLOps = ant.FIQLOps
 	}
 	return a
 }
@@ -314,6 +318,21 @@ func Field(opts ...fieldOption) FieldAnnotation {
 
 // SkipProto returns a fieldOption that excludes the field from proto generation.
 func SkipProto() fieldOption { return skipProtoOpt{} }
+
+// fiqlOpt implements fieldOption for FIQL operator configuration.
+type fiqlOpt struct{ ops []FIQLOp }
+
+func (f fiqlOpt) applyField(a *FieldAnnotation) { a.FIQLOps = f.ops }
+
+// FIQL returns a fieldOption that enables FIQL filtering on a field with the given operators.
+// Only the listed operators will be accepted at runtime; others return an error.
+//
+// Example:
+//
+//	field.String("name").Annotations(entdomain.Field(
+//	    entdomain.FIQL(entdomain.EQ, entdomain.NEQ, entdomain.Contains),
+//	))
+func FIQL(ops ...FIQLOp) fieldOption { return fiqlOpt{ops: ops} }
 
 // extractEntityAnnotation extracts EntityAnnotation from a map of annotations.
 func extractEntityAnnotation(annotations map[string]interface{}) (*EntityAnnotation, error) {

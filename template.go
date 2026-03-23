@@ -16,6 +16,7 @@ package entdomain
 
 import (
 	"embed"
+	"strings"
 	"text/template"
 
 	"entgo.io/ent/entc/gen"
@@ -25,6 +26,9 @@ import (
 var (
 	// DomainTemplate generates mapper methods (ToDomain, ApplyDomain) in the ent/ dir.
 	DomainTemplate = parseT("template/domain.tmpl")
+
+	// FIQLTemplate generates FIQL field registries and entry-point functions in the ent/ dir.
+	FIQLTemplate = parseT("template/fiql.tmpl")
 
 	// TemplateFuncs contains the extra template functions used by entdomain.
 	TemplateFuncs = template.FuncMap{
@@ -38,10 +42,15 @@ var (
 		"isNillable":       func(f *gen.Field) bool { return f.Optional || f.Nillable },
 		"isJSONField":      func(f *gen.Field) bool { return f.Type.Type == field.TypeJSON },
 		"hasEnumFields":    hasEnumFieldsFn,
-		"hasUpsert":        hasUpsertFn,
-		"singular":         func(s string) string { return gen.Funcs["singular"].(func(string) string)(s) },
-		"pascal":           func(s string) string { return gen.Funcs["pascal"].(func(string) string)(s) },
-		"snake":            func(s string) string { return gen.Funcs["snake"].(func(string) string)(s) },
+		"hasUpsert":           hasUpsertFn,
+		"hasFIQLNodes":        hasFIQLNodesFn,
+		"hasFIQLFields":       hasFIQLFieldsFn,
+		"fieldFIQLAnnotation": fieldFIQLAnnotationFn,
+		"fieldFIQLKind":       fieldFIQLKindFn,
+		"lower":               strings.ToLower,
+		"singular":            func(s string) string { return gen.Funcs["singular"].(func(string) string)(s) },
+		"pascal":              func(s string) string { return gen.Funcs["pascal"].(func(string) string)(s) },
+		"snake":               func(s string) string { return gen.Funcs["snake"].(func(string) string)(s) },
 	}
 
 	//go:embed template/*
@@ -113,4 +122,95 @@ func hasUpsertFn(g *gen.Graph) bool {
 		}
 	}
 	return false
+}
+
+// hasFIQLFieldsFn reports whether a single entity node has at least one FIQL-annotated field.
+func hasFIQLFieldsFn(n *gen.Type) (bool, error) {
+	ant, err := extractEntityAnnotation(n.Annotations)
+	if err != nil {
+		return false, err
+	}
+	if ant == nil {
+		return false, nil
+	}
+	for _, f := range n.Fields {
+		if f.IsEdgeField() {
+			continue
+		}
+		fa, err := extractFieldAnnotation(f.Annotations)
+		if err != nil {
+			return false, err
+		}
+		if fa != nil && len(fa.FIQLOps) > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// hasFIQLNodesFn reports whether any entity node in the graph has at least one FIQL-annotated field.
+func hasFIQLNodesFn(nodes []*gen.Type) (bool, error) {
+	for _, n := range nodes {
+		ant, err := extractEntityAnnotation(n.Annotations)
+		if err != nil {
+			return false, err
+		}
+		if ant == nil {
+			continue
+		}
+		for _, f := range n.Fields {
+			if f.IsEdgeField() {
+				continue
+			}
+			fa, err := extractFieldAnnotation(f.Annotations)
+			if err != nil {
+				return false, err
+			}
+			if fa != nil && len(fa.FIQLOps) > 0 {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// fieldFIQLAnnotationFn returns the FIQL ops for a field as strings (e.g. "==", "=gt="),
+// or nil if the field is not FIQL-annotated. Returning strings lets templates use eq directly.
+func fieldFIQLAnnotationFn(f *gen.Field) ([]string, error) {
+	fa, err := extractFieldAnnotation(f.Annotations)
+	if err != nil {
+		return nil, err
+	}
+	if fa == nil || len(fa.FIQLOps) == 0 {
+		return nil, nil
+	}
+	ops := make([]string, len(fa.FIQLOps))
+	for i, op := range fa.FIQLOps {
+		ops[i] = string(op)
+	}
+	return ops, nil
+}
+
+// fieldFIQLKindFn returns the FIQL type kind string for a field:
+// "String", "Int", "Float", "Bool", "Time", "Enum", or "" (unsupported).
+func fieldFIQLKindFn(f *gen.Field) string {
+	switch f.Type.Type {
+	case field.TypeString:
+		return "String"
+	case field.TypeInt, field.TypeInt8, field.TypeInt16, field.TypeInt32, field.TypeInt64,
+		field.TypeUint, field.TypeUint8, field.TypeUint16, field.TypeUint32, field.TypeUint64:
+		return "Int"
+	case field.TypeFloat32, field.TypeFloat64:
+		return "Float"
+	case field.TypeBool:
+		return "Bool"
+	case field.TypeTime:
+		return "Time"
+	case field.TypeEnum:
+		return "Enum"
+	case field.TypeUUID:
+		return "" // UUID predicates take uuid.UUID not string — not supported via FIQL
+	default:
+		return "" // JSON and others: not supported
+	}
 }

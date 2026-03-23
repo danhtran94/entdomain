@@ -146,7 +146,7 @@ func (e *Extension) Hooks() []gen.Hook {
 
 // Templates returns the gen.Template implementations for this extension.
 func (e *Extension) Templates() []*gen.Template {
-	return []*gen.Template{DomainTemplate}
+	return []*gen.Template{DomainTemplate, FIQLTemplate}
 }
 
 // generateDomainHook returns a gen.Hook that:

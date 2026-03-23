@@ -1,0 +1,103 @@
+{{ define "fiql" }}
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+    {{ template "header" . }}
+{{- end }}
+
+{{ template "import" $ }}
+
+{{- $domainNodes := domainNodes $.Nodes }}
+{{- if and $domainNodes (hasFIQLNodes $.Nodes) }}
+
+import (
+    "github.com/danhtran94/entdomain"
+    "{{ $.Config.Package }}/predicate"
+    {{- range $n := $domainNodes }}
+    {{- if hasFIQLFields $n }}
+    "{{ $.Config.Package }}/{{ $n.Package }}"
+    {{- end }}
+    {{- end }}
+)
+
+{{ range $n := $domainNodes }}
+{{- if hasFIQLFields $n }}
+
+// {{ $n.Name }}FIQLFields is the FIQL field registry for {{ $n.Name }}.
+// Pass it to entdomain.ParseFIQL to filter {{ $n.Name }} entities.
+var {{ $n.Name }}FIQLFields = entdomain.FIQLFields[predicate.{{ $n.Name }}]{
+    {{- range $f := $n.Fields }}
+    {{- if not $f.IsEdgeField }}
+    {{- $ops := fieldFIQLAnnotation $f }}
+    {{- if $ops }}
+    {{- $kind := fieldFIQLKind $f }}
+    {{- if eq $kind "Enum" }}
+    "{{ $f.Name }}": entdomain.FIQLEnum[predicate.{{ $n.Name }}]{
+        {{- range $op := $ops }}
+        {{- if eq $op "==" }}
+        EQ: map[string]predicate.{{ $n.Name }}{
+            {{- range $e := $f.Enums }}
+            "{{ $e.Value }}": {{ lower $n.Name }}.{{ $f.StructField }}EQ({{ lower $n.Name }}.{{ $e.Name }}),
+            {{- end }}
+        },
+        {{- end }}
+        {{- if eq $op "!=" }}
+        NEQ: map[string]predicate.{{ $n.Name }}{
+            {{- range $e := $f.Enums }}
+            "{{ $e.Value }}": {{ lower $n.Name }}.{{ $f.StructField }}NEQ({{ lower $n.Name }}.{{ $e.Name }}),
+            {{- end }}
+        },
+        {{- end }}
+        {{- end }}
+    },
+    {{- else }}
+    "{{ $f.Name }}": entdomain.FIQL{{ $kind }}[predicate.{{ $n.Name }}]{
+        {{- range $op := $ops }}
+        {{- if eq $op "==" }}
+        EQ: {{ lower $n.Name }}.{{ $f.StructField }}EQ,
+        {{- end }}
+        {{- if eq $op "!=" }}
+        NEQ: {{ lower $n.Name }}.{{ $f.StructField }}NEQ,
+        {{- end }}
+        {{- if eq $op "=gt=" }}
+        GT: {{ lower $n.Name }}.{{ $f.StructField }}GT,
+        {{- end }}
+        {{- if eq $op "=lt=" }}
+        LT: {{ lower $n.Name }}.{{ $f.StructField }}LT,
+        {{- end }}
+        {{- if eq $op "=ge=" }}
+        GTE: {{ lower $n.Name }}.{{ $f.StructField }}GTE,
+        {{- end }}
+        {{- if eq $op "=le=" }}
+        LTE: {{ lower $n.Name }}.{{ $f.StructField }}LTE,
+        {{- end }}
+        {{- if eq $op "=like=" }}
+        Contains: {{ lower $n.Name }}.{{ $f.StructField }}Contains,
+        {{- end }}
+        {{- if eq $op "=prefix=" }}
+        HasPrefix: {{ lower $n.Name }}.{{ $f.StructField }}HasPrefix,
+        {{- end }}
+        {{- end }}
+    },
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+}
+
+// {{ $n.Name }}FIQL parses a FIQL filter expression and returns an ent predicate
+// for querying {{ $n.Name }} entities.
+//
+// Example:
+//
+//	pred, err := ent.{{ $n.Name }}FIQL("name==john;age=gt=25")
+//	users, err := client.User.Query().Where(pred).All(ctx)
+func {{ $n.Name }}FIQL(expr string) (predicate.{{ $n.Name }}, error) {
+    return entdomain.ParseFIQL(expr, {{ $n.Name }}FIQLFields)
+}
+{{- end }}
+{{- end }}
+
+{{- end }}
+{{ end }}
