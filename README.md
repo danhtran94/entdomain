@@ -61,6 +61,37 @@ func main() {
 }
 ```
 
+### Custom Layout
+
+`WithPackagePath` and `WithProtoDir` are resolved relative to the **module root** (the directory containing `go.mod`), not relative to the `ent` directory. This means you can place `ent` anywhere in your project tree:
+
+```
+myproject/          ← go.mod here (module root)
+├── repo/
+│   ├── schema/
+│   └── ent/        ← ent output
+└── internal/
+    └── domain/     ← WithPackagePath("internal/domain") resolves here ✓
+```
+
+```go
+entdomain.WithPackagePath("internal/domain"),  // relative to go.mod, not to ent dir
+```
+
+**One caveat**: when the schema directory is outside the `ent` directory, ent derives the generated package name from the schema's parent directory rather than from `Target`. Set `gen.Config.Package` explicitly to get the correct import path:
+
+```go
+if err := entc.Generate("../schema",
+    &gen.Config{
+        Target:  ".",
+        Package: "github.com/myorg/myproject/repo/ent", // required when schema is outside ent dir
+    },
+    entc.Extensions(ex),
+); err != nil { ... }
+```
+
+See [`examples/custom/`](examples/custom/) for a working example of this layout.
+
 ## Schema Annotations
 
 Opt in per entity and per edge. Entities without `entdomain.Entity()` are skipped entirely.

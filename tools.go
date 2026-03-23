@@ -8,6 +8,7 @@
 //
 //	cd examples/basic/ent && go run entc.go
 //	cd examples/basic/proto && buf generate
+//	cd examples/custom/repo/ent && go run entc.go
 package entdomain
 
 import (

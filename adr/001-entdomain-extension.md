@@ -38,6 +38,15 @@ entdomain.NewExtension(
 )
 ```
 
+`WithPackagePath` and `WithProtoDir` are resolved relative to the **module root** (the directory containing `go.mod`), not relative to the `ent` directory. When the schema lives outside the `ent` directory, ent derives the generated package name from the schema's parent — set `gen.Config.Package` explicitly to override:
+
+```go
+entc.Generate("../schema", &gen.Config{
+    Target:  ".",
+    Package: "github.com/myorg/myproject/repo/ent",
+}, entc.Extensions(ex))
+```
+
 `WithNoBulk` suppresses generation of `XxxList`, `(Xxxs).ToDomain()`, `CreateBulkDomain`, `UpdateBulkDomain`, and `XxxUpdateOneBulk` for the named entities. Called with no arguments it applies to all entities.
 
 ### Annotation API
