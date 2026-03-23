@@ -1,8 +1,8 @@
 package pbmap
 
 import (
-	"github.com/danhtran94/entdomain/internal/testdata/domain"
-	"github.com/danhtran94/entdomain/internal/testdata/proto/entpb"
+	"github.com/danhtran94/entdomain/examples/basic/domain"
+	"github.com/danhtran94/entdomain/examples/basic/proto/entpb"
 )
 
 func UserMetadataToProto(m domain.UserMetadata) *entpb.UserMetadata {

@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/danhtran94/entdomain"
-
-	domain "github.com/danhtran94/entdomain/internal/testdata/domain"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	domain "github.com/danhtran94/entdomain/examples/basic/domain"
+	"github.com/danhtran94/entdomain/examples/basic/ent/user"
 )
 
 // PostDomainField is the type for Post domain field constants.

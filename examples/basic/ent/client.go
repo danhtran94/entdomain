@@ -9,15 +9,15 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/danhtran94/entdomain/internal/testdata/ent/migrate"
+	"github.com/danhtran94/entdomain/examples/basic/ent/migrate"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	"github.com/danhtran94/entdomain/examples/basic/ent/post"
+	"github.com/danhtran94/entdomain/examples/basic/ent/tag"
+	"github.com/danhtran94/entdomain/examples/basic/ent/user"
 )
 
 // Client is the client that holds all ent builders.

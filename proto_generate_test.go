@@ -24,9 +24,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const protoFile = "internal/testdata/proto/entpb/ent_messages.proto"
-const lockFile = "internal/testdata/proto/entpb/.entdomain.lock.json"
-const tagMapperFile = "internal/testdata/domain/pbmap/tag_proto_gen.go"
+const protoFile = "examples/basic/proto/entpb/ent_messages.proto"
+const lockFile = "examples/basic/proto/entpb/.entdomain.lock.json"
+const tagMapperFile = "examples/basic/domain/pbmap/tag_proto_gen.go"
 
 // protoFileContent reads the generated proto file as a string.
 func protoFileContent(t *testing.T) string {
@@ -42,10 +42,10 @@ func TestProtoGenerate_FileExists(t *testing.T) {
 		protoFile,
 		lockFile,
 		// Mappers and helpers are generated in domain/pbmap/ subpackage by default.
-		"internal/testdata/domain/pbmap/user_proto_gen.go",
-		"internal/testdata/domain/pbmap/post_proto_gen.go",
+		"examples/basic/domain/pbmap/user_proto_gen.go",
+		"examples/basic/domain/pbmap/post_proto_gen.go",
 		tagMapperFile,
-		"internal/testdata/domain/pbmap/proto_helpers_gen.go",
+		"examples/basic/domain/pbmap/proto_helpers_gen.go",
 	} {
 		_, err := os.Stat(path)
 		assert.NoError(t, err, "expected file to exist: %s", path)
@@ -62,7 +62,7 @@ func TestProtoGenerate_Proto3Syntax(t *testing.T) {
 func TestProtoGenerate_PackageAndGoPackage(t *testing.T) {
 	content := protoFileContent(t)
 	assert.Contains(t, content, "package entpb;")
-	assert.Contains(t, content, `option go_package = "github.com/danhtran94/entdomain/internal/testdata/proto/entpb;entpb"`)
+	assert.Contains(t, content, `option go_package = "github.com/danhtran94/entdomain/examples/basic/proto/entpb;entpb"`)
 }
 
 // TestProtoGenerate_UserMessage verifies the User proto message.
@@ -136,7 +136,7 @@ func TestProtoGenerate_LockFile_IDIsOne(t *testing.T) {
 // Mappers live in the pbmap subpackage as standalone functions.
 // Both domain and proto types are qualified.
 func TestProtoGenerate_MapperUserMethods(t *testing.T) {
-	data, err := os.ReadFile("internal/testdata/domain/pbmap/user_proto_gen.go")
+	data, err := os.ReadFile("examples/basic/domain/pbmap/user_proto_gen.go")
 	require.NoError(t, err)
 	content := string(data)
 
@@ -149,7 +149,7 @@ func TestProtoGenerate_MapperUserMethods(t *testing.T) {
 
 // TestProtoGenerate_MapperUserFieldMappings verifies the field expressions in the mapper.
 func TestProtoGenerate_MapperUserFieldMappings(t *testing.T) {
-	data, err := os.ReadFile("internal/testdata/domain/pbmap/user_proto_gen.go")
+	data, err := os.ReadFile("examples/basic/domain/pbmap/user_proto_gen.go")
 	require.NoError(t, err)
 	content := string(data)
 
@@ -189,7 +189,7 @@ func TestProtoGenerate_MapperUserFieldMappings(t *testing.T) {
 
 // TestProtoGenerate_MapperPostMethods verifies domain/pbmap/post_proto_gen.go structure.
 func TestProtoGenerate_MapperPostMethods(t *testing.T) {
-	data, err := os.ReadFile("internal/testdata/domain/pbmap/post_proto_gen.go")
+	data, err := os.ReadFile("examples/basic/domain/pbmap/post_proto_gen.go")
 	require.NoError(t, err)
 	content := string(data)
 
@@ -201,7 +201,7 @@ func TestProtoGenerate_MapperPostMethods(t *testing.T) {
 // TestProtoGenerate_HelpersFile verifies proto_helpers_gen.go is in the pbmap package
 // with exported (PascalCase) function names.
 func TestProtoGenerate_HelpersFile(t *testing.T) {
-	data, err := os.ReadFile("internal/testdata/domain/pbmap/proto_helpers_gen.go")
+	data, err := os.ReadFile("examples/basic/domain/pbmap/proto_helpers_gen.go")
 	require.NoError(t, err)
 	content := string(data)
 
@@ -223,7 +223,7 @@ func TestProtoGenerate_HelpersFile(t *testing.T) {
 // TestProtoGenerate_PbmapCompiles verifies the generated pbmap package compiles cleanly
 // against the real protobuf-generated entpb types (from buf generate).
 func TestProtoGenerate_PbmapCompiles(t *testing.T) {
-	cmd := exec.Command("go", "build", "./internal/testdata/domain/pbmap/")
+	cmd := exec.Command("go", "build", "./examples/basic/domain/pbmap/")
 	out, err := cmd.CombinedOutput()
 	assert.NoError(t, err, "pbmap package must compile:\n%s", out)
 }
@@ -251,7 +251,7 @@ func TestProtoGenerate_DurationImport(t *testing.T) {
 // TestProtoGenerate_MapperUserComplexFieldMappings verifies UUID, optional time, and
 // Duration field expressions are generated correctly in the user mapper.
 func TestProtoGenerate_MapperUserComplexFieldMappings(t *testing.T) {
-	data, err := os.ReadFile("internal/testdata/domain/pbmap/user_proto_gen.go")
+	data, err := os.ReadFile("examples/basic/domain/pbmap/user_proto_gen.go")
 	require.NoError(t, err)
 	content := string(data)
 
@@ -329,7 +329,7 @@ func TestProtoGenerate_MapperTagEdges(t *testing.T) {
 // - O2O To + IDs: PinnedPostId / PinnedPostID with int64↔int conversion
 // - M2M To + IDs: TagIds / TagIDs with ToInt64Slice / FromInt64Slice
 func TestProtoGenerate_MapperUserEdgeIDs(t *testing.T) {
-	data, err := os.ReadFile("internal/testdata/domain/pbmap/user_proto_gen.go")
+	data, err := os.ReadFile("examples/basic/domain/pbmap/user_proto_gen.go")
 	require.NoError(t, err)
 	content := string(data)
 
@@ -354,7 +354,7 @@ func TestProtoGenerate_MapperUserEdgeIDs(t *testing.T) {
 
 // TestProtoGenerate_EnumHelpers verifies the enum helper functions in user_proto_gen.go.
 func TestProtoGenerate_EnumHelpers(t *testing.T) {
-	data, err := os.ReadFile("internal/testdata/domain/pbmap/user_proto_gen.go")
+	data, err := os.ReadFile("examples/basic/domain/pbmap/user_proto_gen.go")
 	require.NoError(t, err)
 	content := string(data)
 

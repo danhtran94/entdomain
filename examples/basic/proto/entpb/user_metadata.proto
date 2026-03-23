@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package entpb;
 
-option go_package = "github.com/danhtran94/entdomain/internal/testdata/proto/entpb;entpb";
+option go_package = "github.com/danhtran94/entdomain/examples/basic/proto/entpb;entpb";
 
 message UserMetadata {
   repeated string links = 1;

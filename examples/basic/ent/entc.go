@@ -12,13 +12,13 @@ import (
 
 func main() {
 	ex, err := entdomain.NewExtension(
-		entdomain.WithPackagePath("domain"),
+		entdomain.WithPackagePath("examples/basic/domain"),
 		entdomain.WithPackageName("domain"),
 		entdomain.WithNoBulk("Post"),
 		entdomain.WithProto(
-			entdomain.WithProtoDir("proto"),
+			entdomain.WithProtoDir("examples/basic/proto"),
 			entdomain.WithProtoPackageName("entpb"),
-			entdomain.WithProtoGoPackage("github.com/danhtran94/entdomain/internal/testdata/proto/entpb;entpb"),
+			entdomain.WithProtoGoPackage("github.com/danhtran94/entdomain/examples/basic/proto/entpb;entpb"),
 		),
 	)
 	if err != nil {

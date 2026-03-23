@@ -8,8 +8,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	"github.com/danhtran94/entdomain/examples/basic/ent/post"
+	"github.com/danhtran94/entdomain/examples/basic/ent/user"
 )
 
 // Post is the model entity for the Post schema.

@@ -132,7 +132,7 @@ func hasImport(f *ast.File, path string) bool {
 }
 
 func TestGenerate_UserDomainStruct(t *testing.T) {
-	f := domainFile(t, "internal/testdata/domain/user_gen.go")
+	f := domainFile(t, "examples/basic/domain/user_gen.go")
 
 	t.Run("no ent import", func(t *testing.T) {
 		assert.False(t, hasImport(f, "entgo.io/ent"), "domain file must not import entgo.io/ent")
@@ -193,7 +193,7 @@ func TestGenerate_UserDomainStruct(t *testing.T) {
 
 func TestGenerate_ListType(t *testing.T) {
 	t.Run("UserList declared in user.go", func(t *testing.T) {
-		f := domainFile(t, "internal/testdata/domain/user_gen.go")
+		f := domainFile(t, "examples/basic/domain/user_gen.go")
 		found := false
 		for _, decl := range f.Decls {
 			gd, ok := decl.(*ast.GenDecl)
@@ -211,19 +211,19 @@ func TestGenerate_ListType(t *testing.T) {
 	})
 
 	t.Run("User.ToList declared in user.go", func(t *testing.T) {
-		f := domainFile(t, "internal/testdata/domain/user_gen.go")
+		f := domainFile(t, "examples/basic/domain/user_gen.go")
 		fd := findFuncDecl(f, "*User", "ToList")
 		require.NotNil(t, fd, "(*User).ToList() must be declared")
 	})
 
 	t.Run("UserList.GetIDs declared in user.go", func(t *testing.T) {
-		f := domainFile(t, "internal/testdata/domain/user_gen.go")
+		f := domainFile(t, "examples/basic/domain/user_gen.go")
 		fd := findFuncDecl(f, "UserList", "GetIDs")
 		require.NotNil(t, fd, "(UserList).GetIDs() must be declared")
 	})
 
 	t.Run("PostList declared in post.go (always, NoBulk only gates operators)", func(t *testing.T) {
-		f := domainFile(t, "internal/testdata/domain/post_gen.go")
+		f := domainFile(t, "examples/basic/domain/post_gen.go")
 		found := false
 		for _, decl := range f.Decls {
 			gd, ok := decl.(*ast.GenDecl)
@@ -241,14 +241,14 @@ func TestGenerate_ListType(t *testing.T) {
 	})
 
 	t.Run("PostList.GetIDs declared in post.go", func(t *testing.T) {
-		f := domainFile(t, "internal/testdata/domain/post_gen.go")
+		f := domainFile(t, "examples/basic/domain/post_gen.go")
 		fd := findFuncDecl(f, "PostList", "GetIDs")
 		require.NotNil(t, fd, "(PostList).GetIDs() must be declared")
 	})
 }
 
 func TestGenerate_PostDomainStruct(t *testing.T) {
-	f := domainFile(t, "internal/testdata/domain/post_gen.go")
+	f := domainFile(t, "examples/basic/domain/post_gen.go")
 
 	t.Run("no ent import", func(t *testing.T) {
 		assert.False(t, hasImport(f, "entgo.io/ent"))
@@ -269,10 +269,10 @@ func TestGenerate_PostDomainStruct(t *testing.T) {
 }
 
 // methodBodySource returns the source text of the body of the method with the given
-// receiver type and method name in internal/testdata/ent/domain.go. Returns "" if not found.
+// receiver type and method name in examples/basic/ent/domain.go. Returns "" if not found.
 func methodBodySource(t *testing.T, recv, method string) string {
 	t.Helper()
-	const file = "internal/testdata/ent/domain.go"
+	const file = "examples/basic/ent/domain.go"
 	src, err := os.ReadFile(file)
 	require.NoError(t, err)
 	fset := token.NewFileSet()

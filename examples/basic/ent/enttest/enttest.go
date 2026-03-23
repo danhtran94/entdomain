@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"github.com/danhtran94/entdomain/internal/testdata/ent"
+	"github.com/danhtran94/entdomain/examples/basic/ent"
 	// required by schema hooks.
-	_ "github.com/danhtran94/entdomain/internal/testdata/ent/runtime"
+	_ "github.com/danhtran94/entdomain/examples/basic/ent/runtime"
 
 	"entgo.io/ent/dialect/sql/schema"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/migrate"
+	"github.com/danhtran94/entdomain/examples/basic/ent/migrate"
 )
 
 type (

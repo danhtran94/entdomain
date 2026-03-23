@@ -3,8 +3,8 @@
 package pbmap
 
 import (
-	domain "github.com/danhtran94/entdomain/internal/testdata/domain"
-	entpb "github.com/danhtran94/entdomain/internal/testdata/proto/entpb"
+	domain "github.com/danhtran94/entdomain/examples/basic/domain"
+	entpb "github.com/danhtran94/entdomain/examples/basic/proto/entpb"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"

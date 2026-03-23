@@ -486,7 +486,7 @@ const file_entpb_ent_messages_proto_rawDesc = "" +
 	"UserStatus\x12\x1b\n" +
 	"\x17USER_STATUS_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12USER_STATUS_ACTIVE\x10\x01\x12\x18\n" +
-	"\x14USER_STATUS_INACTIVE\x10\x02BEZCgithub.com/danhtran94/entdomain/internal/testdata/proto/entpb;entpbb\x06proto3"
+	"\x14USER_STATUS_INACTIVE\x10\x02BEZCgithub.com/danhtran94/entdomain/examples/basic/proto/entpb;entpbb\x06proto3"
 
 var (
 	file_entpb_ent_messages_proto_rawDescOnce sync.Once

@@ -8,7 +8,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
+	"github.com/danhtran94/entdomain/examples/basic/ent/tag"
 )
 
 // Tag is the model entity for the Tag schema.

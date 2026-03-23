@@ -5,9 +5,9 @@ package ent
 import (
 	"time"
 
-	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/schema"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	"github.com/danhtran94/entdomain/examples/basic/ent/post"
+	"github.com/danhtran94/entdomain/examples/basic/ent/schema"
+	"github.com/danhtran94/entdomain/examples/basic/ent/user"
 )
 
 // The init function reads all schema descriptors with runtime code

@@ -24,11 +24,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// entDomainFile parses internal/testdata/ent/domain.go and returns the AST.
+// entDomainFile parses examples/basic/ent/domain.go and returns the AST.
 func entDomainFile(t *testing.T) *ast.File {
 	t.Helper()
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "internal/testdata/ent/domain.go", nil, parser.ParseComments)
+	f, err := parser.ParseFile(fset, "examples/basic/ent/domain.go", nil, parser.ParseComments)
 	require.NoError(t, err)
 	return f
 }
@@ -54,7 +54,7 @@ func TestTemplate_DomainFile_Imports(t *testing.T) {
 	f := entDomainFile(t)
 
 	assert.True(t, hasImport(f, "github.com/danhtran94/entdomain"), "must import entdomain for ApplyOption")
-	assert.True(t, hasImport(f, "github.com/danhtran94/entdomain/internal/testdata/domain"), "must import domain package")
+	assert.True(t, hasImport(f, "github.com/danhtran94/entdomain/examples/basic/domain"), "must import domain package")
 }
 
 func TestTemplate_DomainField_Constants(t *testing.T) {

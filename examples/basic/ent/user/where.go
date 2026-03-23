@@ -7,7 +7,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/predicate"
+	"github.com/danhtran94/entdomain/examples/basic/ent/predicate"
 	"github.com/google/uuid"
 )
 

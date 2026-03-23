@@ -6,11 +6,11 @@
 //
 // To regenerate testdata:
 //
-//	cd internal/testdata/ent && go run entc.go
-//	cd internal/testdata/proto && buf generate
+//	cd examples/basic/ent && go run entc.go
+//	cd examples/basic/proto && buf generate
 package entdomain
 
 import (
-	// Required by internal/testdata/proto/entpb (buf generate output).
+	// Required by examples/basic/proto/entpb (buf generate output).
 	_ "google.golang.org/protobuf/proto"
 )

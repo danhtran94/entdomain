@@ -12,9 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/predicate"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	"github.com/danhtran94/entdomain/examples/basic/ent/post"
+	"github.com/danhtran94/entdomain/examples/basic/ent/predicate"
+	"github.com/danhtran94/entdomain/examples/basic/ent/user"
 )
 
 // PostQuery is the builder for querying Post entities.

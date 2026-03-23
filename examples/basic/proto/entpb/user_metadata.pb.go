@@ -71,7 +71,7 @@ const file_entpb_user_metadata_proto_rawDesc = "" +
 	"\n" +
 	"\x19entpb/user_metadata.proto\x12\x05entpb\"$\n" +
 	"\fUserMetadata\x12\x14\n" +
-	"\x05links\x18\x01 \x03(\tR\x05linksBEZCgithub.com/danhtran94/entdomain/internal/testdata/proto/entpb;entpbb\x06proto3"
+	"\x05links\x18\x01 \x03(\tR\x05linksBEZCgithub.com/danhtran94/entdomain/examples/basic/proto/entpb;entpbb\x06proto3"
 
 var (
 	file_entpb_user_metadata_proto_rawDescOnce sync.Once

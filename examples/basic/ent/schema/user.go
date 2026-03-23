@@ -22,7 +22,7 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"github.com/danhtran94/entdomain"
-	"github.com/danhtran94/entdomain/internal/testdata/domain"
+	"github.com/danhtran94/entdomain/examples/basic/domain"
 	"github.com/google/uuid"
 )
 

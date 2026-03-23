@@ -12,9 +12,9 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/post"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/user"
+	"github.com/danhtran94/entdomain/examples/basic/ent/post"
+	"github.com/danhtran94/entdomain/examples/basic/ent/tag"
+	"github.com/danhtran94/entdomain/examples/basic/ent/user"
 )
 
 // ent aliases to avoid import conflicts in user's code.

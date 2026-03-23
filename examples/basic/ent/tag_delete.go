@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/predicate"
-	"github.com/danhtran94/entdomain/internal/testdata/ent/tag"
+	"github.com/danhtran94/entdomain/examples/basic/ent/predicate"
+	"github.com/danhtran94/entdomain/examples/basic/ent/tag"
 )
 
 // TagDelete is the builder for deleting a Tag entity.
