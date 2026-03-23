@@ -869,8 +869,8 @@ func parseGoPackage(goPackage string) (importPath, alias string) {
 }
 
 // resolveGoImportPath derives the Go import path for a package whose filesystem
-// location is relPkgPath relative to moduleRoot(g) (i.e. filepath.Dir(g.Config.Target)).
-// It walks up from the ent target directory to find go.mod.
+// location is relPkgPath relative to the module root (directory containing go.mod).
+// It walks up from the module root to find go.mod and reads the module name.
 func resolveGoImportPath(g *gen.Graph, relPkgPath string) (string, error) {
 	outDir := moduleRoot(g)
 	pkgAbsPath := filepath.Join(outDir, relPkgPath)

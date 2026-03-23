@@ -29,9 +29,10 @@ import (
 	"entgo.io/ent/schema/field"
 )
 
-// moduleRoot returns the module root directory (parent of the ent target dir).
-// g.Config.Target may be a relative path (e.g., "."), so we resolve it to an
-// absolute path using the working directory before calling filepath.Dir.
+// moduleRoot returns the Go module root directory (directory containing go.mod).
+// It walks up from the ent target directory to find go.mod, so it works correctly
+// for non-standard layouts where ent is not directly inside the module root.
+// Falls back to the parent of the target dir if go.mod is not found.
 func moduleRoot(g *gen.Graph) string {
 	target := g.Config.Target
 	if !filepath.IsAbs(target) {
@@ -39,14 +40,24 @@ func moduleRoot(g *gen.Graph) string {
 			target = filepath.Join(wd, target)
 		}
 	}
-	return filepath.Dir(target)
+	dir := filepath.Dir(target)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return filepath.Dir(target) // fallback: original behavior
 }
 
-// domainImportPath computes the full Go import path for the domain package.
-// It strips the last path segment ("ent") from g.Config.Package and appends pkgPath.
-func domainImportPath(g *gen.Graph, pkgPath string) string {
-	base := path.Dir(g.Config.Package)
-	return base + "/" + pkgPath
+// domainImportPath computes the full Go import path for the domain package
+// by reading go.mod to find the module name.
+func domainImportPath(g *gen.Graph, pkgPath string) (string, error) {
+	return resolveGoImportPath(g, pkgPath)
 }
 
 // generateDomainFiles writes one {entity_lower}.go per entity with EntityAnnotation
@@ -56,6 +67,10 @@ func generateDomainFiles(g *gen.Graph, pkgPath, pkgName string) error {
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return fmt.Errorf("entdomain: create domain dir: %w", err)
 	}
+	ownImportPath, err := domainImportPath(g, pkgPath)
+	if err != nil {
+		return fmt.Errorf("entdomain: resolve domain import path: %w", err)
+	}
 	for _, t := range g.Nodes {
 		ant, err := extractEntityAnnotation(t.Annotations)
 		if err != nil {
@@ -64,7 +79,7 @@ func generateDomainFiles(g *gen.Graph, pkgPath, pkgName string) error {
 		if ant == nil {
 			continue
 		}
-		data, err := buildDomainFileData(g, t, ant, pkgName, domainImportPath(g, pkgPath))
+		data, err := buildDomainFileData(g, t, ant, pkgName, ownImportPath)
 		if err != nil {
 			return fmt.Errorf("entdomain: build domain data for %s: %w", t.Name, err)
 		}

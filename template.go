@@ -80,7 +80,7 @@ func edgeAnnotationFn(e *gen.Edge) (*EdgeAnnotation, error) {
 }
 
 // domainImportPathFn computes the full Go import path for the domain package.
-func domainImportPathFn(g *gen.Graph, pkgPath string) string {
+func domainImportPathFn(g *gen.Graph, pkgPath string) (string, error) {
 	return domainImportPath(g, pkgPath)
 }
 
