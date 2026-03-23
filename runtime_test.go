@@ -146,7 +146,7 @@ func TestEntityAnnotation_VirtualFields(t *testing.T) {
 	ant := entdomain.Entity(
 		entdomain.VirtualField("full_name", entdomain.String),
 		entdomain.VirtualField("is_premium", entdomain.Bool),
-		entdomain.VirtualField("price", entdomain.GoType("github.com/shopspring/decimal", "Decimal")),
+		entdomain.VirtualField("price", entdomain.GoType("Decimal", "github.com/shopspring/decimal")),
 	)
 	assert.Equal(t, "EntDomain", ant.Name())
 	assert.Len(t, ant.VirtualFields, 3)

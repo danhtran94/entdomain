@@ -82,9 +82,9 @@ func (User) Annotations() []schema.Annotation {
 		entdomain.Entity(
 			entdomain.VirtualField("full_name", entdomain.String),
 			entdomain.VirtualField("is_premium", entdomain.Bool),
-			entdomain.VirtualField("expires_at", entdomain.GoType("time", "Time"),
+			entdomain.VirtualField("expires_at", entdomain.GoType("Time", "time"),
 				entdomain.ProtoType("google.protobuf.Timestamp", "google/protobuf/timestamp.proto")),
-			entdomain.VirtualField("subscription_duration", entdomain.GoType("time", "Duration")),
+			entdomain.VirtualField("subscription_duration", entdomain.GoType("Duration", "time")),
 		),
 	}
 }

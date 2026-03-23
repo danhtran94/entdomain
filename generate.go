@@ -350,8 +350,8 @@ func fieldToDomainTypeWithEnum(entityName string, f *gen.Field) (typeStr, import
 }
 
 // resolveGoTypeDomainStr resolves a FieldType to its Go type string and import path.
-// GoType("github.com/shopspring/decimal", "*Decimal") → "*decimal.Decimal", "github.com/shopspring/decimal"
-// GoType("", "*Money") → "*Money", ""
+// GoType("*Decimal", "github.com/shopspring/decimal") → "*decimal.Decimal", "github.com/shopspring/decimal"
+// GoType("*Money") → "*Money", ""
 func resolveGoTypeDomainStr(ft FieldType) (typeStr, importPath string) {
 	typeName := ft.TypeName
 	pkgPath := ft.PkgPath

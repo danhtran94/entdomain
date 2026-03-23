@@ -50,10 +50,14 @@ var (
 )
 
 // GoType constructs a FieldType for an arbitrary Go type.
-// pkgPath is the full import path (empty for local/stdlib).
 // typeName is the Go type name (prefix with "*" for pointer).
-func GoType(pkgPath, typeName string) FieldType {
-	return FieldType{PkgPath: pkgPath, TypeName: typeName}
+// pkgPath is the optional full import path (omit for same-package or stdlib).
+func GoType(typeName string, pkgPath ...string) FieldType {
+	pkg := ""
+	if len(pkgPath) > 0 {
+		pkg = pkgPath[0]
+	}
+	return FieldType{PkgPath: pkg, TypeName: typeName}
 }
 
 // ProtoTypeConfig specifies an explicit proto type for a field or virtual field.

@@ -57,16 +57,16 @@ func (User) Annotations() []schema.Annotation {
             entdomain.VirtualField("is_premium", entdomain.Bool),
 
             // GoType with well-known auto-mapping
-            entdomain.VirtualField("expires_at", entdomain.GoType("time", "Time")),
+            entdomain.VirtualField("expires_at", entdomain.GoType("Time", "time")),
 
             // GoType with explicit proto type + import
             entdomain.VirtualField("amount",
-                entdomain.GoType("github.com/shopspring/decimal", "Decimal"),
+                entdomain.GoType("Decimal", "github.com/shopspring/decimal"),
                 entdomain.ProtoType("google.type.Money", "google/type/money.proto"),
             ),
 
             // GoType with no ProtoType — excluded from .proto output silently
-            entdomain.VirtualField("internal", entdomain.GoType("myorg/types", "InternalState")),
+            entdomain.VirtualField("internal", entdomain.GoType("InternalState", "myorg/types")),
         ),
     }
 }
@@ -193,9 +193,9 @@ Resolution order per field:
 | `entdomain.Bool` | `bool` | — |
 | `entdomain.Int` | `int64` | — |
 | `entdomain.Float64` | `double` | — |
-| `GoType("time", "Time")` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
-| `GoType("time", "Duration")` | `google.protobuf.Duration` | `google/protobuf/duration.proto` |
-| `GoType("github.com/google/uuid", "UUID")` | `string` | — |
+| `GoType("Time", "time")` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
+| `GoType("Duration", "time")` | `google.protobuf.Duration` | `google/protobuf/duration.proto` |
+| `GoType("UUID", "github.com/google/uuid")` | `string` | — |
 | Ent `field.Time(...)` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
 | Ent `field.UUID(...)` | `string` | — |
 | Ent `field.Bool(...)` | `bool` | — |

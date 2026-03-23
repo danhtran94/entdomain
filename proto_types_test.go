@@ -34,8 +34,8 @@ func TestResolveVirtualFieldProtoSpec_Primitives(t *testing.T) {
 		{"bool", Bool, "bool", false, false},
 		{"int", Int, "int64", false, false},
 		{"float64", Float64, "double", false, false},
-		{"*string", GoType("", "*string"), "string", false, true},
-		{"*int", GoType("", "*int"), "int64", false, true},
+		{"*string", GoType("*string"), "string", false, true},
+		{"*int", GoType("*int"), "int64", false, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestResolveVirtualFieldProtoSpec_WellKnownGoTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			vf := VirtualFieldConfig{
 				Name:      "f",
-				FieldType: GoType(tt.pkgPath, tt.typeName),
+				FieldType: GoType(tt.typeName, tt.pkgPath),
 			}
 			spec := resolveVirtualFieldProtoSpec(vf)
 			assert.Equal(t, tt.wantExcl, spec.IsExcluded, "IsExcluded")
@@ -105,7 +105,7 @@ func TestResolveVirtualFieldProtoSpec_WellKnownGoTypes(t *testing.T) {
 func TestResolveVirtualFieldProtoSpec_ExplicitProtoType(t *testing.T) {
 	vf := VirtualFieldConfig{
 		Name:      "expires_at",
-		FieldType: GoType("time", "Time"),
+		FieldType: GoType("Time", "time"),
 		ProtoType: &ProtoTypeConfig{
 			TypeName:   "google.protobuf.Timestamp",
 			ImportPath: "google/protobuf/timestamp.proto",
@@ -121,7 +121,7 @@ func TestResolveVirtualFieldProtoSpec_MapTypeExcluded(t *testing.T) {
 	// map[string]any has empty PkgPath and non-primitive TypeName → excluded.
 	vf := VirtualFieldConfig{
 		Name:      "metadata",
-		FieldType: GoType("", "map[string]any"),
+		FieldType: GoType("map[string]any"),
 	}
 	spec := resolveVirtualFieldProtoSpec(vf)
 	assert.True(t, spec.IsExcluded, "map type should be excluded from proto")
@@ -131,7 +131,7 @@ func TestResolveVirtualFieldProtoSpec_ProtoTypeOverridePriority(t *testing.T) {
 	// Even if the GoType is well-known, an explicit ProtoType override takes priority.
 	vf := VirtualFieldConfig{
 		Name:      "ts",
-		FieldType: GoType("time", "Time"),
+		FieldType: GoType("Time", "time"),
 		ProtoType: &ProtoTypeConfig{
 			TypeName:   "CustomTimestamp",
 			ImportPath: "custom/timestamp.proto",
@@ -144,7 +144,7 @@ func TestResolveVirtualFieldProtoSpec_ProtoTypeOverridePriority(t *testing.T) {
 
 func TestResolveVirtualFieldProtoSpec_ConversionExprs(t *testing.T) {
 	t.Run("time.Time non-optional", func(t *testing.T) {
-		vf := VirtualFieldConfig{Name: "created_at", FieldType: GoType("time", "Time")}
+		vf := VirtualFieldConfig{Name: "created_at", FieldType: GoType("Time", "time")}
 		spec := resolveVirtualFieldProtoSpec(vf)
 		assert.Equal(t, "timestamppb.New(%s)", spec.ToProtoExpr)
 		assert.Equal(t, "%s.AsTime()", spec.FromProtoExpr)
@@ -165,7 +165,7 @@ func TestResolveVirtualFieldProtoSpec_ConversionExprs(t *testing.T) {
 
 func TestResolveVirtualFieldProtoSpec_DurationConversionExprs(t *testing.T) {
 	t.Run("time.Duration non-optional", func(t *testing.T) {
-		vf := VirtualFieldConfig{Name: "ttl", FieldType: GoType("time", "Duration")}
+		vf := VirtualFieldConfig{Name: "ttl", FieldType: GoType("Duration", "time")}
 		spec := resolveVirtualFieldProtoSpec(vf)
 		assert.False(t, spec.IsExcluded)
 		assert.Equal(t, "google.protobuf.Duration", spec.ProtoType)
@@ -175,7 +175,7 @@ func TestResolveVirtualFieldProtoSpec_DurationConversionExprs(t *testing.T) {
 		assert.False(t, spec.IsOptional)
 	})
 	t.Run("*time.Duration optional", func(t *testing.T) {
-		vf := VirtualFieldConfig{Name: "ttl", FieldType: GoType("time", "*Duration")}
+		vf := VirtualFieldConfig{Name: "ttl", FieldType: GoType("*Duration", "time")}
 		spec := resolveVirtualFieldProtoSpec(vf)
 		assert.False(t, spec.IsExcluded)
 		assert.Equal(t, "google.protobuf.Duration", spec.ProtoType)
@@ -187,7 +187,7 @@ func TestResolveVirtualFieldProtoSpec_DurationConversionExprs(t *testing.T) {
 
 func TestResolveVirtualFieldProtoSpec_OptionalTimeConversionExprs(t *testing.T) {
 	// *time.Time should use the nullable helper functions.
-	vf := VirtualFieldConfig{Name: "deleted_at", FieldType: GoType("time", "*Time")}
+	vf := VirtualFieldConfig{Name: "deleted_at", FieldType: GoType("*Time", "time")}
 	spec := resolveVirtualFieldProtoSpec(vf)
 	assert.False(t, spec.IsExcluded)
 	assert.Equal(t, "google.protobuf.Timestamp", spec.ProtoType)

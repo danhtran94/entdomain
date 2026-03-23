@@ -76,7 +76,7 @@ func (User) Annotations() []schema.Annotation {
         entdomain.Entity(
             entdomain.VirtualField("full_name", entdomain.String),
             entdomain.VirtualField("is_premium", entdomain.Bool),
-            entdomain.VirtualField("metadata", entdomain.GoType("", "map[string]any")),
+            entdomain.VirtualField("metadata", entdomain.GoType("map[string]any")),
         ),
     }
 }
@@ -117,13 +117,13 @@ entdomain.VirtualField("full_name", entdomain.String)          // → string
 entdomain.VirtualField("is_premium", entdomain.Bool)           // → bool
 entdomain.VirtualField("count",     entdomain.Int)             // → int
 entdomain.VirtualField("ratio",     entdomain.Float64)         // → float64
-entdomain.VirtualField("amount",   entdomain.GoType("", "Money"))                               // → Money
-entdomain.VirtualField("tags",     entdomain.GoType("", "[]string"))                            // → []string
-entdomain.VirtualField("metadata", entdomain.GoType("", "map[string]any"))                      // → map[string]any
-entdomain.VirtualField("price",    entdomain.GoType("github.com/shopspring/decimal", "Decimal")) // → decimal.Decimal
-entdomain.VirtualField("price2",   entdomain.GoType("github.com/shopspring/decimal", "*Decimal"))// → *decimal.Decimal
-entdomain.VirtualField("ext_id",   entdomain.GoType("github.com/google/uuid", "UUID"))          // → uuid.UUID
-entdomain.VirtualField("opt_ref",  entdomain.GoType("", "*Money"))                              // → *Money
+entdomain.VirtualField("amount",   entdomain.GoType("Money"))                                               // → Money
+entdomain.VirtualField("tags",     entdomain.GoType("[]string"))                                            // → []string
+entdomain.VirtualField("metadata", entdomain.GoType("map[string]any"))                                      // → map[string]any
+entdomain.VirtualField("price",    entdomain.GoType("Decimal", "github.com/shopspring/decimal"))             // → decimal.Decimal
+entdomain.VirtualField("price2",   entdomain.GoType("*Decimal", "github.com/shopspring/decimal"))            // → *decimal.Decimal
+entdomain.VirtualField("ext_id",   entdomain.GoType("UUID", "github.com/google/uuid"))                      // → uuid.UUID
+entdomain.VirtualField("opt_ref",  entdomain.GoType("*Money"))                                              // → *Money
 ```
 
 ## Generated Output
@@ -461,7 +461,7 @@ Fields with a `GoType` that has no well-known mapping are excluded by default. S
 
 ```go
 entdomain.VirtualField("amount",
-    entdomain.GoType("github.com/shopspring/decimal", "Decimal"),
+    entdomain.GoType("Decimal", "github.com/shopspring/decimal"),
     entdomain.ProtoType("google.type.Money", "google/type/money.proto"),
 )
 ```
@@ -515,9 +515,9 @@ func ProtoStructToMap(s *structpb.Struct) map[string]any  // inverse of MapToPro
 | `entdomain.Bool` | `bool` | — |
 | `entdomain.Int` | `int64` | — |
 | `entdomain.Float64` | `double` | — |
-| `GoType("time", "Time")` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
-| `GoType("time", "Duration")` | `google.protobuf.Duration` | `google/protobuf/duration.proto` |
-| `GoType("github.com/google/uuid", "UUID")` | `string` | — |
+| `GoType("Time", "time")` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
+| `GoType("Duration", "time")` | `google.protobuf.Duration` | `google/protobuf/duration.proto` |
+| `GoType("UUID", "github.com/google/uuid")` | `string` | — |
 | `field.Time(...)` | `google.protobuf.Timestamp` | `google/protobuf/timestamp.proto` |
 | `field.UUID(...)` | `string` | — |
 | `field.Enum(...)` | top-level enum | — |

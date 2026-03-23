@@ -57,17 +57,17 @@ entdomain.VirtualField("is_premium", entdomain.Bool)
 entdomain.VirtualField("count",      entdomain.Int)
 entdomain.VirtualField("ratio",      entdomain.Float64)
 
-// Virtual fields — arbitrary Go types via GoType(pkgPath, typeName)
-// pkgPath: full import path; empty string means local/stdlib, no import added.
+// Virtual fields — arbitrary Go types via GoType(typeName, pkgPath?)
 // typeName: Go type name as-is; prefix with "*" for pointer types.
+// pkgPath: optional full import path; omit for same-package or stdlib.
 // Generator emits the type name directly, prepending the package qualifier after any "*".
-entdomain.VirtualField("amount",   entdomain.GoType("", "Money"))                               // → Money
-entdomain.VirtualField("tags",     entdomain.GoType("", "[]string"))                            // → []string
-entdomain.VirtualField("metadata", entdomain.GoType("", "map[string]any"))                      // → map[string]any
-entdomain.VirtualField("price",    entdomain.GoType("github.com/shopspring/decimal", "Decimal")) // → decimal.Decimal
-entdomain.VirtualField("price2",   entdomain.GoType("github.com/shopspring/decimal", "*Decimal"))// → *decimal.Decimal
-entdomain.VirtualField("ext_id",   entdomain.GoType("github.com/google/uuid", "UUID"))          // → uuid.UUID
-entdomain.VirtualField("opt_ref",  entdomain.GoType("", "*Money"))                              // → *Money
+entdomain.VirtualField("amount",   entdomain.GoType("Money"))                                               // → Money
+entdomain.VirtualField("tags",     entdomain.GoType("[]string"))                                            // → []string
+entdomain.VirtualField("metadata", entdomain.GoType("map[string]any"))                                      // → map[string]any
+entdomain.VirtualField("price",    entdomain.GoType("Decimal", "github.com/shopspring/decimal"))             // → decimal.Decimal
+entdomain.VirtualField("price2",   entdomain.GoType("*Decimal", "github.com/shopspring/decimal"))            // → *decimal.Decimal
+entdomain.VirtualField("ext_id",   entdomain.GoType("UUID", "github.com/google/uuid"))                      // → uuid.UUID
+entdomain.VirtualField("opt_ref",  entdomain.GoType("*Money"))                                              // → *Money
 ```
 
 ### Output Structure
@@ -127,9 +127,9 @@ type User struct {
     // Virtual fields — zero value in mapper, hydrate manually
     FullName  string           // entdomain.String
     IsPremium bool             // entdomain.Bool
-    Amount    Money            // entdomain.GoType("", "Money")
-    Tags      []string         // entdomain.GoType("", "[]string")
-    Metadata  map[string]any   // entdomain.GoType("", "map[string]any")
+    Amount    Money            // entdomain.GoType("Money")
+    Tags      []string         // entdomain.GoType("[]string")
+    Metadata  map[string]any   // entdomain.GoType("map[string]any")
 }
 
 // UserList is a pointer slice of User — generated unless WithNoBulk is set.
@@ -423,7 +423,7 @@ For virtual fields and custom type transformations that cannot be auto-generated
 
 type UserDomainTransformer struct {
     // Virtual field getters (ent → domain)
-    // Type is inferred from the annotation: entdomain.String → string, entdomain.GoType("", "Money") → Money
+    // Type is inferred from the annotation: entdomain.String → string, entdomain.GoType("Money") → Money
     GetFullName  func(e *User) string
     GetIsPremium func(e *User) bool
     GetAmount    func(e *User) Money
