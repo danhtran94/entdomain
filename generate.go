@@ -345,15 +345,40 @@ func fieldToDomainTypeWithEnum(entityName string, f *gen.Field) (typeStr, import
 		enumType = et
 	case field.TypeJSON, field.TypeBytes:
 		if f.Type.RType != nil {
-			typeStr = f.Type.RType.Ident
-			if f.Type.RType.PkgPath != "" {
-				importPath = f.Type.RType.PkgPath
+			// Custom Go type: use the RType ident and let optional logic below add pointer.
+			rt := f.Type.RType
+			ident := rt.Ident
+			pkgPath := rt.PkgPath
+			if pkgPath != "" {
+				pkg := path.Base(pkgPath)
+				if strings.HasPrefix(ident, pkg+".") {
+					ident = ident[len(pkg)+1:]
+				}
+				typeStr = pkg + "." + ident
+				importPath = pkgPath
+			} else {
+				typeStr = ident
 			}
+			// Fall through to optional pointer logic below.
+		} else if f.Type.Type == field.TypeBytes {
+			// Raw bytes: []byte is already nil-able; only use pointer for explicit Nillable().
+			if f.Nillable {
+				typeStr = "*[]byte"
+			} else {
+				typeStr = "[]byte"
+			}
+			return // skip generic optional-pointer logic
 		} else {
-			typeStr = "json.RawMessage"
+			// TypeJSON without custom type: json.RawMessage ([]byte) is already nil-able.
+			// Only use pointer for explicit Nillable().
+			if f.Nillable {
+				typeStr = "*json.RawMessage"
+			} else {
+				typeStr = "json.RawMessage"
+			}
 			importPath = "encoding/json"
+			return // skip generic optional-pointer logic
 		}
-		// Note: self-import filtering (same-package types) is applied by the caller.
 	default:
 		typeStr = "interface{}"
 	}

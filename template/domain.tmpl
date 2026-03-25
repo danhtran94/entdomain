@@ -132,9 +132,15 @@ func (c *{{ $n.Name }}Create) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
     {{- if not $f.IsEdgeField }}
     {{- if isNillable $f }}
     {{- if isJSONField $f }}
+    {{- if $f.Nillable }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        c = c.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
+    }
+    {{- else }}
     if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
         c = c.Set{{ $f.StructField }}(d.{{ $f.StructField }})
     }
+    {{- end }}
     {{- else if isEnum $f }}
     if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
         _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
@@ -189,9 +195,15 @@ func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, op
     {{- if not $f.Immutable }}
     {{- if isNillable $f }}
     {{- if isJSONField $f }}
+    {{- if $f.Nillable }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        u = u.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
+    }
+    {{- else }}
     if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
         u = u.Set{{ $f.StructField }}(d.{{ $f.StructField }})
     }
+    {{- end }}
     {{- else if isEnum $f }}
     if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
         _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
@@ -250,9 +262,15 @@ func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
     {{- if not $f.Immutable }}
     {{- if isNillable $f }}
     {{- if isJSONField $f }}
+    {{- if $f.Nillable }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        u = u.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
+    }
+    {{- else }}
     if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
         u = u.Set{{ $f.StructField }}(d.{{ $f.StructField }})
     }
+    {{- end }}
     {{- else if isEnum $f }}
     if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
         _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
@@ -307,9 +325,15 @@ func (u *{{ $n.Name }}UpsertOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, op
         {{- if not $f.Immutable }}
         {{- if isNillable $f }}
         {{- if isJSONField $f }}
+        {{- if $f.Nillable }}
+        if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+            uu.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
+        }
+        {{- else }}
         if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
             uu.Set{{ $f.StructField }}(d.{{ $f.StructField }})
         }
+        {{- end }}
         {{- else if isEnum $f }}
         if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
             uu.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }}))
@@ -347,9 +371,15 @@ func (u *{{ $n.Name }}UpsertBulk) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, o
         {{- if not $f.Immutable }}
         {{- if isNillable $f }}
         {{- if isJSONField $f }}
+        {{- if $f.Nillable }}
+        if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+            uu.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
+        }
+        {{- else }}
         if cfg.ShouldApply("{{ $f.Name }}", d.{{ $f.StructField }}) {
             uu.Set{{ $f.StructField }}(d.{{ $f.StructField }})
         }
+        {{- end }}
         {{- else if isEnum $f }}
         if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
             uu.Set{{ $f.StructField }}({{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }}))
