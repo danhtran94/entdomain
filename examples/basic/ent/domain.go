@@ -370,8 +370,8 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	if cfg.ShouldApply("name", d.Name) {
 		c = c.SetName(d.Name)
 	}
-	if cfg.ShouldApplyPtr("bio", d.Bio) {
-		c = c.SetNillableBio(d.Bio)
+	if cfg.ShouldApplyPtr("bio", d.Bio) && d.Bio != nil {
+		c = c.SetBio(*d.Bio)
 	}
 	if cfg.ShouldApply("status", d.Status) {
 		c = c.SetStatus(user.Status(d.Status))
@@ -382,14 +382,14 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	if cfg.ShouldApply("username", d.Username) {
 		c = c.SetUsername(d.Username)
 	}
-	if cfg.ShouldApplyPtr("score", d.Score) {
-		c = c.SetNillableScore(d.Score)
+	if cfg.ShouldApplyPtr("score", d.Score) && d.Score != nil {
+		c = c.SetScore(*d.Score)
 	}
 	if cfg.ShouldApply("external_id", d.ExternalID) {
 		c = c.SetExternalID(d.ExternalID)
 	}
-	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
-		c = c.SetNillableUpdatedAt(d.UpdatedAt)
+	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) && d.UpdatedAt != nil {
+		c = c.SetUpdatedAt(*d.UpdatedAt)
 	}
 	if cfg.ShouldApply("settings", d.Settings) {
 		c = c.SetSettings(d.Settings)
@@ -431,20 +431,20 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
-	if cfg.ShouldApplyPtr("bio", d.Bio) {
-		u = u.SetNillableBio(d.Bio)
+	if cfg.ShouldApplyPtr("bio", d.Bio) && d.Bio != nil {
+		u = u.SetBio(*d.Bio)
 	}
 	if cfg.ShouldApply("status", d.Status) {
 		u = u.SetStatus(user.Status(d.Status))
 	}
-	if cfg.ShouldApplyPtr("score", d.Score) {
-		u = u.SetNillableScore(d.Score)
+	if cfg.ShouldApplyPtr("score", d.Score) && d.Score != nil {
+		u = u.SetScore(*d.Score)
 	}
 	if cfg.ShouldApply("external_id", d.ExternalID) {
 		u = u.SetExternalID(d.ExternalID)
 	}
-	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
-		u = u.SetNillableUpdatedAt(d.UpdatedAt)
+	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) && d.UpdatedAt != nil {
+		u = u.SetUpdatedAt(*d.UpdatedAt)
 	}
 	if cfg.ShouldApply("settings", d.Settings) {
 		u = u.SetSettings(d.Settings)
@@ -491,20 +491,20 @@ func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
-	if cfg.ShouldApplyPtr("bio", d.Bio) {
-		u = u.SetNillableBio(d.Bio)
+	if cfg.ShouldApplyPtr("bio", d.Bio) && d.Bio != nil {
+		u = u.SetBio(*d.Bio)
 	}
 	if cfg.ShouldApply("status", d.Status) {
 		u = u.SetStatus(user.Status(d.Status))
 	}
-	if cfg.ShouldApplyPtr("score", d.Score) {
-		u = u.SetNillableScore(d.Score)
+	if cfg.ShouldApplyPtr("score", d.Score) && d.Score != nil {
+		u = u.SetScore(*d.Score)
 	}
 	if cfg.ShouldApply("external_id", d.ExternalID) {
 		u = u.SetExternalID(d.ExternalID)
 	}
-	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) {
-		u = u.SetNillableUpdatedAt(d.UpdatedAt)
+	if cfg.ShouldApplyPtr("updated_at", d.UpdatedAt) && d.UpdatedAt != nil {
+		u = u.SetUpdatedAt(*d.UpdatedAt)
 	}
 	if cfg.ShouldApply("settings", d.Settings) {
 		u = u.SetSettings(d.Settings)

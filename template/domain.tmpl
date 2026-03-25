@@ -140,9 +140,13 @@ func (c *{{ $n.Name }}Create) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
         _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
         c = c.SetNillable{{ $f.StructField }}(&_v)
     }
-    {{- else }}
+    {{- else if $f.Nillable }}
     if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) {
         c = c.SetNillable{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- else }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        c = c.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
     }
     {{- end }}
     {{- else }}
@@ -193,9 +197,13 @@ func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, op
         _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
         u = u.SetNillable{{ $f.StructField }}(&_v)
     }
-    {{- else }}
+    {{- else if $f.Nillable }}
     if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) {
         u = u.SetNillable{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- else }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        u = u.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
     }
     {{- end }}
     {{- else }}
@@ -250,9 +258,13 @@ func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
         _v := {{ $n.Package }}.{{ $f.StructField }}(*d.{{ $f.StructField }})
         u = u.SetNillable{{ $f.StructField }}(&_v)
     }
-    {{- else }}
+    {{- else if $f.Nillable }}
     if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) {
         u = u.SetNillable{{ $f.StructField }}(d.{{ $f.StructField }})
+    }
+    {{- else }}
+    if cfg.ShouldApplyPtr("{{ $f.Name }}", d.{{ $f.StructField }}) && d.{{ $f.StructField }} != nil {
+        u = u.Set{{ $f.StructField }}(*d.{{ $f.StructField }})
     }
     {{- end }}
     {{- else }}
