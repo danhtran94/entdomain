@@ -179,6 +179,7 @@ func (c *{{ $n.Name }}Create) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
 // ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}UpdateOne builder.
 func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpdateOne {
     cfg := entdomain.NewApplyConfig(opts...)
+    _ = cfg
     {{- range $f := $n.Fields }}
     {{- if not $f.IsEdgeField }}
     {{- if not $f.Immutable }}
@@ -235,6 +236,7 @@ func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, op
 // Chain .Where(...) conditions to target specific records.
 func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}Update {
     cfg := entdomain.NewApplyConfig(opts...)
+    _ = cfg
     {{- range $f := $n.Fields }}
     {{- if not $f.IsEdgeField }}
     {{- if not $f.Immutable }}

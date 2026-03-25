@@ -62,6 +62,7 @@ func (c *PostCreate) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) 
 // ApplyDomain applies domain.Post fields to the PostUpdateOne builder.
 func (u *PostUpdateOne) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) *PostUpdateOne {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
 	if cfg.ShouldApply("title", d.Title) {
 		u = u.SetTitle(d.Title)
 	}
@@ -80,6 +81,7 @@ func (u *PostUpdateOne) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOptio
 // Chain .Where(...) conditions to target specific records.
 func (u *PostUpdate) ApplyDomain(d *domain.Post, opts ...entdomain.ApplyOption) *PostUpdate {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
 	if cfg.ShouldApply("title", d.Title) {
 		u = u.SetTitle(d.Title)
 	}
@@ -160,6 +162,7 @@ func (c *TagCreate) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *T
 // ApplyDomain applies domain.Tag fields to the TagUpdateOne builder.
 func (u *TagUpdateOne) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *TagUpdateOne {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
@@ -175,6 +178,7 @@ func (u *TagUpdateOne) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption)
 // Chain .Where(...) conditions to target specific records.
 func (u *TagUpdate) ApplyDomain(d *domain.Tag, opts ...entdomain.ApplyOption) *TagUpdate {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
@@ -423,6 +427,7 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 // ApplyDomain applies domain.User fields to the UserUpdateOne builder.
 func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdateOne {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
@@ -482,6 +487,7 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 // Chain .Where(...) conditions to target specific records.
 func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
