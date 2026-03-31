@@ -50,6 +50,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
+          install-mode: goinstall
 
   codeql:
     name: CodeQL
