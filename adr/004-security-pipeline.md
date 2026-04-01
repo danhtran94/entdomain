@@ -103,6 +103,8 @@ All workflow jobs set `permissions: contents: read` at minimum. Jobs that upload
 ### `.golangci.yml` Key Configuration
 
 ```yaml
+version: "2"
+
 linters:
   enable:
     - gosec
