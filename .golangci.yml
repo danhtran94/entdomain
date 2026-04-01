@@ -10,3 +10,7 @@ issues:
       text: "G304:"  # file path via variable — valid in codegen (generate.go, proto_generate.go)
     - linters: [gosec]
       text: "G115:"  # integer conversion overflow — false positive on iota enum patterns
+    - linters: [gosec]
+      text: "G306:"  # generated source files must be world-readable (0644); 0600 breaks editors and tooling
+    - linters: [gocritic]
+      text: "ifElseChain:"  # nil-checks and boolean guards in type dispatchers don't benefit from switch
