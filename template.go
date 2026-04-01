@@ -116,7 +116,7 @@ func hasEnumFieldsFn(n *gen.Type) bool {
 
 // hasUpsertFn reports whether the graph has gen.FeatureUpsert enabled.
 func hasUpsertFn(g *gen.Graph) bool {
-	for _, f := range g.Config.Features {
+	for _, f := range g.Features {
 		if f.Name == gen.FeatureUpsert.Name {
 			return true
 		}

@@ -162,9 +162,10 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 		// Map small int types to int64 in proto for safety.
 		spec := ProtoFieldSpec{ProtoType: "int64", IsOptional: optional}
 		goType := "int"
-		if f.Type.Type == field.TypeInt8 {
+		switch f.Type.Type {
+		case field.TypeInt8:
 			goType = "int8"
-		} else if f.Type.Type == field.TypeInt16 {
+		case field.TypeInt16:
 			goType = "int16"
 		}
 		if optional {
@@ -179,9 +180,10 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 	case field.TypeUint, field.TypeUint8, field.TypeUint16:
 		spec := ProtoFieldSpec{ProtoType: "uint64", IsOptional: optional}
 		goType := "uint"
-		if f.Type.Type == field.TypeUint8 {
+		switch f.Type.Type {
+		case field.TypeUint8:
 			goType = "uint8"
-		} else if f.Type.Type == field.TypeUint16 {
+		case field.TypeUint16:
 			goType = "uint16"
 		}
 		if optional {
