@@ -34,7 +34,7 @@ import (
 // for non-standard layouts where ent is not directly inside the module root.
 // Falls back to the parent of the target dir if go.mod is not found.
 func moduleRoot(g *gen.Graph) string {
-	target := g.Config.Target
+	target := g.Target
 	if !filepath.IsAbs(target) {
 		if wd, err := os.Getwd(); err == nil {
 			target = filepath.Join(wd, target)

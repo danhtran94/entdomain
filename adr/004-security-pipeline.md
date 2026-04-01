@@ -103,22 +103,24 @@ All workflow jobs set `permissions: contents: read` at minimum. Jobs that upload
 ### `.golangci.yml` Key Configuration
 
 ```yaml
+version: "2"
+
 linters:
   enable:
     - gosec
     - gocritic
     - staticcheck
-
-issues:
-  exclude-rules:
-    - linters: [gosec]
-      text: "G304:"  # file path via variable — valid in codegen (generate.go, proto_generate.go)
-    - linters: [gosec]
-      text: "G115:"  # integer conversion overflow — false positive on iota enum patterns
-    - linters: [gosec]
-      text: "G306:"  # generated source files must be world-readable (0644); 0600 breaks editors and tooling
-    - linters: [gocritic]
-      text: "ifElseChain:"  # nil-checks and boolean guards in type dispatchers don't benefit from switch
+  settings:
+    gosec:
+      excludes:
+        - G115  # integer overflow on iota-based enum constants — false positive
+        - G301  # codegen dirs need world-execute for tools (0755 is correct)
+        - G304  # file path via variable — inherent to all codegen file processing
+        - G306  # generated source files must be world-readable (0644 is correct)
+  exclusions:
+    rules:
+      - linters: [gocritic]
+        text: "ifElseChain"  # nil-checks and boolean guards cannot be expressed as switch
 ```
 
 ---
