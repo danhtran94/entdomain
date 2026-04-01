@@ -423,3 +423,36 @@ func TestParseFIQL_ComplexConditions(t *testing.T) {
 		})
 	}
 }
+
+// FuzzParseFIQL ensures the FIQL parser never panics on arbitrary input.
+// Run with: go test -fuzz=FuzzParseFIQL -fuzztime=30s
+func FuzzParseFIQL(f *testing.F) {
+	// Seed corpus: valid expressions, edge cases, and known tricky inputs.
+	seeds := []string{
+		`name==alice`,
+		`name==alice;age==30`,
+		`name==alice,age==30`,
+		`(name==alice;age==30),status==active`,
+		``,
+		`==`,
+		`name==`,
+		`;;`,
+		`((((name==x))))`,
+		`name==(`,
+		strings.Repeat("(", 60) + `name==x` + strings.Repeat(")", 60),
+	}
+	for _, s := range seeds {
+		f.Add(s)
+	}
+
+	fields := entdomain.FIQLFields[testPred]{
+		"name":   entdomain.FIQLString[testPred]{EQ: func(v string) testPred { return sqlPred("name", v) }},
+		"age":    entdomain.FIQLInt[testPred]{EQ: func(v int) testPred { return sqlPred("age", fmt.Sprintf("%d", v)) }},
+		"status": entdomain.FIQLString[testPred]{EQ: func(v string) testPred { return sqlPred("status", v) }},
+	}
+
+	f.Fuzz(func(t *testing.T, input string) {
+		// Must not panic regardless of input.
+		_, _ = entdomain.ParseFIQL(input, fields)
+	})
+}
