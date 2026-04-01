@@ -1,12 +1,12 @@
-version: "2"
 linters:
-  default: standard
   enable:
     - gosec
     - gocritic
     - staticcheck
-  settings:
-    gosec:
-      excludes:
-        - G304  # file path via variable — valid in codegen (generate.go, proto_generate.go)
-        - G115  # integer conversion overflow — false positive on iota enum patterns
+
+issues:
+  exclude-rules:
+    - linters: [gosec]
+      text: "G304:"  # file path via variable — valid in codegen (generate.go, proto_generate.go)
+    - linters: [gosec]
+      text: "G115:"  # integer conversion overflow — false positive on iota enum patterns
