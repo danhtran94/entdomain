@@ -5,16 +5,14 @@ linters:
     - gosec
     - gocritic
     - staticcheck
-
-issues:
-  exclude-rules:
-    - linters: [gosec]
-      text: "Potential file inclusion via variable"  # G304: inherent to all codegen file processing
-    - linters: [gosec]
-      text: "integer overflow conversion"  # G115: false positive on iota-based enum constants
-    - linters: [gosec]
-      text: "Expect WriteFile permissions to be 0600 or less"  # G306: generated source files must be world-readable (0644)
-    - linters: [gosec]
-      text: "Expect directory permissions to be 0750 or less"  # G301: codegen output dirs need group/world-execute for tools
-    - linters: [gocritic]
-      text: "ifElseChain"  # nil-checks and boolean guards in type dispatchers cannot be expressed as switch
+  settings:
+    gosec:
+      excludes:
+        - G115  # integer overflow on iota-based enum constants — false positive
+        - G301  # codegen dirs need world-execute for tools (0755 is correct)
+        - G304  # file path via variable — inherent to all codegen file processing
+        - G306  # generated source files must be world-readable (0644 is correct)
+  exclusions:
+    rules:
+      - linters: [gocritic]
+        text: "ifElseChain"  # nil-checks and boolean guards cannot be expressed as switch
