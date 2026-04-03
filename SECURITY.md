@@ -12,7 +12,7 @@ Only the latest release receives security fixes. Update to the latest version be
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Use [GitHub's private vulnerability reporting](../../security/advisories/new) to submit a report. You will receive a response within 7 days.
+Use [GitHub's private vulnerability reporting](https://github.com/danhtran94/entdomain/security/advisories/new) to submit a report. You will receive a response within 7 days.
 
 Please include:
 - A description of the vulnerability and its potential impact
