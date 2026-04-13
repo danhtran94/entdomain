@@ -18,6 +18,11 @@ const (
 )
 
 // UserDomainTransformer holds optional transformer functions for User → domain mapping.
+//
+// Get* functions are pure synchronous projections invoked by ToDomain.
+// Set*OnCreate / Set*OnUpdate are invoked during ApplyDomain and may perform
+// I/O (e.g. KMS-backed field encryption); they receive ctx + the full domain
+// struct so they can access sibling fields and propagate cancellation.
 type UserDomainTransformer struct {
 }
 
@@ -35,47 +40,92 @@ func (e *User) ToDomain() *domain.User {
 }
 
 // ApplyDomain applies domain.User fields to the UserCreate builder.
-func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserCreate {
+func (c *UserCreate) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserCreate, error) {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
 	if cfg.ShouldApply("name", d.Name) {
 		c = c.SetName(d.Name)
 	}
-	if cfg.ShouldApplyPtr("age", d.Age) {
-		c = c.SetNillableAge(d.Age)
+	if cfg.ShouldApplyPtr("age", d.Age) && d.Age != nil {
+		c = c.SetAge(*d.Age)
 	}
-	return c
+	return c, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. It enables fluent
+// chaining at the cost of converting transformer errors into panics. Mirrors
+// ent's SaveX/FirstX/OnlyX convention: use in tests and scripts, prefer
+// ApplyDomain on request paths where transformer errors (e.g. KMS failures)
+// must be recoverable.
+func (c *UserCreate) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserCreate {
+	b, err := c.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 // ApplyDomain applies domain.User fields to the UserUpdateOne builder.
-func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdateOne {
+func (u *UserUpdateOne) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserUpdateOne, error) {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
-	if cfg.ShouldApplyPtr("age", d.Age) {
-		u = u.SetNillableAge(d.Age)
+	if cfg.ShouldApplyPtr("age", d.Age) && d.Age != nil {
+		u = u.SetAge(*d.Age)
 	}
-	return u
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *UserCreate.ApplyDomainX.
+func (u *UserUpdateOne) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserUpdateOne {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 // ApplyDomain applies domain.User fields to the UserUpdate builder.
 // Chain .Where(...) conditions to target specific records.
-func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate {
+//
+// Note: ctx is accepted for API symmetry with ApplyDomainCreate/UpdateOne and
+// to allow future ctx-aware field transformers. Currently no transformer hooks
+// fire here — the error return is always nil.
+func (u *UserUpdate) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserUpdate, error) {
 	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
-	if cfg.ShouldApplyPtr("age", d.Age) {
-		u = u.SetNillableAge(d.Age)
+	if cfg.ShouldApplyPtr("age", d.Age) && d.Age != nil {
+		u = u.SetAge(*d.Age)
 	}
-	return u
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *UserCreate.ApplyDomainX.
+func (u *UserUpdate) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 // ApplyDomain applies domain.User fields to the UserUpsertOne builder on conflict.
-func (u *UserUpsertOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertOne {
+//
+// Note: ctx is accepted for API symmetry. Transformer hooks do not fire on
+// upsert conflict paths; the error return is always nil.
+func (u *UserUpsertOne) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserUpsertOne, error) {
 	cfg := entdomain.NewApplyConfig(opts...)
 	_ = cfg
-	return u.Update(func(uu *UserUpsert) {
+	_ = ctx
+	u = u.Update(func(uu *UserUpsert) {
 		if cfg.ShouldApply("name", d.Name) {
 			uu.SetName(d.Name)
 		}
@@ -83,13 +133,27 @@ func (u *UserUpsertOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 			uu.SetAge(*d.Age)
 		}
 	})
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *UserCreate.ApplyDomainX.
+func (u *UserUpsertOne) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertOne {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 // ApplyDomain applies domain.User fields to the UserUpsertBulk builder on conflict.
-func (u *UserUpsertBulk) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertBulk {
+//
+// Note: ctx is accepted for API symmetry. Transformer hooks do not fire on
+// upsert conflict paths; the error return is always nil.
+func (u *UserUpsertBulk) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserUpsertBulk, error) {
 	cfg := entdomain.NewApplyConfig(opts...)
 	_ = cfg
-	return u.Update(func(uu *UserUpsert) {
+	_ = ctx
+	u = u.Update(func(uu *UserUpsert) {
 		if cfg.ShouldApply("name", d.Name) {
 			uu.SetName(d.Name)
 		}
@@ -97,6 +161,16 @@ func (u *UserUpsertBulk) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOpti
 			uu.SetAge(*d.Age)
 		}
 	})
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *UserCreate.ApplyDomainX.
+func (u *UserUpsertBulk) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertBulk {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 // ToDomain maps a slice of ent User to domain.UserList.
@@ -109,12 +183,29 @@ func (es Users) ToDomain() domain.UserList {
 }
 
 // CreateBulkDomain creates a UserCreateBulk from domain.UserList.
-func (c *UserClient) CreateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserCreateBulk {
+//
+// If any per-row transformer returns an error, the first such error is
+// returned immediately and partial bulk is discarded.
+func (c *UserClient) CreateBulkDomain(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) (*UserCreateBulk, error) {
 	builders := make([]*UserCreate, len(ds))
 	for i := range ds {
-		builders[i] = c.Create().ApplyDomain(ds[i], opts...)
+		b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
+		if err != nil {
+			return nil, err
+		}
+		builders[i] = b
 	}
-	return c.CreateBulk(builders...)
+	return c.CreateBulk(builders...), nil
+}
+
+// CreateBulkDomainX is the panicking variant of CreateBulkDomain. See
+// *UserCreate.ApplyDomainX for the convention.
+func (c *UserClient) CreateBulkDomainX(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) *UserCreateBulk {
+	b, err := c.CreateBulkDomain(ctx, ds, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 // UserUpdateOneBulk holds a set of UserUpdateOne builders.
@@ -159,10 +250,27 @@ func (b *UserUpdateOneBulk) ExecX(ctx context.Context) {
 
 // UpdateBulkDomain returns a UserUpdateOneBulk from domain.UserList.
 // Each builder is keyed on ds[i].ID.
-func (c *UserClient) UpdateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserUpdateOneBulk {
+//
+// If any per-row transformer returns an error, the first such error is
+// returned immediately and partial bulk is discarded.
+func (c *UserClient) UpdateBulkDomain(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) (*UserUpdateOneBulk, error) {
 	builders := make([]*UserUpdateOne, len(ds))
 	for i := range ds {
-		builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(ds[i], opts...)
+		b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
+		if err != nil {
+			return nil, err
+		}
+		builders[i] = b
 	}
-	return &UserUpdateOneBulk{builders: builders}
+	return &UserUpdateOneBulk{builders: builders}, nil
+}
+
+// UpdateBulkDomainX is the panicking variant of UpdateBulkDomain. See
+// *UserCreate.ApplyDomainX for the convention.
+func (c *UserClient) UpdateBulkDomainX(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) *UserUpdateOneBulk {
+	b, err := c.UpdateBulkDomain(ctx, ds, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

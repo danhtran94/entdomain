@@ -208,17 +208,26 @@ type UserList []*User
 func (e *User) ToDomain() *domain.User
 
 // Create: domain → ent builder
-func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserCreate
+func (c *UserCreate) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserCreate, error)
 
 // Update by ID: domain → ent builder
-func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdateOne
+func (u *UserUpdateOne) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserUpdateOne, error)
 
 // Update by WHERE condition: domain → ent builder, chain .Where(...) after
-func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate
+func (u *UserUpdate) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserUpdate, error)
 
 // Upsert (generated only when gen.FeatureUpsert is enabled in gen.Config)
-func (u *UserUpsertOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertOne
-func (u *UserUpsertBulk) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertBulk // absent when NoBulk
+func (u *UserUpsertOne) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserUpsertOne, error)
+func (u *UserUpsertBulk) ApplyDomain(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) (*UserUpsertBulk, error) // absent when NoBulk
+
+// Every ApplyDomain* method has a panicking X-variant that mirrors ent's
+// SaveX / FirstX / OnlyX convention. Use in tests and scripts for fluent
+// chaining; prefer the error-returning form on request paths.
+func (c *UserCreate) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserCreate
+func (u *UserUpdateOne) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserUpdateOne
+func (u *UserUpdate) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate
+func (u *UserUpsertOne) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertOne
+func (u *UserUpsertBulk) ApplyDomainX(ctx context.Context, d *domain.User, opts ...entdomain.ApplyOption) *UserUpsertBulk
 ```
 
 ### Bulk methods (`ent/domain.go`, unless `WithNoBulk` is set)
@@ -228,16 +237,34 @@ func (u *UserUpsertBulk) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOpti
 func (es Users) ToDomain() domain.UserList
 
 // Create bulk
-func (c *UserClient) CreateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserCreateBulk
+func (c *UserClient) CreateBulkDomain(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) (*UserCreateBulk, error)
+func (c *UserClient) CreateBulkDomainX(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) *UserCreateBulk
 
 // Update bulk by ID — mirrors UserCreateBulk API
-func (c *UserClient) UpdateBulkDomain(ds domain.UserList, opts ...entdomain.ApplyOption) *UserUpdateOneBulk
+func (c *UserClient) UpdateBulkDomain(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) (*UserUpdateOneBulk, error)
+func (c *UserClient) UpdateBulkDomainX(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) *UserUpdateOneBulk
 
 func (b *UserUpdateOneBulk) Save(ctx context.Context) (domain.UserList, error)
 func (b *UserUpdateOneBulk) SaveX(ctx context.Context) domain.UserList
 func (b *UserUpdateOneBulk) Exec(ctx context.Context) error
 func (b *UserUpdateOneBulk) ExecX(ctx context.Context)
 ```
+
+### Fluent chaining via `X` variants (opt-in panic)
+
+Every error-returning `ApplyDomain*` / `CreateBulkDomain` / `UpdateBulkDomain` has a panicking sibling with the `X` suffix. The `X` variant restores fluent chaining by converting the error return into a panic — exactly matching ent's `SaveX` / `FirstX` / `OnlyX` convention:
+
+```go
+// Error-returning, production-safe — recommended on request paths
+builder, err := client.User.Create().ApplyDomain(ctx, d)
+if err != nil { return err }
+created, err := builder.Save(ctx)
+
+// Panicking, fluent — idiomatic in tests and scripts
+created := client.User.Create().ApplyDomainX(ctx, d).SaveX(ctx)
+```
+
+**Guidance:** transformer errors are typically I/O (KMS timeouts, signer unavailable, network partition) — recoverable, transient, routinely observed in production. The default (non-X) form returns an error so these failures are handled, not crashed. Reach for `ApplyDomainX` only where panic is acceptable: tests, one-off scripts, migrations with a supervisor, contexts where you know transformers are pure.
 
 ### Typed field constants
 
@@ -430,25 +457,102 @@ For virtual fields that require custom logic, wire a per-entity transformer at s
 ```go
 // generated in ent/domain.go
 type UserDomainTransformer struct {
-    GetFullName          func(e *User) string
-    SetFullNameOnCreate  func(c *UserCreate, val string)
-    SetFullNameOnUpdate  func(u *UserUpdateOne, val string)
+    // Pure synchronous projection, invoked by ToDomain. No ctx, no error.
+    GetFullName func(e *User) string
+
+    // Invoked during ApplyDomain. Receives ctx + the full domain struct
+    // (sibling-field access for key derivation / AAD binding) and may return
+    // an error. May perform I/O (KMS-backed field encryption, signing, etc.).
+    SetFullNameOnCreate func(ctx context.Context, c *UserCreate, d *domain.User, val string) error
+    SetFullNameOnUpdate func(ctx context.Context, u *UserUpdateOne, d *domain.User, val string) error
     // one Get + two Set functions per virtual field
 }
 
 var UserTransformer *UserDomainTransformer // nil by default
 ```
 
-Wire at app startup:
+Wire at app startup (infrastructure handles captured in closure):
 
 ```go
-ent.UserTransformer = &ent.UserDomainTransformer{
-    GetFullName: func(u *ent.User) string {
-        return u.FirstName + " " + u.LastName
-    },
-    // other functions left nil — skipped automatically
+func registerTransformers(kms KMS) {
+    ent.UserTransformer = &ent.UserDomainTransformer{
+        // Pure projection — no ctx, no error.
+        GetFullName: func(u *ent.User) string {
+            return u.FirstName + " " + u.LastName
+        },
+        // Stateful transform with sibling field access + ctx-aware I/O.
+        SetSecretTokenOnCreate: func(ctx context.Context, c *ent.UserCreate, d *domain.User, val string) error {
+            subkey, err := kms.DeriveKey(ctx, d.TenantID) // sibling field used to scope encryption
+            if err != nil {
+                return fmt.Errorf("derive key: %w", err)
+            }
+            c.SetSecretToken(encrypt(subkey, val))
+            return nil
+        },
+        // other functions left nil — skipped automatically
+    }
 }
 ```
+
+See [ADR-005](adr/005-transformer-runtime-context.md) for the design rationale (why ctx+error, why sibling access, why this shape aligns with ent's hook/privacy conventions).
+
+### Advanced: ent hook integration via `entdomain.WithDomain` (opt-in)
+
+Most domain-to-ent encoding belongs in transformers above. For the narrower case where work must happen at ent-hook time — outbox event emission, cross-cutting audit logging, tenant-isolation checks that depend on virtual-field values — entdomain exposes a small escape hatch:
+
+```go
+// entdomain package
+func WithDomain[T any](ctx context.Context, d T) context.Context
+func DomainFrom[T any](ctx context.Context) (T, bool)
+```
+
+Usage at the repository boundary:
+
+```go
+func (r *UserRepo) Create(ctx context.Context, d *domain.User) (*domain.User, error) {
+    ctx = entdomain.WithDomain(ctx, d) // explicit opt-in at call site
+
+    builder, err := r.client.User.Create().ApplyDomain(ctx, d)
+    if err != nil { return nil, err }
+
+    created, err := builder.Save(ctx) // hooks now see d via DomainFrom[*domain.User](ctx)
+    if err != nil { return nil, err }
+
+    return created.ToDomain(), nil
+}
+```
+
+Registered ent hook can then retrieve the domain struct, including virtual fields:
+
+```go
+client.User.Use(func(next ent.Mutator) ent.Mutator {
+    return hook.UserFunc(func(ctx context.Context, m *ent.UserMutation) (ent.Value, error) {
+        d, ok := entdomain.DomainFrom[*domain.User](ctx)
+        if !ok {
+            // Not an entdomain-originated mutation — skip domain-aware logic.
+            return next.Mutate(ctx, m)
+        }
+        // d.TenantID, d.VirtualField, etc. available here.
+        return next.Mutate(ctx, m)
+    })
+})
+```
+
+**When to use `WithDomain` vs a transformer:**
+
+| Use case | Pick |
+|---|---|
+| Field-level encryption, signing, tokenization | Transformer |
+| Virtual field that must flow through to an ent column | Transformer |
+| Audit log / outbox event / cross-cutting concern needing domain context at Save time | Hook + `WithDomain` |
+| Tenant-isolation check reading virtual-field values | Hook + `WithDomain` |
+
+**Caveats:**
+
+- `WithDomain` uses `context.Value`, which Go's guidance reserves for request-scoped data. Static analyzers may flag call sites. That is expected — the smell lives at the opt-in site, not inside the library. Transformers remain the first-class path.
+- Hook authors must handle the absent case via the `ok` return. Bare `.Save(ctx)` calls that skipped `WithDomain` will see `ok == false`.
+- Distinct `T` parameters produce distinct context keys, so `WithDomain(ctx, user)` and `WithDomain(ctx, post)` coexist cleanly.
+- The library does **not** auto-stash inside `ApplyDomain`. Callers opt in explicitly so the ctx chain stays visible.
 
 ## Repository Adapter Example
 
@@ -467,9 +571,11 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*domain.User, error) {
 }
 
 func (r *UserRepo) Create(ctx context.Context, d *domain.User) (*domain.User, error) {
-    created, err := r.client.User.Create().
-        ApplyDomain(d).
-        Save(ctx)
+    builder, err := r.client.User.Create().ApplyDomain(ctx, d)
+    if err != nil {
+        return nil, err
+    }
+    created, err := builder.Save(ctx)
     if err != nil {
         return nil, err
     }
@@ -477,11 +583,13 @@ func (r *UserRepo) Create(ctx context.Context, d *domain.User) (*domain.User, er
 }
 
 func (r *UserRepo) Update(ctx context.Context, d *domain.User) (*domain.User, error) {
-    updated, err := r.client.User.UpdateOneID(d.ID).
-        ApplyDomain(d,
-            entdomain.OnlyFields(ent.UserDomainFieldName, ent.UserDomainFieldStatus),
-        ).
-        Save(ctx)
+    builder, err := r.client.User.UpdateOneID(d.ID).ApplyDomain(ctx, d,
+        entdomain.OnlyFields(ent.UserDomainFieldName, ent.UserDomainFieldStatus),
+    )
+    if err != nil {
+        return nil, err
+    }
+    updated, err := builder.Save(ctx)
     if err != nil {
         return nil, err
     }
@@ -489,7 +597,11 @@ func (r *UserRepo) Update(ctx context.Context, d *domain.User) (*domain.User, er
 }
 
 func (r *UserRepo) CreateBulk(ctx context.Context, ds domain.UserList) (domain.UserList, error) {
-    saved, err := r.client.User.CreateBulkDomain(ds).Save(ctx)
+    bulk, err := r.client.User.CreateBulkDomain(ctx, ds)
+    if err != nil {
+        return nil, err
+    }
+    saved, err := bulk.Save(ctx)
     if err != nil {
         return nil, err
     }
@@ -501,33 +613,51 @@ func (r *UserRepo) CreateBulk(ctx context.Context, ds domain.UserList) (domain.U
 }
 
 func (r *UserRepo) UpdateBulk(ctx context.Context, ds domain.UserList) (domain.UserList, error) {
-    return r.client.User.UpdateBulkDomain(ds).Save(ctx)
+    bulk, err := r.client.User.UpdateBulkDomain(ctx, ds)
+    if err != nil {
+        return nil, err
+    }
+    return bulk.Save(ctx)
 }
 
 func (r *UserRepo) DeactivateAll(ctx context.Context) error {
-    return r.client.User.Update().
-        ApplyDomain(
-            &domain.User{Status: domain.UserStatusInactive},
-            entdomain.OnlyFields(ent.UserDomainFieldStatus),
-        ).
-        Where(user.StatusEQ(user.StatusActive)).
-        Exec(ctx)
+    builder, err := r.client.User.Update().ApplyDomain(ctx,
+        &domain.User{Status: domain.UserStatusInactive},
+        entdomain.OnlyFields(ent.UserDomainFieldStatus),
+    )
+    if err != nil {
+        return err
+    }
+    return builder.Where(user.StatusEQ(user.StatusActive)).Exec(ctx)
 }
 
 // Upsert — requires gen.FeatureUpsert in gen.Config.Features
 func (r *UserRepo) Upsert(ctx context.Context, d *domain.User) error {
-    return r.client.User.Create().
-        ApplyDomain(d).
+    createBuilder, err := r.client.User.Create().ApplyDomain(ctx, d)
+    if err != nil {
+        return err
+    }
+    upsertBuilder, err := createBuilder.
         OnConflict(sql.ConflictColumns("username")).
-        ApplyDomain(d).
-        Exec(ctx)
+        ApplyDomain(ctx, d)
+    if err != nil {
+        return err
+    }
+    return upsertBuilder.Exec(ctx)
 }
 
 func (r *UserRepo) UpsertBulk(ctx context.Context, ds domain.UserList) error {
-    return r.client.User.CreateBulkDomain(ds).
+    bulk, err := r.client.User.CreateBulkDomain(ctx, ds)
+    if err != nil {
+        return err
+    }
+    upsertBulk, err := bulk.
         OnConflict(sql.ConflictColumns("username")).
-        ApplyDomain(ds[0]). // same conflict resolution for all rows
-        Exec(ctx)
+        ApplyDomain(ctx, ds[0]) // same conflict resolution for all rows
+    if err != nil {
+        return err
+    }
+    return upsertBulk.Exec(ctx)
 }
 ```
 
