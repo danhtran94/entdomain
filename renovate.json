@@ -10,5 +10,6 @@
       "automerge": false
     }
   ],
-  "schedule": ["before 9am on Monday"]
+  "timezone": "Asia/Ho_Chi_Minh",
+  "schedule": ["after 0:00 before 1:00"]
 }
