@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   See [ADR-005](adr/005-transformer-runtime-context.md) for the rationale — alignment with ent's hook/privacy/interceptor conventions, and enabling I/O-based transforms such as KMS-backed field encryption.
 
   Before:
+
   ```go
   type UserDomainTransformer struct {
       SetSecretOnCreate func(c *UserCreate, val string)
@@ -28,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   ```
 
   After:
+
   ```go
   type UserDomainTransformer struct {
       SetSecretOnCreate func(ctx context.Context, c *UserCreate, d *domain.User, val string) error
@@ -41,11 +43,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Applies to `Create`, `UpdateOne`, `Update`, `UpsertOne`, `UpsertBulk`.
 
   Before:
+
   ```go
   created, err := client.User.Create().ApplyDomain(d).Save(ctx)
   ```
 
   After:
+
   ```go
   builder, err := client.User.Create().ApplyDomain(ctx, d)
   if err != nil {

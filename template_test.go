@@ -440,6 +440,15 @@ func TestTemplate_ApplyDomainX_AllVariants(t *testing.T) {
 			require.NotNil(t, fd, "(%s).%s must be declared as the panicking variant", c.recv, c.method)
 		})
 	}
+
+	// Negative assertion: Post is configured with NoBulk, so the base
+	// *PostUpsertBulk.ApplyDomain is suppressed — and the X-variant must be
+	// symmetrically suppressed. If this ever fails, the codegen has leaked
+	// an X-variant past the NoBulk gate.
+	t.Run("*PostUpsertBulk.ApplyDomainX absent (NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "*PostUpsertBulk", "ApplyDomainX")
+		require.Nil(t, fd, "(*PostUpsertBulk).ApplyDomainX must not be generated when NoBulk is set")
+	})
 }
 
 func TestTemplate_BulkDomainX(t *testing.T) {

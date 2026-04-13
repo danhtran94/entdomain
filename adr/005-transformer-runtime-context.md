@@ -223,9 +223,11 @@ The rejected alternative was to make `ApplyDomain` automatically stash `d` into 
 ### Codegen changes
 
 1. Update generated `*DomainTransformer` struct field types — every `Set*PlainOnCreate`, `Set*PlainOnUpdate`, `Set*PlainOnUpdateOne` now has signature:
+
    ```go
    func(ctx context.Context, c *ent.XCreate, d *domain.X, val T) error
    ```
+
 2. Update generated `ApplyDomain*` methods to:
    - Accept `ctx context.Context` as the first parameter
    - Invoke transformers with `(ctx, builder, d, val)` and check the returned error
@@ -240,6 +242,7 @@ One-time, compile-time-enforced:
 
 1. `go generate ./...`
 2. Update every `ApplyDomain*` call to pass `ctx` and handle the new error:
+
    ```go
    // before
    create := d.ApplyDomainCreate(client)
@@ -250,6 +253,7 @@ One-time, compile-time-enforced:
    if err != nil { return err }
    _, err = create.Save(ctx)
    ```
+
 3. Update every registered transformer in `registerTransformers()` to accept ctx and domain struct, and return error. Pure transformers append `return nil` and ignore ctx.
 
 Go's compiler enforces completeness — nothing can be silently missed.
