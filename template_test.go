@@ -410,3 +410,67 @@ func TestTemplate_TransformerVar(t *testing.T) {
 	assert.True(t, findVar("UserTransformer"), "UserTransformer var must be declared")
 	assert.True(t, findVar("PostTransformer"), "PostTransformer var must be declared")
 }
+
+// X-variants (panicking wrappers that mirror ent's SaveX/FirstX convention)
+// must be generated alongside every error-returning ApplyDomain* / BulkDomain.
+// They exist to restore fluent chaining for tests and scripts where callers
+// opt into panic semantics explicitly via the X suffix.
+
+func TestTemplate_ApplyDomainX_AllVariants(t *testing.T) {
+	f := entDomainFile(t)
+
+	cases := []struct {
+		recv   string
+		method string
+	}{
+		{"*UserCreate", "ApplyDomainX"},
+		{"*UserUpdateOne", "ApplyDomainX"},
+		{"*UserUpdate", "ApplyDomainX"},
+		{"*UserUpsertOne", "ApplyDomainX"},
+		{"*UserUpsertBulk", "ApplyDomainX"},
+		{"*PostCreate", "ApplyDomainX"},
+		{"*PostUpdateOne", "ApplyDomainX"},
+		{"*PostUpdate", "ApplyDomainX"},
+		{"*PostUpsertOne", "ApplyDomainX"},
+		// Post is NoBulk — no UpsertBulk variant.
+	}
+	for _, c := range cases {
+		t.Run(c.recv+"."+c.method, func(t *testing.T) {
+			fd := findFuncDecl(f, c.recv, c.method)
+			require.NotNil(t, fd, "(%s).%s must be declared as the panicking variant", c.recv, c.method)
+		})
+	}
+
+	// Negative assertion: Post is configured with NoBulk, so the base
+	// *PostUpsertBulk.ApplyDomain is suppressed — and the X-variant must be
+	// symmetrically suppressed. If this ever fails, the codegen has leaked
+	// an X-variant past the NoBulk gate.
+	t.Run("*PostUpsertBulk.ApplyDomainX absent (NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "*PostUpsertBulk", "ApplyDomainX")
+		require.Nil(t, fd, "(*PostUpsertBulk).ApplyDomainX must not be generated when NoBulk is set")
+	})
+}
+
+func TestTemplate_BulkDomainX(t *testing.T) {
+	f := entDomainFile(t)
+
+	t.Run("UserClient.CreateBulkDomainX exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserClient", "CreateBulkDomainX")
+		require.NotNil(t, fd, "panicking bulk create must be generated when NoBulk is unset")
+	})
+
+	t.Run("UserClient.UpdateBulkDomainX exists", func(t *testing.T) {
+		fd := findFuncDecl(f, "*UserClient", "UpdateBulkDomainX")
+		require.NotNil(t, fd, "panicking bulk update must be generated when NoBulk is unset")
+	})
+
+	t.Run("PostClient.CreateBulkDomainX absent (NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "*PostClient", "CreateBulkDomainX")
+		assert.Nil(t, fd, "X-variant must not be generated when the base method is suppressed by NoBulk")
+	})
+
+	t.Run("PostClient.UpdateBulkDomainX absent (NoBulk)", func(t *testing.T) {
+		fd := findFuncDecl(f, "*PostClient", "UpdateBulkDomainX")
+		assert.Nil(t, fd, "X-variant must not be generated when the base method is suppressed by NoBulk")
+	})
+}

@@ -54,11 +54,16 @@ const (
 )
 
 // {{ $n.Name }}DomainTransformer holds optional transformer functions for {{ $n.Name }} → domain mapping.
+//
+// Get* functions are pure synchronous projections invoked by ToDomain.
+// Set*OnCreate / Set*OnUpdate are invoked during ApplyDomain and may perform
+// I/O (e.g. KMS-backed field encryption); they receive ctx + the full domain
+// struct so they can access sibling fields and propagate cancellation.
 type {{ $n.Name }}DomainTransformer struct {
     {{- range $vf := $ant.VirtualFields }}
     Get{{ pascal $vf.Name }} func(e *{{ $n.Name }}) {{ virtualFieldType $vf.FieldType }}
-    Set{{ pascal $vf.Name }}OnCreate func(c *{{ $n.Name }}Create, val {{ virtualFieldType $vf.FieldType }})
-    Set{{ pascal $vf.Name }}OnUpdate func(u *{{ $n.Name }}UpdateOne, val {{ virtualFieldType $vf.FieldType }})
+    Set{{ pascal $vf.Name }}OnCreate func(ctx context.Context, c *{{ $n.Name }}Create, d *{{ $pkgName }}.{{ $n.Name }}, val {{ virtualFieldType $vf.FieldType }}) error
+    Set{{ pascal $vf.Name }}OnUpdate func(ctx context.Context, u *{{ $n.Name }}UpdateOne, d *{{ $pkgName }}.{{ $n.Name }}, val {{ virtualFieldType $vf.FieldType }}) error
     {{- end }}
 }
 
@@ -126,8 +131,10 @@ func (e *{{ $n.Name }}) ToDomain() *{{ $pkgName }}.{{ $n.Name }} {
 }
 
 // ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}Create builder.
-func (c *{{ $n.Name }}Create) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}Create {
+func (c *{{ $n.Name }}Create) ApplyDomain(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) (*{{ $n.Name }}Create, error) {
     cfg := entdomain.NewApplyConfig(opts...)
+    _ = cfg
+    _ = ctx
     {{- range $f := $n.Fields }}
     {{- if not $f.IsEdgeField }}
     {{- if isNillable $f }}
@@ -180,16 +187,32 @@ func (c *{{ $n.Name }}Create) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
     {{- end }}
     {{- range $vf := $ant.VirtualFields }}
     if {{ $n.Name }}Transformer != nil && {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnCreate != nil {
-        {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnCreate(c, d.{{ pascal $vf.Name }})
+        if err := {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnCreate(ctx, c, d, d.{{ pascal $vf.Name }}); err != nil {
+            return nil, err
+        }
     }
     {{- end }}
-    return c
+    return c, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. It enables fluent
+// chaining at the cost of converting transformer errors into panics. Mirrors
+// ent's SaveX/FirstX/OnlyX convention: use in tests and scripts, prefer
+// ApplyDomain on request paths where transformer errors (e.g. KMS failures)
+// must be recoverable.
+func (c *{{ $n.Name }}Create) ApplyDomainX(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}Create {
+    b, err := c.ApplyDomain(ctx, d, opts...)
+    if err != nil {
+        panic(err)
+    }
+    return b
 }
 
 // ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}UpdateOne builder.
-func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpdateOne {
+func (u *{{ $n.Name }}UpdateOne) ApplyDomain(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) (*{{ $n.Name }}UpdateOne, error) {
     cfg := entdomain.NewApplyConfig(opts...)
     _ = cfg
+    _ = ctx
     {{- range $f := $n.Fields }}
     {{- if not $f.IsEdgeField }}
     {{- if not $f.Immutable }}
@@ -246,17 +269,33 @@ func (u *{{ $n.Name }}UpdateOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, op
     {{- end }}
     {{- range $vf := $ant.VirtualFields }}
     if {{ $n.Name }}Transformer != nil && {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnUpdate != nil {
-        {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnUpdate(u, d.{{ pascal $vf.Name }})
+        if err := {{ $n.Name }}Transformer.Set{{ pascal $vf.Name }}OnUpdate(ctx, u, d, d.{{ pascal $vf.Name }}); err != nil {
+            return nil, err
+        }
     }
     {{- end }}
-    return u
+    return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *{{ $n.Name }}Create.ApplyDomainX.
+func (u *{{ $n.Name }}UpdateOne) ApplyDomainX(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpdateOne {
+    b, err := u.ApplyDomain(ctx, d, opts...)
+    if err != nil {
+        panic(err)
+    }
+    return b
 }
 
 // ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}Update builder.
 // Chain .Where(...) conditions to target specific records.
-func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}Update {
+//
+// Note: ctx is accepted for API symmetry with ApplyDomainCreate/UpdateOne and
+// to allow future ctx-aware field transformers. Currently no transformer hooks
+// fire here — the error return is always nil.
+func (u *{{ $n.Name }}Update) ApplyDomain(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) (*{{ $n.Name }}Update, error) {
     cfg := entdomain.NewApplyConfig(opts...)
     _ = cfg
+    _ = ctx
     {{- range $f := $n.Fields }}
     {{- if not $f.IsEdgeField }}
     {{- if not $f.Immutable }}
@@ -311,15 +350,28 @@ func (u *{{ $n.Name }}Update) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts 
     {{- end }}
     {{- end }}
     {{- end }}
-    return u
+    return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *{{ $n.Name }}Create.ApplyDomainX.
+func (u *{{ $n.Name }}Update) ApplyDomainX(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}Update {
+    b, err := u.ApplyDomain(ctx, d, opts...)
+    if err != nil {
+        panic(err)
+    }
+    return b
 }
 
 {{- if hasUpsert $ }}
 // ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}UpsertOne builder on conflict.
-func (u *{{ $n.Name }}UpsertOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpsertOne {
+//
+// Note: ctx is accepted for API symmetry. Transformer hooks do not fire on
+// upsert conflict paths; the error return is always nil.
+func (u *{{ $n.Name }}UpsertOne) ApplyDomain(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) (*{{ $n.Name }}UpsertOne, error) {
     cfg := entdomain.NewApplyConfig(opts...)
     _ = cfg
-    return u.Update(func(uu *{{ $n.Name }}Upsert) {
+    _ = ctx
+    u = u.Update(func(uu *{{ $n.Name }}Upsert) {
         {{- range $f := $n.Fields }}
         {{- if not $f.IsEdgeField }}
         {{- if not $f.Immutable }}
@@ -358,14 +410,28 @@ func (u *{{ $n.Name }}UpsertOne) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, op
         {{- end }}
         {{- end }}
     })
+    return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *{{ $n.Name }}Create.ApplyDomainX.
+func (u *{{ $n.Name }}UpsertOne) ApplyDomainX(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpsertOne {
+    b, err := u.ApplyDomain(ctx, d, opts...)
+    if err != nil {
+        panic(err)
+    }
+    return b
 }
 
 {{- if not $ant.NoBulk }}
 // ApplyDomain applies {{ $pkgName }}.{{ $n.Name }} fields to the {{ $n.Name }}UpsertBulk builder on conflict.
-func (u *{{ $n.Name }}UpsertBulk) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpsertBulk {
+//
+// Note: ctx is accepted for API symmetry. Transformer hooks do not fire on
+// upsert conflict paths; the error return is always nil.
+func (u *{{ $n.Name }}UpsertBulk) ApplyDomain(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) (*{{ $n.Name }}UpsertBulk, error) {
     cfg := entdomain.NewApplyConfig(opts...)
     _ = cfg
-    return u.Update(func(uu *{{ $n.Name }}Upsert) {
+    _ = ctx
+    u = u.Update(func(uu *{{ $n.Name }}Upsert) {
         {{- range $f := $n.Fields }}
         {{- if not $f.IsEdgeField }}
         {{- if not $f.Immutable }}
@@ -404,6 +470,16 @@ func (u *{{ $n.Name }}UpsertBulk) ApplyDomain(d *{{ $pkgName }}.{{ $n.Name }}, o
         {{- end }}
         {{- end }}
     })
+    return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *{{ $n.Name }}Create.ApplyDomainX.
+func (u *{{ $n.Name }}UpsertBulk) ApplyDomainX(ctx context.Context, d *{{ $pkgName }}.{{ $n.Name }}, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpsertBulk {
+    b, err := u.ApplyDomain(ctx, d, opts...)
+    if err != nil {
+        panic(err)
+    }
+    return b
 }
 {{- end }}
 {{- end }}
@@ -419,12 +495,29 @@ func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
 
 {{- if not $ant.NoBulk }}
 // CreateBulkDomain creates a {{ $n.Name }}CreateBulk from {{ $pkgName }}.{{ $n.Name }}List.
-func (c *{{ $n.Name }}Client) CreateBulkDomain(ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}CreateBulk {
+//
+// If any per-row transformer returns an error, the first such error is
+// returned immediately and partial bulk is discarded.
+func (c *{{ $n.Name }}Client) CreateBulkDomain(ctx context.Context, ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) (*{{ $n.Name }}CreateBulk, error) {
     builders := make([]*{{ $n.Name }}Create, len(ds))
     for i := range ds {
-        builders[i] = c.Create().ApplyDomain(ds[i], opts...)
+        b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
+        if err != nil {
+            return nil, err
+        }
+        builders[i] = b
     }
-    return c.CreateBulk(builders...)
+    return c.CreateBulk(builders...), nil
+}
+
+// CreateBulkDomainX is the panicking variant of CreateBulkDomain. See
+// *{{ $n.Name }}Create.ApplyDomainX for the convention.
+func (c *{{ $n.Name }}Client) CreateBulkDomainX(ctx context.Context, ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}CreateBulk {
+    b, err := c.CreateBulkDomain(ctx, ds, opts...)
+    if err != nil {
+        panic(err)
+    }
+    return b
 }
 
 // {{ $n.Name }}UpdateOneBulk holds a set of {{ $n.Name }}UpdateOne builders.
@@ -469,12 +562,29 @@ func (b *{{ $n.Name }}UpdateOneBulk) ExecX(ctx context.Context) {
 
 // UpdateBulkDomain returns a {{ $n.Name }}UpdateOneBulk from {{ $pkgName }}.{{ $n.Name }}List.
 // Each builder is keyed on ds[i].ID.
-func (c *{{ $n.Name }}Client) UpdateBulkDomain(ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpdateOneBulk {
+//
+// If any per-row transformer returns an error, the first such error is
+// returned immediately and partial bulk is discarded.
+func (c *{{ $n.Name }}Client) UpdateBulkDomain(ctx context.Context, ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) (*{{ $n.Name }}UpdateOneBulk, error) {
     builders := make([]*{{ $n.Name }}UpdateOne, len(ds))
     for i := range ds {
-        builders[i] = c.UpdateOneID(ds[i].ID).ApplyDomain(ds[i], opts...)
+        b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
+        if err != nil {
+            return nil, err
+        }
+        builders[i] = b
     }
-    return &{{ $n.Name }}UpdateOneBulk{builders: builders}
+    return &{{ $n.Name }}UpdateOneBulk{builders: builders}, nil
+}
+
+// UpdateBulkDomainX is the panicking variant of UpdateBulkDomain. See
+// *{{ $n.Name }}Create.ApplyDomainX for the convention.
+func (c *{{ $n.Name }}Client) UpdateBulkDomainX(ctx context.Context, ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) *{{ $n.Name }}UpdateOneBulk {
+    b, err := c.UpdateBulkDomain(ctx, ds, opts...)
+    if err != nil {
+        panic(err)
+    }
+    return b
 }
 {{- end }}
 {{ end }}
