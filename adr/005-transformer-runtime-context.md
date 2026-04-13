@@ -213,7 +213,7 @@ The rejected alternative was to make `ApplyDomain` automatically stash `d` into 
 - Breaking change for **every** `ApplyDomain*` call site in downstream code. Users must add `ctx` as the first argument and handle the new error return.
 - Breaking change for **every** registered transformer. Signatures must be updated to accept ctx and return error.
 - Pure transformers pay a small tax — returning `nil` and ignoring ctx. Unavoidable cost of convention alignment.
-- `*domain.X` cannot be Go-enforced read-only. A buggy transformer that mutates the passed struct has unspecified behavior. Documented; no defensive copy.
+- `*domain.X` cannot be Go-enforced read-only. A buggy transformer that mutates the passed struct has unspecified behavior. This behavior is documented as part of the transformer contract: mutating the passed `*domain.X` from within a transformer is unsupported, and the framework does not make a defensive copy of the struct before invoking hooks.
 - Siblings are read in the state the caller hands to `ApplyDomain*`. If a caller omits `TenantID` and a transformer reads it, the transformer sees the zero value. Documented as the contract.
 
 ---
