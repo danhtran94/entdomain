@@ -222,17 +222,20 @@ The rejected alternative was to make `ApplyDomain` automatically stash `d` into 
 
 ### Codegen changes
 
-1. Update generated `*DomainTransformer` struct field types — every `Set*PlainOnCreate`, `Set*PlainOnUpdate`, `Set*PlainOnUpdateOne` now has signature:
+1. Update generated `*DomainTransformer` struct field types. For each virtual field `VF`, the codegen emits exactly two setter variants (plus the pure `Get{VF}` projection):
 
    ```go
-   func(ctx context.Context, c *ent.XCreate, d *domain.X, val T) error
+   Set{VF}OnCreate func(ctx context.Context, c *ent.XCreate,    d *domain.X, val T) error
+   Set{VF}OnUpdate func(ctx context.Context, u *ent.XUpdateOne, d *domain.X, val T) error
    ```
+
+   Note the asymmetric naming: `Set{VF}OnUpdate` operates on `*XUpdateOne`, not `*XUpdate`. There is no `Set{VF}OnUpdateOne` hook — the `OnUpdate` name is preserved from the prior design for backward compatibility with existing user code. Only `*XUpdateOne` is supported as a hook receiver because that's the only update path where identity of a single record is guaranteed.
 
 2. Update generated `ApplyDomain*` methods to:
    - Accept `ctx context.Context` as the first parameter
    - Invoke transformers with `(ctx, builder, d, val)` and check the returned error
    - Propagate any transformer error up — short-circuit the remaining field applications
-   - Return `(*ent.XCreate, error)` / `(*ent.XUpdate, error)` / `(*ent.XUpdateOne, error)` accordingly
+   - Return one of `(*ent.XCreate, error)`, `(*ent.XUpdateOne, error)`, `(*ent.XUpdate, error)`, `(*ent.XUpsertOne, error)`, or `(*ent.XUpsertBulk, error)` as appropriate to the receiver. Note: `Update`, `UpsertOne`, and `UpsertBulk` paths never invoke transformers — their error return is always nil and accepted only for API symmetry.
 3. Update any internal call sites in generated helper code (upsert, bulk) to thread ctx through.
 4. Emit a CHANGELOG entry flagging the breaking signature change with before/after examples.
 
