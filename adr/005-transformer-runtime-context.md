@@ -123,9 +123,15 @@ func (d *domain.HealthLog) ApplyDomainCreate(
 Bootstrap DI via closure capture remains the idiomatic way to wire infrastructure handles (KMS, signer, cache):
 
 ```go
-func registerTransformers(kms KMS, signer Signer) {
+// Schema for HealthLog (abridged):
+//   field.Bytes("value_enc"),                              // ent column: ciphertext
+//   entdomain.VirtualField("value", entdomain.Float64),    // virtual: plaintext
+// Codegen emits paired setter hooks: SetValueOnCreate and SetValueOnUpdate
+// (the OnUpdate hook operates on *HealthLogUpdateOne — see the naming note
+// in the Migration Path section).
+func registerTransformers(kms KMS) {
     ent.HealthLogTransformer = &ent.HealthLogDomainTransformer{
-        SetValuePlainOnCreate: func(ctx context.Context, c *ent.HealthLogCreate, d *domain.HealthLog, val float64) error {
+        SetValueOnCreate: func(ctx context.Context, c *ent.HealthLogCreate, d *domain.HealthLog, val float64) error {
             subkey, err := kms.DeriveKey(ctx, d.TenantID)
             if err != nil {
                 return fmt.Errorf("derive key: %w", err)
@@ -134,7 +140,19 @@ func registerTransformers(kms KMS, signer Signer) {
             if err != nil {
                 return fmt.Errorf("encrypt value: %w", err)
             }
-            c.SetValue(string(ciphertext))
+            c.SetValueEnc(ciphertext)
+            return nil
+        },
+        SetValueOnUpdate: func(ctx context.Context, u *ent.HealthLogUpdateOne, d *domain.HealthLog, val float64) error {
+            subkey, err := kms.DeriveKey(ctx, d.TenantID)
+            if err != nil {
+                return fmt.Errorf("derive key: %w", err)
+            }
+            ciphertext, err := kms.Encrypt(ctx, subkey, []byte(strconv.FormatFloat(val, 'f', -1, 64)))
+            if err != nil {
+                return fmt.Errorf("encrypt value: %w", err)
+            }
+            u.SetValueEnc(ciphertext)
             return nil
         },
     }
