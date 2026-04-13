@@ -1,7 +1,7 @@
 # entdomain
 
 [![CI](https://github.com/danhtran94/entdomain/actions/workflows/ci.yml/badge.svg)](https://github.com/danhtran94/entdomain/actions/workflows/ci.yml)
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/danhtran94/entdomain?utm_source=oss&utm_medium=github&utm_campaign=danhtran94%2Fentdomain&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/danhtran94/entdomain?utm_source=oss&utm_medium=github&utm_campaign=danhtran94%2Fentdomain&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 [![Security](https://github.com/danhtran94/entdomain/actions/workflows/security.yml/badge.svg)](https://github.com/danhtran94/entdomain/actions/workflows/security.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/danhtran94/entdomain/badge)](https://scorecard.dev/viewer/?uri=github.com/danhtran94/entdomain)
 [![Go Reference](https://pkg.go.dev/badge/github.com/danhtran94/entdomain.svg)](https://pkg.go.dev/github.com/danhtran94/entdomain)
