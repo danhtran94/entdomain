@@ -20,13 +20,32 @@ jobs:
       github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Post review trigger comment
+      - name: Post review trigger comment (idempotent)
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
         with:
           script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: '@coderabbitai review'
+            // Guard against duplicate pings when reopen / ready_for_review fires
+            // on a PR we've already commented on. Paginate through existing
+            // comments and skip if our bot already posted the marker.
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.issue.number;
+            const body = '@coderabbitai review';
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
             });
+
+            const alreadyPosted = comments.some(
+              (c) => c.user?.login === 'github-actions[bot]' && c.body?.trim() === body
+            );
+
+            if (alreadyPosted) {
+              core.info('Skipping: review trigger already posted on this PR.');
+              return;
+            }
+
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
