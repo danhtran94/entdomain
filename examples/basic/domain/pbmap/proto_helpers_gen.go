@@ -109,11 +109,16 @@ func UuidPtrToProtoString(v *uuid.UUID) *string {
 }
 
 // ProtoStringToUUIDPtr converts *string to *uuid.UUID.
+// Returns nil on malformed UUID input rather than panicking — protobuf payloads
+// can carry untrusted strings and must not crash the process.
 func ProtoStringToUUIDPtr(v *string) *uuid.UUID {
 	if v == nil {
 		return nil
 	}
-	id := uuid.MustParse(*v)
+	id, err := uuid.Parse(*v)
+	if err != nil {
+		return nil
+	}
 	return &id
 }
 
@@ -127,20 +132,30 @@ func UuidSliceToStringSlice(vs []uuid.UUID) []string {
 }
 
 // StringSliceToUUIDSlice converts []string to []uuid.UUID.
+// Malformed entries yield uuid.Nil at their index rather than panicking.
 func StringSliceToUUIDSlice(vs []string) []uuid.UUID {
 	result := make([]uuid.UUID, len(vs))
 	for i, v := range vs {
-		result[i] = uuid.MustParse(v)
+		id, err := uuid.Parse(v)
+		if err != nil {
+			result[i] = uuid.Nil
+			continue
+		}
+		result[i] = id
 	}
 	return result
 }
 
 // MapToProtoStruct converts map[string]any to *structpb.Struct.
+// Returns nil on conversion failure (e.g. non-UTF-8 keys or unsupported value types).
 func MapToProtoStruct(m map[string]any) *structpb.Struct {
 	if m == nil {
 		return nil
 	}
-	s, _ := structpb.NewStruct(m)
+	s, err := structpb.NewStruct(m)
+	if err != nil {
+		return nil
+	}
 	return s
 }
 
