@@ -1,0 +1,32 @@
+name: Trigger CodeRabbit review on bot PRs
+
+# CodeRabbit skips bot-authored PRs (renovate[bot], dependabot[bot]) by default;
+# the skip is hardcoded server-side and not overridable via .coderabbit.yaml.
+# This workflow posts a `@coderabbitai review` comment on bot PRs so they get
+# reviewed anyway — important for dependency updates where supply-chain risk
+# benefits from a second pair of eyes.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  trigger:
+    if: >-
+      github.event.pull_request.user.login == 'renovate[bot]' ||
+      github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post review trigger comment
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '@coderabbitai review'
+            });

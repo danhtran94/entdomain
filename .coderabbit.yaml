@@ -9,11 +9,5 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-    # CodeRabbit skips bot-authored PRs by default (hardcoded server-side).
-    # The supported override is label-based: any PR carrying one of these
-    # labels gets auto-reviewed regardless of author. Renovate is configured
-    # (renovate.json) to tag its PRs with `dependencies`.
-    labels:
-      - dependencies
 chat:
   auto_reply: true
