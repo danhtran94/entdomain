@@ -57,7 +57,17 @@ Run both whenever you change anything in `template/` or any generator in the roo
 When adding a new template:
 
 1. Create `template/<name>.tmpl`.
-2. In the Go driver file, embed the body and parse it:
+2. Register it via one of the two supported loaders, depending on which pipeline consumes the template:
+
+   **A. ent plugin templates** — feed ent's `gen.Template` system (see `domain.tmpl`, `fiql.tmpl`). Register in `template.go` using the shared embed FS + `parseT` helper:
+
+   ```go
+   var XTemplate = parseT("template/<name>.tmpl")
+   ```
+
+   ent picks these up via the extension's `Templates()` method in `extension.go`.
+
+   **B. entdomain's own generators** — feed standalone Go-file or `.proto`-file writers (see `domain_struct.tmpl`, `proto_mapper_*.tmpl`, `proto_helpers.tmpl`, `proto_messages.tmpl`). Register in the driver Go file with a direct `//go:embed` string:
 
    ```go
    //go:embed template/<name>.tmpl
@@ -68,7 +78,7 @@ When adding a new template:
 
 3. Custom `template.FuncMap` definitions stay in the Go driver (they reference Go functions). Only the template body moves to disk.
 
-This convention is documented in the package comment of `template.go`. See ADR-001 for the rationale behind ent's template plugin integration.
+This split is documented in the package comment of `template.go`. See ADR-001 for the rationale behind ent's template plugin integration.
 
 ## Testing
 
