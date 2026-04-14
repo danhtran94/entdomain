@@ -12,6 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Code generation templates live exclusively in the template/ directory and
+// are loaded via //go:embed. This applies to every template in the project,
+// regardless of which pipeline consumes it:
+//
+//   - ent's gen.Template plugin (domain.tmpl, fiql.tmpl) — loaded here via
+//     parseT into *gen.Template values registered by extension.go.
+//   - entdomain's own generators (domain_struct.tmpl, proto_messages.tmpl,
+//     proto_mapper_subpkg.tmpl, proto_mapper_domain.tmpl, proto_helpers.tmpl)
+//     — loaded with //go:embed string in the driver Go file (generate.go,
+//     proto_generate.go, proto_mapper_generate.go) and parsed via stdlib
+//     text/template.
+//
+// When adding a new template:
+//
+//  1. Create template/<name>.tmpl with the template body.
+//  2. Embed it in the driver Go file with //go:embed template/<name>.tmpl
+//     into a string variable, then parse via text/template (or, for ent
+//     plugin templates, via parseT here).
+//  3. Never inline template bodies as Go string literals — that pattern is
+//     deprecated; the template/ directory is the single source of truth.
+//
+// Custom template.FuncMap definitions stay in the driver Go file because they
+// reference Go functions; only the template body itself moves to disk.
+
 package entdomain
 
 import (
