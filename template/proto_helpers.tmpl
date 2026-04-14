@@ -109,11 +109,16 @@ func {{ fn "uuidPtrToProtoString" .Exported }}(v *uuid.UUID) *string {
 }
 
 // {{ fn "protoStringToUUIDPtr" .Exported }} converts *string to *uuid.UUID.
+// Returns nil on malformed UUID input rather than panicking — protobuf payloads
+// can carry untrusted strings and must not crash the process.
 func {{ fn "protoStringToUUIDPtr" .Exported }}(v *string) *uuid.UUID {
 	if v == nil {
 		return nil
 	}
-	id := uuid.MustParse(*v)
+	id, err := uuid.Parse(*v)
+	if err != nil {
+		return nil
+	}
 	return &id
 }
 
@@ -127,20 +132,30 @@ func {{ fn "uuidSliceToStringSlice" .Exported }}(vs []uuid.UUID) []string {
 }
 
 // {{ fn "stringSliceToUUIDSlice" .Exported }} converts []string to []uuid.UUID.
+// Malformed entries yield uuid.Nil at their index rather than panicking.
 func {{ fn "stringSliceToUUIDSlice" .Exported }}(vs []string) []uuid.UUID {
 	result := make([]uuid.UUID, len(vs))
 	for i, v := range vs {
-		result[i] = uuid.MustParse(v)
+		id, err := uuid.Parse(v)
+		if err != nil {
+			result[i] = uuid.Nil
+			continue
+		}
+		result[i] = id
 	}
 	return result
 }
 
 // {{ fn "mapToProtoStruct" .Exported }} converts map[string]any to *structpb.Struct.
+// Returns nil on conversion failure (e.g. non-UTF-8 keys or unsupported value types).
 func {{ fn "mapToProtoStruct" .Exported }}(m map[string]any) *structpb.Struct {
 	if m == nil {
 		return nil
 	}
-	s, _ := structpb.NewStruct(m)
+	s, err := structpb.NewStruct(m)
+	if err != nil {
+		return nil
+	}
 	return s
 }
 

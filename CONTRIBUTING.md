@@ -21,7 +21,7 @@ That should be green on a fresh checkout. If it isn't, please open an issue befo
 
 ## Project layout
 
-```
+```text
 .
 ├── *.go                    — entdomain library source (extension, generators, runtime helpers)
 ├── template/               — every code-generation template, loaded via //go:embed
@@ -44,8 +44,8 @@ entdomain is itself a code generator, so several layers regenerate when you chan
 Each example has an `entc.go` entrypoint that invokes ent + entdomain:
 
 ```sh
-cd examples/basic/ent && go run entc.go
-cd examples/custom/repo/ent && go run entc.go
+(cd examples/basic/ent && go run entc.go)
+(cd examples/custom/repo/ent && go run entc.go)
 ```
 
 Run both whenever you change anything in `template/` or any generator in the root package. The CI pipeline will catch a divergence; running locally is faster.

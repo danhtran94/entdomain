@@ -18,9 +18,13 @@ func (e *Tag) ToList() TagList {
 }
 
 // GetIDs returns the ID of each item in the list.
+// Nil elements yield the zero value of the ID type at their index.
 func (ds TagList) GetIDs() []int {
 	ids := make([]int, len(ds))
 	for i, d := range ds {
+		if d == nil {
+			continue
+		}
 		ids[i] = d.ID
 	}
 	return ids
