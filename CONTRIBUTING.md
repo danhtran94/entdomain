@@ -25,7 +25,8 @@ That should be green on a fresh checkout. If it isn't, please open an issue befo
 .
 ├── *.go                    — entdomain library source (extension, generators, runtime helpers)
 ├── template/               — every code-generation template, loaded via //go:embed
-├── adr/                    — Architecture Decision Records (numbered, sequential)
+├── docs/                   — ADRs (`docs/ADR-NNN-*.md`), RFCs, scope notes — harness-managed
+├── jobs/                   — job-tracking docs (`jobs/ENTD-NNN-*.md`)
 ├── examples/
 │   ├── basic/              — schema + generated output exercising the full feature surface
 │   └── custom/             — schema demonstrating non-default layouts (custom domain pkg path, etc.)
@@ -111,15 +112,19 @@ When fixing a bug or adding a feature, add a test that fails before your change 
 
 - All security findings (gosec G101–G115, G3xx, etc.) are tuned in `.golangci.yml`. If you hit a false positive, prefer adjusting the config over `// nolint:` comments.
 
-See [ADR-004](adr/004-security-pipeline.md) for the security pipeline rationale.
+See [ADR-004](docs/ADR-004-security-pipeline.md) for the security pipeline rationale.
 
 ## Architecture Decision Records (ADRs)
 
-Non-trivial design choices go in `adr/`:
+Non-trivial design choices go in `docs/` as ADRs managed by the
+harness layer (`harness validate-doc-filename` enforces the name
+at every Write/Edit):
 
-- Numbered sequentially: `00N-short-kebab-title.md`.
+- Filename: `docs/ADR-NNN-<short-kebab-title>.md`.
+- Strict monotonic `NNN` — next = max(existing) + 1.
 - Sections: Status (Proposed → Accepted/Implemented/Rejected), Context, Options Considered, Decision, Consequences (Good/Bad), Migration Path (if breaking).
 - Reject options explicitly with reasoning — future readers should see what was *not* chosen and why.
+- Start new ADRs with `/doc adr <short-title>` (harness skill walks the phase set + saves checkpoints to `docs/.drafts/`).
 
 Add a new ADR when:
 
