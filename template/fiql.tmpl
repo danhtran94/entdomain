@@ -78,6 +78,12 @@ var {{ $n.Name }}FIQLFields = entdomain.FIQLFields[predicate.{{ $n.Name }}]{
         {{- if eq $op "=prefix=" }}
         HasPrefix: {{ lower $n.Name }}.{{ $f.StructField }}HasPrefix,
         {{- end }}
+        {{- if eq $op "=in=" }}
+        In: {{ lower $n.Name }}.{{ $f.StructField }}In,
+        {{- end }}
+        {{- if eq $op "=out=" }}
+        NotIn: {{ lower $n.Name }}.{{ $f.StructField }}NotIn,
+        {{- end }}
         {{- end }}
     },
     {{- end }}

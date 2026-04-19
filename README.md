@@ -359,6 +359,8 @@ func (User) Fields() []ent.Field {
 | `LTE` | `=le=` | int, float, time |
 | `Contains` | `=like=` | string |
 | `HasPrefix` | `=prefix=` | string |
+| `In` | `=in=` | string, int, float, enum, uuid (value syntax: `field=in=(a,b,c)`) |
+| `NotIn` | `=out=` | string, int, float, enum, uuid (value syntax: `field=out=(a,b,c)`) |
 
 UUID values are parsed via `uuid.Parse` from `github.com/google/uuid` — accepts canonical 36-char hyphenated form, braced (`{...}`), `urn:uuid:...`, and 32-char hex without hyphens.
 
@@ -371,7 +373,7 @@ Logical: `;` = AND, `,` = OR, `(` `)` = grouping. AND binds tighter than OR (sta
 
 var UserFIQLFields = entdomain.FIQLFields[predicate.User]{
     "name":       entdomain.FIQLString[predicate.User]{EQ: user.NameEQ, NEQ: user.NameNEQ, Contains: user.NameContains},
-    "score":      entdomain.FIQLInt[predicate.User]{EQ: user.ScoreEQ, GT: user.ScoreGT, LT: user.ScoreLT, GTE: user.ScoreGTE, LTE: user.ScoreLTE},
+    "score":      entdomain.FIQLInt[predicate.User]{EQ: user.ScoreEQ, GT: user.ScoreGT, LT: user.ScoreLT, GTE: user.ScoreGTE, LTE: user.ScoreLTE, In: user.ScoreIn, NotIn: user.ScoreNotIn},
     "status":     entdomain.FIQLEnum[predicate.User]{
         EQ:  map[string]predicate.User{"active": user.StatusEQ(user.StatusActive), "inactive": user.StatusEQ(user.StatusInactive)},
         NEQ: map[string]predicate.User{"active": user.StatusNEQ(user.StatusActive), "inactive": user.StatusNEQ(user.StatusInactive)},
@@ -422,6 +424,7 @@ invalid time value "not-a-time" for field "created_at": ...
 ### Known Limitations
 
 - **UUID fields with custom `GoType(...)`** — only the canonical `github.com/google/uuid.UUID` type is wired. The codegen explicitly checks `f.Type.RType` and skips any other GoType, so a custom UUID field is omitted from the FIQL registry rather than producing a signature-mismatched generated file.
+- **`=in=` / `=out=` constraints** — bool and time fields don't support set membership (`=in=(true,false)` is meaningless; time uses range operators). Maximum 100 values per list. Values containing `,` or `)` cannot be used in lists — chain `==` / `!=` for those.
 - **Time values** — must be RFC3339 format (`2006-01-02T15:04:05Z07:00`).
 - **Nesting depth** — maximum 50 levels; deeper expressions return `"maximum nesting depth exceeded"`.
 - **Edge fields** — cross-entity filtering (e.g. `owner.name==john`) is out of scope.

@@ -38,13 +38,13 @@ func (User) Fields() []ent.Field {
 			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ, entdomain.Contains))),
 		field.String("bio").Optional(),
 		field.Enum("status").Values("active", "inactive").Default("active").
-			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ))),
+			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ, entdomain.In, entdomain.NotIn))),
 		field.Time("created_at").Default(time.Now).Immutable().
 			Annotations(entdomain.Field(entdomain.FIQL(entdomain.GTE, entdomain.LTE))),
 		field.String("username").Immutable().
 			Annotations(entdomain.Field(entdomain.SkipProto())),
 		field.Int("score").Optional().
-			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.GT, entdomain.LT, entdomain.GTE, entdomain.LTE))),
+			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.GT, entdomain.LT, entdomain.GTE, entdomain.LTE, entdomain.In, entdomain.NotIn))),
 		field.UUID("external_id", uuid.UUID{}).
 			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ))),
 		field.Time("updated_at").Optional(),

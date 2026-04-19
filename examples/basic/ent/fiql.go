@@ -31,11 +31,13 @@ var UserFIQLFields = entdomain.FIQLFields[predicate.User]{
 		LTE: user.CreatedAtLTE,
 	},
 	"score": entdomain.FIQLInt[predicate.User]{
-		EQ:  user.ScoreEQ,
-		GT:  user.ScoreGT,
-		LT:  user.ScoreLT,
-		GTE: user.ScoreGTE,
-		LTE: user.ScoreLTE,
+		EQ:    user.ScoreEQ,
+		GT:    user.ScoreGT,
+		LT:    user.ScoreLT,
+		GTE:   user.ScoreGTE,
+		LTE:   user.ScoreLTE,
+		In:    user.ScoreIn,
+		NotIn: user.ScoreNotIn,
 	},
 	"external_id": entdomain.FIQLUUID[predicate.User]{
 		EQ:  user.ExternalIDEQ,

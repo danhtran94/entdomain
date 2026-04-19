@@ -45,6 +45,12 @@ const (
 	Contains FIQLOp = "=like="
 	// HasPrefix matches field LIKE 'value%' (string).
 	HasPrefix FIQLOp = "=prefix="
+	// In matches field IN (v1, v2, ...) — value syntax: =in=(a,b,c).
+	// Supported on string, int, float, enum, uuid fields.
+	In FIQLOp = "=in="
+	// NotIn matches field NOT IN (v1, v2, ...) — value syntax: =out=(a,b,c).
+	// Supported on string, int, float, enum, uuid fields.
+	NotIn FIQLOp = "=out="
 )
 
 // Predicate is a constraint for ent predicate types. All ent predicate types have
@@ -67,6 +73,8 @@ type FIQLString[P Predicate] struct {
 	NEQ       func(string) P
 	Contains  func(string) P
 	HasPrefix func(string) P
+	In        func(...string) P
+	NotIn     func(...string) P
 }
 
 func (f FIQLString[P]) apply(op FIQLOp, val string) (P, error) {
@@ -92,6 +100,24 @@ func (f FIQLString[P]) apply(op FIQLOp, val string) (P, error) {
 			return zero, fmt.Errorf("operator =prefix= not allowed on this string field")
 		}
 		return f.HasPrefix(val), nil
+	case In:
+		if f.In == nil {
+			return zero, fmt.Errorf("operator =in= not allowed on this string field")
+		}
+		parts, err := parseInListValue(val)
+		if err != nil {
+			return zero, err
+		}
+		return f.In(parts...), nil
+	case NotIn:
+		if f.NotIn == nil {
+			return zero, fmt.Errorf("operator =out= not allowed on this string field")
+		}
+		parts, err := parseInListValue(val)
+		if err != nil {
+			return zero, err
+		}
+		return f.NotIn(parts...), nil
 	default:
 		return zero, fmt.Errorf("operator %q not allowed on string field", op)
 	}
@@ -99,16 +125,42 @@ func (f FIQLString[P]) apply(op FIQLOp, val string) (P, error) {
 
 // FIQLInt handles FIQL filtering for integer fields.
 type FIQLInt[P Predicate] struct {
-	EQ  func(int) P
-	NEQ func(int) P
-	GT  func(int) P
-	LT  func(int) P
-	GTE func(int) P
-	LTE func(int) P
+	EQ    func(int) P
+	NEQ   func(int) P
+	GT    func(int) P
+	LT    func(int) P
+	GTE   func(int) P
+	LTE   func(int) P
+	In    func(...int) P
+	NotIn func(...int) P
 }
 
 func (f FIQLInt[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
+	if op == In || op == NotIn {
+		if op == In && f.In == nil {
+			return zero, fmt.Errorf("operator =in= not allowed on this int field")
+		}
+		if op == NotIn && f.NotIn == nil {
+			return zero, fmt.Errorf("operator =out= not allowed on this int field")
+		}
+		parts, err := parseInListValue(val)
+		if err != nil {
+			return zero, err
+		}
+		ns := make([]int, len(parts))
+		for i, s := range parts {
+			n, err := strconv.Atoi(s)
+			if err != nil {
+				return zero, fmt.Errorf("invalid integer value %q in list: %w", s, err)
+			}
+			ns[i] = n
+		}
+		if op == In {
+			return f.In(ns...), nil
+		}
+		return f.NotIn(ns...), nil
+	}
 	n, err := strconv.Atoi(val)
 	if err != nil {
 		return zero, fmt.Errorf("invalid integer value %q: %w", val, err)
@@ -151,16 +203,42 @@ func (f FIQLInt[P]) apply(op FIQLOp, val string) (P, error) {
 
 // FIQLFloat handles FIQL filtering for float fields.
 type FIQLFloat[P Predicate] struct {
-	EQ  func(float64) P
-	NEQ func(float64) P
-	GT  func(float64) P
-	LT  func(float64) P
-	GTE func(float64) P
-	LTE func(float64) P
+	EQ    func(float64) P
+	NEQ   func(float64) P
+	GT    func(float64) P
+	LT    func(float64) P
+	GTE   func(float64) P
+	LTE   func(float64) P
+	In    func(...float64) P
+	NotIn func(...float64) P
 }
 
 func (f FIQLFloat[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
+	if op == In || op == NotIn {
+		if op == In && f.In == nil {
+			return zero, fmt.Errorf("operator =in= not allowed on this float field")
+		}
+		if op == NotIn && f.NotIn == nil {
+			return zero, fmt.Errorf("operator =out= not allowed on this float field")
+		}
+		parts, err := parseInListValue(val)
+		if err != nil {
+			return zero, err
+		}
+		ns := make([]float64, len(parts))
+		for i, s := range parts {
+			n, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				return zero, fmt.Errorf("invalid float value %q in list: %w", s, err)
+			}
+			ns[i] = n
+		}
+		if op == In {
+			return f.In(ns...), nil
+		}
+		return f.NotIn(ns...), nil
+	}
 	n, err := strconv.ParseFloat(val, 64)
 	if err != nil {
 		return zero, fmt.Errorf("invalid float value %q: %w", val, err)
@@ -262,12 +340,12 @@ type FIQLBool[P Predicate] struct {
 
 func (f FIQLBool[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
+	if op != EQ {
+		return zero, fmt.Errorf("operator %q not allowed on bool field — only == is supported", op)
+	}
 	b, err := strconv.ParseBool(val)
 	if err != nil {
 		return zero, fmt.Errorf("invalid bool value %q (expected true or false): %w", val, err)
-	}
-	if op != EQ {
-		return zero, fmt.Errorf("operator %q not allowed on bool field — only == is supported", op)
 	}
 	if f.EQ == nil {
 		return zero, fmt.Errorf("operator == not configured on this bool field")
@@ -281,12 +359,38 @@ func (f FIQLBool[P]) apply(op FIQLOp, val string) (P, error) {
 // Only == and != are supported — UUIDs are opaque identifiers, so ordering and
 // substring operators are intentionally rejected.
 type FIQLUUID[P Predicate] struct {
-	EQ  func(uuid.UUID) P
-	NEQ func(uuid.UUID) P
+	EQ    func(uuid.UUID) P
+	NEQ   func(uuid.UUID) P
+	In    func(...uuid.UUID) P
+	NotIn func(...uuid.UUID) P
 }
 
 func (f FIQLUUID[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
+	if op == In || op == NotIn {
+		if op == In && f.In == nil {
+			return zero, fmt.Errorf("operator =in= not allowed on this UUID field")
+		}
+		if op == NotIn && f.NotIn == nil {
+			return zero, fmt.Errorf("operator =out= not allowed on this UUID field")
+		}
+		parts, err := parseInListValue(val)
+		if err != nil {
+			return zero, err
+		}
+		us := make([]uuid.UUID, len(parts))
+		for i, s := range parts {
+			u, err := uuid.Parse(s)
+			if err != nil {
+				return zero, fmt.Errorf("invalid UUID value %q in list: %w", s, err)
+			}
+			us[i] = u
+		}
+		if op == In {
+			return f.In(us...), nil
+		}
+		return f.NotIn(us...), nil
+	}
 	u, err := uuid.Parse(val)
 	if err != nil {
 		return zero, fmt.Errorf("invalid UUID value %q: %w", val, err)
@@ -335,8 +439,48 @@ func (f FIQLEnum[P]) apply(op FIQLOp, val string) (P, error) {
 			return zero, fmt.Errorf("unknown enum value %q — valid: %s", val, sortedMapKeys(f.NEQ))
 		}
 		return p, nil
+	case In:
+		if f.EQ == nil {
+			return zero, fmt.Errorf("operator =in= not allowed on this enum field (requires == annotation)")
+		}
+		parts, err := parseInListValue(val)
+		if err != nil {
+			return zero, err
+		}
+		preds := make([]P, len(parts))
+		for i, v := range parts {
+			p, ok := f.EQ[v]
+			if !ok {
+				return zero, fmt.Errorf("unknown enum value %q in list — valid: %s", v, sortedMapKeys(f.EQ))
+			}
+			preds[i] = p
+		}
+		if len(preds) == 1 {
+			return preds[0], nil
+		}
+		return orPreds(preds...), nil
+	case NotIn:
+		if f.NEQ == nil {
+			return zero, fmt.Errorf("operator =out= not allowed on this enum field (requires != annotation)")
+		}
+		parts, err := parseInListValue(val)
+		if err != nil {
+			return zero, err
+		}
+		preds := make([]P, len(parts))
+		for i, v := range parts {
+			p, ok := f.NEQ[v]
+			if !ok {
+				return zero, fmt.Errorf("unknown enum value %q in list — valid: %s", v, sortedMapKeys(f.NEQ))
+			}
+			preds[i] = p
+		}
+		if len(preds) == 1 {
+			return preds[0], nil
+		}
+		return andPreds(preds...), nil
 	default:
-		return zero, fmt.Errorf("operator %q not allowed on enum field — only == and != are supported", op)
+		return zero, fmt.Errorf("operator %q not allowed on enum field — only ==, !=, =in=, =out= are supported", op)
 	}
 }
 
@@ -374,6 +518,10 @@ func ParseFIQL[P Predicate](expr string, fields FIQLFields[P]) (P, error) {
 // maxFIQLDepth is the maximum nesting depth for parenthesised groups.
 // Prevents stack overflow on maliciously crafted expressions.
 const maxFIQLDepth = 50
+
+// maxFIQLListValues is the maximum number of values in a single =in= or =out=
+// list. Bounds parse cost and downstream SQL planner cost on hostile input.
+const maxFIQLListValues = 100
 
 // fiqlParser is a recursive descent FIQL parser.
 type fiqlParser[P Predicate] struct {
@@ -477,9 +625,17 @@ func (p *fiqlParser[P]) parseComparison() (P, error) {
 		return zero, err
 	}
 
-	value := p.readValue()
-	if value == "" {
-		return zero, fmt.Errorf("empty value for field %q at position %d", selector, p.pos)
+	var value string
+	if op == In || op == NotIn {
+		value, err = p.readListValue()
+		if err != nil {
+			return zero, err
+		}
+	} else {
+		value = p.readValue()
+		if value == "" {
+			return zero, fmt.Errorf("empty value for field %q at position %d", selector, p.pos)
+		}
 	}
 
 	fieldDesc, ok := p.fields[selector]
@@ -528,7 +684,7 @@ func (p *fiqlParser[P]) readOp() (FIQLOp, error) {
 		opStr := FIQLOp(p.expr[p.pos : p.pos+1+end+1])
 		p.pos += len(opStr)
 		switch opStr {
-		case GT, LT, GTE, LTE, Contains, HasPrefix:
+		case GT, LT, GTE, LTE, Contains, HasPrefix, In, NotIn:
 			return opStr, nil
 		default:
 			return "", fmt.Errorf("unknown operator %q at position %d", opStr, p.pos-len(opStr))
@@ -547,6 +703,43 @@ func (p *fiqlParser[P]) readValue() string {
 		p.pos++
 	}
 	return p.expr[start:p.pos]
+}
+
+// readListValue reads a parenthesised value list for =in= / =out= operators.
+// Returns the substring including the enclosing parens (e.g. "(a,b,c)").
+// Per-type apply methods strip the parens and split on ',' — see parseInListValue.
+func (p *fiqlParser[P]) readListValue() (string, error) {
+	if p.pos >= len(p.expr) || p.expr[p.pos] != '(' {
+		return "", fmt.Errorf("expected '(' after =in=/=out= operator at position %d", p.pos)
+	}
+	start := p.pos
+	p.pos++ // consume '('
+	for p.pos < len(p.expr) && p.expr[p.pos] != ')' {
+		p.pos++
+	}
+	if p.pos >= len(p.expr) {
+		return "", fmt.Errorf("unterminated list value starting at position %d", start)
+	}
+	p.pos++ // consume ')'
+	return p.expr[start:p.pos], nil
+}
+
+// parseInListValue strips the enclosing parens from a =in= / =out= value,
+// splits on ',', and enforces maxFIQLListValues. Returns the per-element
+// raw strings; per-type callers parse each element with their own parser.
+func parseInListValue(val string) ([]string, error) {
+	if len(val) < 2 || val[0] != '(' || val[len(val)-1] != ')' {
+		return nil, fmt.Errorf("malformed list value %q (expected (a,b,c))", val)
+	}
+	inner := val[1 : len(val)-1]
+	if inner == "" {
+		return nil, fmt.Errorf("empty value list for =in=/=out= operator")
+	}
+	parts := strings.Split(inner, ",")
+	if len(parts) > maxFIQLListValues {
+		return nil, fmt.Errorf("list value exceeds maximum of %d entries", maxFIQLListValues)
+	}
+	return parts, nil
 }
 
 // andPreds combines multiple predicates with AND.

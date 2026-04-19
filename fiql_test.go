@@ -331,6 +331,192 @@ func TestParseFIQL_UUIDField(t *testing.T) {
 	})
 }
 
+func TestParseFIQL_StringIn(t *testing.T) {
+	var got []string
+	fields := entdomain.FIQLFields[testPred]{
+		"name": entdomain.FIQLString[testPred]{
+			In:    func(vs ...string) testPred { return testPred(func(s *sql.Selector) { got = append([]string(nil), vs...) }) },
+			NotIn: func(vs ...string) testPred { return testPred(func(s *sql.Selector) { got = append([]string{"not"}, vs...) }) },
+		},
+	}
+
+	t.Run("=in= happy path", func(t *testing.T) {
+		got = nil
+		pred, err := entdomain.ParseFIQL("name=in=(alice,bob,carol)", fields)
+		require.NoError(t, err)
+		pred(nil)
+		assert.Equal(t, []string{"alice", "bob", "carol"}, got)
+	})
+
+	t.Run("=out= happy path", func(t *testing.T) {
+		got = nil
+		pred, err := entdomain.ParseFIQL("name=out=(alice,bob)", fields)
+		require.NoError(t, err)
+		pred(nil)
+		assert.Equal(t, []string{"not", "alice", "bob"}, got)
+	})
+
+	t.Run("missing opening paren", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("name=in=alice,bob", fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "expected '('")
+	})
+
+	t.Run("unterminated list", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("name=in=(alice,bob", fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unterminated list")
+	})
+
+	t.Run("empty list rejected", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("name=in=()", fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty value list")
+	})
+
+	t.Run("cap exceeded", func(t *testing.T) {
+		vs := make([]string, 0, 101)
+		for i := 0; i <= 100; i++ {
+			vs = append(vs, fmt.Sprintf("v%d", i))
+		}
+		expr := "name=in=(" + strings.Join(vs, ",") + ")"
+		_, err := entdomain.ParseFIQL(expr, fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum of 100")
+	})
+}
+
+func TestParseFIQL_IntIn(t *testing.T) {
+	var got []int
+	fields := entdomain.FIQLFields[testPred]{
+		"score": entdomain.FIQLInt[testPred]{
+			In: func(vs ...int) testPred { return testPred(func(s *sql.Selector) { got = append([]int(nil), vs...) }) },
+		},
+	}
+
+	t.Run("happy path", func(t *testing.T) {
+		got = nil
+		pred, err := entdomain.ParseFIQL("score=in=(10,20,30)", fields)
+		require.NoError(t, err)
+		pred(nil)
+		assert.Equal(t, []int{10, 20, 30}, got)
+	})
+
+	t.Run("invalid element", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("score=in=(10,abc,30)", fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `invalid integer value "abc" in list`)
+	})
+}
+
+func TestParseFIQL_FloatIn(t *testing.T) {
+	var got []float64
+	fields := entdomain.FIQLFields[testPred]{
+		"ratio": entdomain.FIQLFloat[testPred]{
+			In: func(vs ...float64) testPred { return testPred(func(s *sql.Selector) { got = append([]float64(nil), vs...) }) },
+		},
+	}
+	pred, err := entdomain.ParseFIQL("ratio=in=(1.5,2.5,3.5)", fields)
+	require.NoError(t, err)
+	pred(nil)
+	assert.Equal(t, []float64{1.5, 2.5, 3.5}, got)
+}
+
+func TestParseFIQL_UUIDIn(t *testing.T) {
+	a := "550e8400-e29b-41d4-a716-446655440000"
+	b := "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+	var got []uuid.UUID
+	fields := entdomain.FIQLFields[testPred]{
+		"id": entdomain.FIQLUUID[testPred]{
+			In: func(vs ...uuid.UUID) testPred { return testPred(func(s *sql.Selector) { got = append([]uuid.UUID(nil), vs...) }) },
+		},
+	}
+
+	t.Run("happy path", func(t *testing.T) {
+		got = nil
+		pred, err := entdomain.ParseFIQL("id=in=("+a+","+b+")", fields)
+		require.NoError(t, err)
+		pred(nil)
+		assert.Equal(t, []uuid.UUID{uuid.MustParse(a), uuid.MustParse(b)}, got)
+	})
+
+	t.Run("invalid uuid in list", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("id=in=("+a+",not-a-uuid)", fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `invalid UUID value "not-a-uuid" in list`)
+	})
+}
+
+func TestParseFIQL_EnumIn(t *testing.T) {
+	var calls []string
+	mkPred := func(tag string) testPred {
+		return testPred(func(s *sql.Selector) { calls = append(calls, tag) })
+	}
+	fields := entdomain.FIQLFields[testPred]{
+		"status": entdomain.FIQLEnum[testPred]{
+			EQ:  map[string]testPred{"active": mkPred("eq:active"), "inactive": mkPred("eq:inactive")},
+			NEQ: map[string]testPred{"active": mkPred("neq:active"), "inactive": mkPred("neq:inactive")},
+		},
+	}
+
+	t.Run("=in= composes OR of EQ entries", func(t *testing.T) {
+		calls = nil
+		pred, err := entdomain.ParseFIQL("status=in=(active,inactive)", fields)
+		require.NoError(t, err)
+		pred(sql.Dialect("sqlite3").Select("*").From(sql.Table("t")))
+		assert.ElementsMatch(t, []string{"eq:active", "eq:inactive"}, calls)
+	})
+
+	t.Run("=out= composes AND of NEQ entries", func(t *testing.T) {
+		calls = nil
+		pred, err := entdomain.ParseFIQL("status=out=(active,inactive)", fields)
+		require.NoError(t, err)
+		pred(sql.Dialect("sqlite3").Select("*").From(sql.Table("t")))
+		assert.ElementsMatch(t, []string{"neq:active", "neq:inactive"}, calls)
+	})
+
+	t.Run("unknown enum value in list", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("status=in=(active,pending)", fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `unknown enum value "pending" in list`)
+	})
+}
+
+func TestParseFIQL_BoolRejectsIn(t *testing.T) {
+	fields := entdomain.FIQLFields[testPred]{
+		"active": entdomain.FIQLBool[testPred]{
+			EQ: func(v bool) testPred { return testPred(func(s *sql.Selector) {}) },
+		},
+	}
+	_, err := entdomain.ParseFIQL("active=in=(true,false)", fields)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "only == is supported")
+}
+
+func TestParseFIQL_GroupingPathUntouched(t *testing.T) {
+	// Regression: confirm the (expr) grouping path still works after
+	// adding =in= / =out= and the readListValue dispatch.
+	var calls []string
+	record := func(tag string) testPred {
+		return testPred(func(s *sql.Selector) { calls = append(calls, tag) })
+	}
+	fields := entdomain.FIQLFields[testPred]{
+		"name": entdomain.FIQLString[testPred]{
+			EQ: func(v string) testPred { return record("name=" + v) },
+		},
+		"score": entdomain.FIQLInt[testPred]{
+			GT: func(v int) testPred { return record(fmt.Sprintf("score>%d", v)) },
+		},
+	}
+
+	pred, err := entdomain.ParseFIQL("(name==a,name==b);score=gt=10", fields)
+	require.NoError(t, err)
+	pred(sql.Dialect("sqlite3").Select("*").From(sql.Table("t")))
+	assert.Contains(t, calls, "name=a")
+	assert.Contains(t, calls, "name=b")
+	assert.Contains(t, calls, "score>10")
+}
+
 func TestParseFIQL_StringHasPrefix(t *testing.T) {
 	var got string
 	fields := entdomain.FIQLFields[testPred]{
