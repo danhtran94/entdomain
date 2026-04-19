@@ -116,6 +116,24 @@ func TestUserFIQL_GroupingOverridesPrecedence(t *testing.T) {
 	assert.Contains(t, q, "(`users`.`name` = ? OR `users`.`status` = ?) AND `users`.`score` > ?")
 }
 
+func TestUserFIQL_UUIDEQ(t *testing.T) {
+	pred, err := ent.UserFIQL("external_id==550e8400-e29b-41d4-a716-446655440000")
+	require.NoError(t, err)
+	assert.Contains(t, applySQL(pred), "`external_id` = ?")
+}
+
+func TestUserFIQL_UUIDNEQ(t *testing.T) {
+	pred, err := ent.UserFIQL("external_id!=550e8400-e29b-41d4-a716-446655440000")
+	require.NoError(t, err)
+	assert.Contains(t, applySQL(pred), "`external_id` <> ?")
+}
+
+func TestUserFIQL_UUIDInvalid(t *testing.T) {
+	_, err := ent.UserFIQL("external_id==not-a-uuid")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid UUID value")
+}
+
 // Error cases on the real generated registry
 
 func TestUserFIQL_UnknownField(t *testing.T) {

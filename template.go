@@ -233,7 +233,7 @@ func fieldFIQLKindFn(f *gen.Field) string {
 	case field.TypeEnum:
 		return "Enum"
 	case field.TypeUUID:
-		return "" // UUID predicates take uuid.UUID not string — not supported via FIQL
+		return "UUID"
 	default:
 		return "" // JSON and others: not supported
 	}

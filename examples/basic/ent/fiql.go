@@ -37,6 +37,10 @@ var UserFIQLFields = entdomain.FIQLFields[predicate.User]{
 		GTE: user.ScoreGTE,
 		LTE: user.ScoreLTE,
 	},
+	"external_id": entdomain.FIQLUUID[predicate.User]{
+		EQ:  user.ExternalIDEQ,
+		NEQ: user.ExternalIDNEQ,
+	},
 }
 
 // UserFIQL parses a FIQL filter expression and returns an ent predicate
