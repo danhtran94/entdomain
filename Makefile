@@ -1,16 +1,26 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help build test gen gen-basic gen-custom fuzz-fiql
+.PHONY: all clean help build test gen gen-basic gen-custom fuzz-fiql
+
+define HELP_TEXT
+entdomain — Makefile targets
+
+  build       go build ./...
+  test        go test ./... (fast; matches CI)
+  gen         regenerate every example (entc.go under examples/*/ent)
+  gen-basic   regenerate examples/basic/ent only
+  gen-custom  regenerate examples/custom/repo/ent only
+  fuzz-fiql   ad-hoc FIQL parser fuzz (not in CI)
+endef
+export HELP_TEXT
+
+all: build
+
+clean:
+	@go clean -testcache
 
 help:
-	@echo "entdomain — Makefile targets"
-	@echo ""
-	@echo "  build       go build ./..."
-	@echo "  test        go test ./... (fast; matches CI)"
-	@echo "  gen         regenerate every example (entc.go under examples/*/ent)"
-	@echo "  gen-basic   regenerate examples/basic/ent only"
-	@echo "  gen-custom  regenerate examples/custom/repo/ent only"
-	@echo "  fuzz-fiql   ad-hoc FIQL parser fuzz (not in CI)"
+	@echo "$$HELP_TEXT"
 
 build:
 	@go build ./...
