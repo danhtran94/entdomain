@@ -172,15 +172,15 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 
 	// ID field (always int64 in proto for non-UUID IDs).
 	idSpec := resolveEntFieldProtoSpec(t.Name, t.ID, nil)
-	idField := pendingField{
-		snakeName: "id",
-		spec:      idSpec,
-	}
-	if !idSpec.IsExcluded {
+	if idSpec.IsExcluded {
+		// Custom-GoType UUID IDs hit this branch via the resolver gate; the
+		// message is unrepresentable in proto without an ID.
+		skipped = append(skipped, skippedField{Message: t.Name, Field: "id", Reason: idSpec.ExcludedReason})
+	} else {
 		// IDs are non-optional in proto.
-		idField.spec.IsOptional = false
+		idSpec.IsOptional = false
+		pending = append(pending, pendingField{snakeName: "id", spec: idSpec})
 	}
-	pending = append(pending, idField)
 
 	// Regular fields.
 	for _, f := range t.Fields {
@@ -200,9 +200,15 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 		}
 
 		spec := resolveEntFieldProtoSpec(t.Name, f, fa)
+		// Symmetric exclusion handling: skip immediately like edges/virtuals
+		// rather than carrying excluded specs through pending and re-checking.
+		if spec.IsExcluded {
+			skipped = append(skipped, skippedField{Message: t.Name, Field: f.Name, Reason: spec.ExcludedReason})
+			continue
+		}
 		pf := pendingField{snakeName: f.Name, spec: spec}
 
-		if spec.IsEnum && !spec.IsExcluded {
+		if spec.IsEnum {
 			// Build the enum data: ENTITY_FIELD_VALUE naming.
 			prefix := strings.ToUpper(snake(t.Name)) + "_" + strings.ToUpper(snake(f.StructField()))
 			ed := &protoEnumData{Name: spec.EnumTypeName}
@@ -295,12 +301,10 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 	// Allocate field numbers (stable across generations).
 	fieldNums := allocateFieldNumbers(lock, t.Name, fieldNames)
 
-	// Build the message fields and collect enums/imports.
+	// Build the message fields and collect enums/imports. By construction
+	// pending now contains only non-excluded fields (every exclusion site
+	// short-circuits to the skipped slice above).
 	for _, pf := range pending {
-		if pf.spec.IsExcluded {
-			skipped = append(skipped, skippedField{Message: t.Name, Field: pf.snakeName, Reason: pf.spec.ExcludedReason})
-			continue
-		}
 		num, ok := fieldNums[pf.snakeName]
 		if !ok {
 			continue

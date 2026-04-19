@@ -42,7 +42,7 @@ A third silent-failure mode lives in `proto_types.go`. `ProtoFieldSpec.IsExclude
 
 2. **Operator names addressable from templates by symbolic name.** A new template helper `isOp` lets the template write `{{ if isOp "In" $op }}` instead of `{{ if eq $op "=in=" }}`. The helper consults a Go-defined registry keyed by the operator constant identifier (`"EQ"` → `EQ`, `"In"` → `In`). Adding a new operator means one line in the registry; templates reference by name.
 
-3. **Unified `apply` dispatch** in `fiql.go`. The six per-type apply methods reduce to a small generic helper `applyTyped[T any](op, val, parsers, fields) P` that handles the fixed control flow (op-check first, then parse, then nil-fn check, then call). Per-type apply methods become 5–10 lines each (just defining the parser fn and the field map). Op-check-first ordering becomes the only code path — the inconsistency between String/Time and the rest is fixed by construction.
+3. **`applyListTyped` helper** in `fiql.go` — *scoped down from the originally-planned full `applyTyped` unification*. The genuinely-identical 25-line In/NotIn block in `FIQLInt`/`Float`/`UUID` reduces to one helper call. The full unified `apply` dispatch was rejected mid-implementation because preserving the existing per-type error-message wording (e.g. parse-noun "integer" vs field-noun "int") ballooned the generic signature past readability — see Discoveries in the job doc. `FIQLString`/`Time`/`Bool`/`Enum` keep their existing apply shape; the parse-then-check ordering inconsistency in String/Time is documented as known but not fixed in this scope.
 
 4. **`ProtoFieldSpec` carries an `ExcludedReason string`** field, populated whenever `IsExcluded = true`. The proto generator collects skipped fields per message and emits a final summary in `entpb.lock.json` (or a sibling `.skipped.json` if cleaner) listing every excluded field with its reason. Optional: also `fmt.Fprintln(os.Stderr, ...)` at codegen time.
 
@@ -50,7 +50,7 @@ A third silent-failure mode lives in `proto_types.go`. `ProtoFieldSpec.IsExclude
 
 6. **Test surface unchanged or expanded.** All existing `*_test.go` files pass without modification. New tests: `TestResolveFieldKind` covering each ent field type + the GoType gate for UUID; `TestApplyTyped` covering the unified dispatch path; `TestProtoExcludedReason` asserting that an unsupported GoType field appears in the skipped summary with a non-empty reason.
 
-7. **No public API breakage.** `FIQLOp`, `FIQLField`, `FIQLFields`, `FIQLString`/`Int`/`Float`/`Time`/`Bool`/`Enum`/`UUID`, `ParseFIQL` all keep their current signatures. The `applyTyped` helper is unexported. End users (and existing generated code) need no changes.
+7. **No public API breakage.** `FIQLOp`, `FIQLField`, `FIQLFields`, `FIQLString`/`Int`/`Float`/`Time`/`Bool`/`Enum`/`UUID`, `ParseFIQL` all keep their current signatures. The `applyListTyped` helper is unexported. End users (and existing generated code) need no changes.
 
 ## Out of Scope
 

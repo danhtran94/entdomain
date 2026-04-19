@@ -221,17 +221,6 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 		}
 		return spec
 
-	case field.TypeUUID:
-		spec := ProtoFieldSpec{ProtoType: "string", IsOptional: optional}
-		if optional {
-			spec.ToProtoExpr = "uuidPtrToProtoString(%s)"
-			spec.FromProtoExpr = "protoStringToUUIDPtr(%s)"
-		} else {
-			spec.ToProtoExpr = "%s.String()"
-			spec.FromProtoExpr = "uuid.MustParse(%s)"
-		}
-		return spec
-
 	case field.TypeEnum:
 		enumTypeName := entityName + f.StructField()
 		spec := ProtoFieldSpec{
