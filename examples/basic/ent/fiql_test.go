@@ -134,6 +134,48 @@ func TestUserFIQL_UUIDInvalid(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid UUID value")
 }
 
+func TestUserFIQL_IntIn(t *testing.T) {
+	pred, err := ent.UserFIQL("score=in=(10,20,30)")
+	require.NoError(t, err)
+	q := applySQL(pred)
+	assert.Contains(t, q, "`score` IN (?")
+}
+
+func TestUserFIQL_IntNotIn(t *testing.T) {
+	pred, err := ent.UserFIQL("score=out=(10,20)")
+	require.NoError(t, err)
+	q := applySQL(pred)
+	assert.Contains(t, q, "`score` NOT IN (?")
+}
+
+func TestUserFIQL_EnumIn(t *testing.T) {
+	// Enum =in= composes via OR-of-EQ at apply time (no FieldIn predicate generated).
+	pred, err := ent.UserFIQL("status=in=(active,inactive)")
+	require.NoError(t, err)
+	q := applySQL(pred)
+	assert.Contains(t, q, "OR")
+	assert.Contains(t, q, "`status` = ?")
+}
+
+func TestUserFIQL_EnumNotIn(t *testing.T) {
+	pred, err := ent.UserFIQL("status=out=(active)")
+	require.NoError(t, err)
+	q := applySQL(pred)
+	assert.Contains(t, q, "`status` <> ?")
+}
+
+func TestUserFIQL_InEmptyList(t *testing.T) {
+	_, err := ent.UserFIQL("score=in=()")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty value list")
+}
+
+func TestUserFIQL_InBadElement(t *testing.T) {
+	_, err := ent.UserFIQL("score=in=(10,abc)")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `invalid integer value "abc" in list`)
+}
+
 // Error cases on the real generated registry
 
 func TestUserFIQL_UnknownField(t *testing.T) {
