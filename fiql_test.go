@@ -21,6 +21,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/danhtran94/entdomain"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -280,6 +281,53 @@ func TestParseFIQL_BoolField(t *testing.T) {
 	t.Run("non-EQ operator rejected", func(t *testing.T) {
 		_, err := entdomain.ParseFIQL("active=gt=true", fields)
 		require.Error(t, err)
+	})
+}
+
+func TestParseFIQL_UUIDField(t *testing.T) {
+	canonical := "550e8400-e29b-41d4-a716-446655440000"
+	expected := uuid.MustParse(canonical)
+
+	var gotEQ, gotNEQ uuid.UUID
+	fields := entdomain.FIQLFields[testPred]{
+		"external_id": entdomain.FIQLUUID[testPred]{
+			EQ:  func(v uuid.UUID) testPred { return testPred(func(s *sql.Selector) { gotEQ = v }) },
+			NEQ: func(v uuid.UUID) testPred { return testPred(func(s *sql.Selector) { gotNEQ = v }) },
+		},
+	}
+
+	t.Run("EQ canonical", func(t *testing.T) {
+		gotEQ = uuid.Nil
+		pred, err := entdomain.ParseFIQL("external_id=="+canonical, fields)
+		require.NoError(t, err)
+		pred(nil)
+		assert.Equal(t, expected, gotEQ)
+	})
+
+	t.Run("NEQ canonical", func(t *testing.T) {
+		gotNEQ = uuid.Nil
+		pred, err := entdomain.ParseFIQL("external_id!="+canonical, fields)
+		require.NoError(t, err)
+		pred(nil)
+		assert.Equal(t, expected, gotNEQ)
+	})
+
+	t.Run("invalid UUID value", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("external_id==not-a-uuid", fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid UUID value")
+	})
+
+	t.Run("ordering operator rejected", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("external_id=gt="+canonical, fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "only == and != are supported")
+	})
+
+	t.Run("substring operator rejected", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("external_id=like="+canonical, fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "only == and != are supported")
 	})
 }
 

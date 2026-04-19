@@ -351,14 +351,16 @@ func (User) Fields() []ent.Field {
 
 | Constant | FIQL syntax | Valid for |
 |---|---|---|
-| `EQ` | `==` | all types |
-| `NEQ` | `!=` | all types |
+| `EQ` | `==` | all types (string, int, float, bool, time, enum, uuid) |
+| `NEQ` | `!=` | all types except bool |
 | `GT` | `=gt=` | int, float, time |
 | `LT` | `=lt=` | int, float, time |
 | `GTE` | `=ge=` | int, float, time |
 | `LTE` | `=le=` | int, float, time |
 | `Contains` | `=like=` | string |
 | `HasPrefix` | `=prefix=` | string |
+
+UUID values are parsed via `uuid.Parse` from `github.com/google/uuid` — accepts canonical 36-char hyphenated form, braced (`{...}`), `urn:uuid:...`, and 32-char hex without hyphens.
 
 Logical: `;` = AND, `,` = OR, `(` `)` = grouping. AND binds tighter than OR (standard FIQL precedence).
 
@@ -375,6 +377,7 @@ var UserFIQLFields = entdomain.FIQLFields[predicate.User]{
         NEQ: map[string]predicate.User{"active": user.StatusNEQ(user.StatusActive), "inactive": user.StatusNEQ(user.StatusInactive)},
     },
     "created_at": entdomain.FIQLTime[predicate.User]{GTE: user.CreatedAtGTE, LTE: user.CreatedAtLTE},
+    "external_id": entdomain.FIQLUUID[predicate.User]{EQ: user.ExternalIDEQ, NEQ: user.ExternalIDNEQ},
 }
 
 func UserFIQL(expr string) (predicate.User, error) {
@@ -418,7 +421,7 @@ invalid time value "not-a-time" for field "created_at": ...
 
 ### Known Limitations
 
-- **UUID fields** — not supported; ent's UUID predicates require `uuid.UUID`, not `string`. UUID fields are silently skipped even if annotated.
+- **UUID fields with custom `GoType(...)`** — only the canonical `github.com/google/uuid.UUID` type is wired. The codegen explicitly checks `f.Type.RType` and skips any other GoType, so a custom UUID field is omitted from the FIQL registry rather than producing a signature-mismatched generated file.
 - **Time values** — must be RFC3339 format (`2006-01-02T15:04:05Z07:00`).
 - **Nesting depth** — maximum 50 levels; deeper expressions return `"maximum nesting depth exceeded"`.
 - **Edge fields** — cross-entity filtering (e.g. `owner.name==john`) is out of scope.

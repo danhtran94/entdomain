@@ -45,7 +45,8 @@ func (User) Fields() []ent.Field {
 			Annotations(entdomain.Field(entdomain.SkipProto())),
 		field.Int("score").Optional().
 			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.GT, entdomain.LT, entdomain.GTE, entdomain.LTE))),
-		field.UUID("external_id", uuid.UUID{}),
+		field.UUID("external_id", uuid.UUID{}).
+			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ))),
 		field.Time("updated_at").Optional(),
 		field.JSON("settings", map[string]any{}).Optional(),
 		// Typed JSON field opted into proto via explicit ProtoType annotation.

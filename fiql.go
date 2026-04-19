@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 )
 
 // FIQLOp is a FIQL comparison operator.
@@ -272,6 +273,38 @@ func (f FIQLBool[P]) apply(op FIQLOp, val string) (P, error) {
 		return zero, fmt.Errorf("operator == not configured on this bool field")
 	}
 	return f.EQ(b), nil
+}
+
+// FIQLUUID handles FIQL filtering for UUID fields (github.com/google/uuid).
+// Values are parsed via uuid.Parse, which accepts canonical 36-char hyphenated
+// form, braced ({...}), urn:uuid:..., and 32-char hex without hyphens.
+// Only == and != are supported — UUIDs are opaque identifiers, so ordering and
+// substring operators are intentionally rejected.
+type FIQLUUID[P Predicate] struct {
+	EQ  func(uuid.UUID) P
+	NEQ func(uuid.UUID) P
+}
+
+func (f FIQLUUID[P]) apply(op FIQLOp, val string) (P, error) {
+	var zero P
+	u, err := uuid.Parse(val)
+	if err != nil {
+		return zero, fmt.Errorf("invalid UUID value %q: %w", val, err)
+	}
+	switch op {
+	case EQ:
+		if f.EQ == nil {
+			return zero, fmt.Errorf("operator == not allowed on this UUID field")
+		}
+		return f.EQ(u), nil
+	case NEQ:
+		if f.NEQ == nil {
+			return zero, fmt.Errorf("operator != not allowed on this UUID field")
+		}
+		return f.NEQ(u), nil
+	default:
+		return zero, fmt.Errorf("operator %q not allowed on UUID field — only == and != are supported", op)
+	}
 }
 
 // FIQLEnum handles FIQL filtering for enum fields.
