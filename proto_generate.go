@@ -290,12 +290,12 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 		})
 	}
 
-	// Collect field names for lock allocation.
-	var fieldNames []string
+	// Collect field names for lock allocation. By construction every
+	// pending entry is non-excluded — exclusion sites short-circuit to
+	// the skipped slice before reaching here.
+	fieldNames := make([]string, 0, len(pending))
 	for _, pf := range pending {
-		if !pf.spec.IsExcluded {
-			fieldNames = append(fieldNames, pf.snakeName)
-		}
+		fieldNames = append(fieldNames, pf.snakeName)
 	}
 
 	// Allocate field numbers (stable across generations).
