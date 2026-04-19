@@ -421,7 +421,7 @@ invalid time value "not-a-time" for field "created_at": ...
 
 ### Known Limitations
 
-- **UUID fields with custom `GoType(...)`** — only the standard `github.com/google/uuid.UUID` type is wired. UUID fields backed by an alternative type via `GoType(...)` fall back to silent-skip.
+- **UUID fields with custom `GoType(...)`** — only the canonical `github.com/google/uuid.UUID` type is wired. The codegen explicitly checks `f.Type.RType` and skips any other GoType, so a custom UUID field is omitted from the FIQL registry rather than producing a signature-mismatched generated file.
 - **Time values** — must be RFC3339 format (`2006-01-02T15:04:05Z07:00`).
 - **Nesting depth** — maximum 50 levels; deeper expressions return `"maximum nesting depth exceeded"`.
 - **Edge fields** — cross-entity filtering (e.g. `owner.name==john`) is out of scope.
