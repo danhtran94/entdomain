@@ -1,0 +1,7 @@
+[
+  {
+    "message": "User",
+    "field": "username",
+    "reason": "field has SkipProto annotation"
+  }
+]

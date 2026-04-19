@@ -421,9 +421,20 @@ invalid integer value "abc" for field "score": strconv.Atoi: ...
 invalid time value "not-a-time" for field "created_at": ...
 ```
 
+### Skipped fields summary
+
+When the proto generator excludes a field (custom UUID GoType, `field.Bytes`, untyped JSON, `entdomain.SkipProto()` annotation, etc.), the reason is recorded in a sibling `proto/entpb/.entdomain.skipped.json` artifact rather than vanishing silently. Inspect after `make gen` if a field you expected in the proto output is missing — the file lists `{message, field, reason}` triples sorted deterministically.
+
+### Extending the generator
+
+Two extension points have a single source of truth:
+
+- **Adding a new ent field type to the FIQL pipeline** → edit `kinds.go:resolveFieldKind`. A `(FieldKind, reason)` return propagates to the FIQL template (via `fieldFIQLKindFn`) and to the proto generator's `ExcludedReason`. Add the matching `FIQL{Kind}` runtime type to `fiql.go` if the kind needs a new struct.
+- **Adding a new FIQL operator** → add the constant to `fiql.go`'s `FIQLOp` block, register it in the `opByName` map, and add an `{{ if isOp "<Name>" $op }}` branch to `template/fiql.tmpl`. `TestOpRegistryCovered` (`fiql_internal_test.go`) fails if you forget the registry entry.
+
 ### Known Limitations
 
-- **UUID fields with custom `GoType(...)`** — only the canonical `github.com/google/uuid.UUID` type is wired. The codegen explicitly checks `f.Type.RType` and skips any other GoType, so a custom UUID field is omitted from the FIQL registry rather than producing a signature-mismatched generated file.
+- **UUID fields with custom `GoType(...)`** — only the canonical `github.com/google/uuid.UUID` type is wired. The codegen explicitly checks `f.Type.RType` and skips any other GoType, so a custom UUID field is omitted from the FIQL registry rather than producing a signature-mismatched generated file. The proto generator inherits the same gate; skipped fields surface in `proto/entpb/.entdomain.skipped.json`.
 - **`=in=` / `=out=` constraints** — bool and time fields don't support set membership (`=in=(true,false)` is meaningless; time uses range operators). Maximum 100 values per list. Values containing `,` or `)` cannot be used in lists — chain `==` / `!=` for those.
 - **Time values** — must be RFC3339 format (`2006-01-02T15:04:05Z07:00`).
 - **Nesting depth** — maximum 50 levels; deeper expressions return `"maximum nesting depth exceeded"`.

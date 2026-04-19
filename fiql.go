@@ -53,6 +53,34 @@ const (
 	NotIn FIQLOp = "=out="
 )
 
+// opByName lets templates address operators by their Go identifier (e.g.
+// "In") instead of hard-coding the FIQL symbol (e.g. "=in="). Adding a new
+// operator means one entry here + one FIQLOp constant; templates branch via
+// the `isOp` FuncMap helper registered in template.go.
+//
+// TestOpRegistryCovered (fiql_test.go) guards against drift — adding a new
+// FIQLOp constant without a registry entry fails the test.
+var opByName = map[string]FIQLOp{
+	"EQ":        EQ,
+	"NEQ":       NEQ,
+	"GT":        GT,
+	"LT":        LT,
+	"GTE":       GTE,
+	"LTE":       LTE,
+	"Contains":  Contains,
+	"HasPrefix": HasPrefix,
+	"In":        In,
+	"NotIn":     NotIn,
+}
+
+// isOpFn powers the `isOp` template helper: `{{ if isOp "In" $op }}` instead
+// of `{{ if eq $op "=in=" }}`. Keeping the symbol → constant mapping in Go
+// (opByName) means adding a new operator is one registry entry, not a hunt
+// through every template branch that hard-codes the literal.
+func isOpFn(name string, op string) bool {
+	return opByName[name] == FIQLOp(op)
+}
+
 // Predicate is a constraint for ent predicate types. All ent predicate types have
 // the underlying type func(*sql.Selector), enabling generic AND/OR combination.
 type Predicate interface {
@@ -138,28 +166,7 @@ type FIQLInt[P Predicate] struct {
 func (f FIQLInt[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
-		if op == In && f.In == nil {
-			return zero, fmt.Errorf("operator =in= not allowed on this int field")
-		}
-		if op == NotIn && f.NotIn == nil {
-			return zero, fmt.Errorf("operator =out= not allowed on this int field")
-		}
-		parts, err := parseInListValue(val)
-		if err != nil {
-			return zero, err
-		}
-		ns := make([]int, len(parts))
-		for i, s := range parts {
-			n, err := strconv.Atoi(s)
-			if err != nil {
-				return zero, fmt.Errorf("invalid integer value %q in list: %w", s, err)
-			}
-			ns[i] = n
-		}
-		if op == In {
-			return f.In(ns...), nil
-		}
-		return f.NotIn(ns...), nil
+		return applyListTyped(op, val, f.In, f.NotIn, strconv.Atoi, "integer", "int")
 	}
 	n, err := strconv.Atoi(val)
 	if err != nil {
@@ -216,28 +223,9 @@ type FIQLFloat[P Predicate] struct {
 func (f FIQLFloat[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
-		if op == In && f.In == nil {
-			return zero, fmt.Errorf("operator =in= not allowed on this float field")
-		}
-		if op == NotIn && f.NotIn == nil {
-			return zero, fmt.Errorf("operator =out= not allowed on this float field")
-		}
-		parts, err := parseInListValue(val)
-		if err != nil {
-			return zero, err
-		}
-		ns := make([]float64, len(parts))
-		for i, s := range parts {
-			n, err := strconv.ParseFloat(s, 64)
-			if err != nil {
-				return zero, fmt.Errorf("invalid float value %q in list: %w", s, err)
-			}
-			ns[i] = n
-		}
-		if op == In {
-			return f.In(ns...), nil
-		}
-		return f.NotIn(ns...), nil
+		return applyListTyped(op, val, f.In, f.NotIn,
+			func(s string) (float64, error) { return strconv.ParseFloat(s, 64) },
+			"float", "float")
 	}
 	n, err := strconv.ParseFloat(val, 64)
 	if err != nil {
@@ -368,28 +356,7 @@ type FIQLUUID[P Predicate] struct {
 func (f FIQLUUID[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
-		if op == In && f.In == nil {
-			return zero, fmt.Errorf("operator =in= not allowed on this UUID field")
-		}
-		if op == NotIn && f.NotIn == nil {
-			return zero, fmt.Errorf("operator =out= not allowed on this UUID field")
-		}
-		parts, err := parseInListValue(val)
-		if err != nil {
-			return zero, err
-		}
-		us := make([]uuid.UUID, len(parts))
-		for i, s := range parts {
-			u, err := uuid.Parse(s)
-			if err != nil {
-				return zero, fmt.Errorf("invalid UUID value %q in list: %w", s, err)
-			}
-			us[i] = u
-		}
-		if op == In {
-			return f.In(us...), nil
-		}
-		return f.NotIn(us...), nil
+		return applyListTyped(op, val, f.In, f.NotIn, uuid.Parse, "UUID", "UUID")
 	}
 	u, err := uuid.Parse(val)
 	if err != nil {
@@ -740,6 +707,53 @@ func parseInListValue(val string) ([]string, error) {
 		return nil, fmt.Errorf("list value exceeds maximum of %d entries", maxFIQLListValues)
 	}
 	return parts, nil
+}
+
+// applyListTyped centralises the =in= / =out= dispatch shared by FIQLInt,
+// FIQLFloat, and FIQLUUID. Each typed apply was 25 lines of nearly-identical
+// boilerplate (nil-check op, parse list, parse each element, call inFn /
+// notInFn) — hidden duplication that drifted across CodeRabbit cycles.
+//
+// parseLabel is the noun used in parse errors ("integer", "float", "UUID");
+// fieldLabel is the noun used in op-not-allowed errors ("int", "float",
+// "UUID"). They differ for int (parse "integer" vs field "int") — preserved
+// to match existing test wording.
+//
+// FIQLString uses parseInListValue directly (no element parser needed) and
+// is small enough to skip the helper. FIQLEnum and FIQLBool have different
+// shapes (map composition, single-EQ) and don't fit.
+func applyListTyped[T any, P Predicate](
+	op FIQLOp,
+	val string,
+	inFn func(...T) P,
+	notInFn func(...T) P,
+	parseOne func(string) (T, error),
+	parseLabel string,
+	fieldLabel string,
+) (P, error) {
+	var zero P
+	if op == In && inFn == nil {
+		return zero, fmt.Errorf("operator =in= not allowed on this %s field", fieldLabel)
+	}
+	if op == NotIn && notInFn == nil {
+		return zero, fmt.Errorf("operator =out= not allowed on this %s field", fieldLabel)
+	}
+	parts, err := parseInListValue(val)
+	if err != nil {
+		return zero, err
+	}
+	ts := make([]T, len(parts))
+	for i, s := range parts {
+		t, err := parseOne(s)
+		if err != nil {
+			return zero, fmt.Errorf("invalid %s value %q in list: %w", parseLabel, s, err)
+		}
+		ts[i] = t
+	}
+	if op == In {
+		return inFn(ts...), nil
+	}
+	return notInFn(ts...), nil
 }
 
 // andPreds combines multiple predicates with AND.

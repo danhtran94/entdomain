@@ -279,6 +279,26 @@ func TestResolveEntFieldProtoSpec_JSONField(t *testing.T) {
 		}
 		spec := resolveEntFieldProtoSpec("User", f, nil)
 		assert.True(t, spec.IsExcluded)
+		assert.Contains(t, spec.ExcludedReason, "JSON", "ExcludedReason should explain the skip")
+	})
+
+	t.Run("custom UUID GoType → excluded with reason naming the gate", func(t *testing.T) {
+		f := &gen.Field{}
+		f.Type = &field.TypeInfo{
+			Type:  field.TypeUUID,
+			RType: &field.RType{PkgPath: "example.com/custom", Ident: "custom.MyUUID"},
+		}
+		spec := resolveEntFieldProtoSpec("User", f, nil)
+		assert.True(t, spec.IsExcluded)
+		assert.Contains(t, spec.ExcludedReason, "UUID GoType", "reason should mention UUID GoType so it's actionable")
+	})
+
+	t.Run("bytes → excluded with non-empty reason", func(t *testing.T) {
+		f := &gen.Field{}
+		f.Type = &field.TypeInfo{Type: field.TypeBytes}
+		spec := resolveEntFieldProtoSpec("User", f, nil)
+		assert.True(t, spec.IsExcluded)
+		assert.NotEmpty(t, spec.ExcludedReason)
 	})
 
 	t.Run("typed JSON with explicit ProtoType annotation → not excluded", func(t *testing.T) {
