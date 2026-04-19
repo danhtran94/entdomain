@@ -5,7 +5,9 @@
 define HELP_TEXT
 entdomain — Makefile targets
 
+  all         alias for build (checkmake convention)
   build       go build ./...
+  clean       go clean -testcache
   test        go test ./... (fast; matches CI)
   gen         regenerate every example (entc.go under examples/*/ent)
   gen-basic   regenerate examples/basic/ent only
