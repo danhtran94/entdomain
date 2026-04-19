@@ -44,7 +44,7 @@ A third silent-failure mode lives in `proto_types.go`. `ProtoFieldSpec.IsExclude
 
 3. **`applyListTyped` helper** in `fiql.go` — *scoped down from the originally-planned full `applyTyped` unification*. The genuinely-identical 25-line In/NotIn block in `FIQLInt`/`Float`/`UUID` reduces to one helper call. The full unified `apply` dispatch was rejected mid-implementation because preserving the existing per-type error-message wording (e.g. parse-noun "integer" vs field-noun "int") ballooned the generic signature past readability — see Discoveries in the job doc. `FIQLString`/`Time`/`Bool`/`Enum` keep their existing apply shape; the parse-then-check ordering inconsistency in String/Time is documented as known but not fixed in this scope.
 
-4. **`ProtoFieldSpec` carries an `ExcludedReason string`** field, populated whenever `IsExcluded = true`. The proto generator collects skipped fields per message and emits a final summary in `entpb.lock.json` (or a sibling `.skipped.json` if cleaner) listing every excluded field with its reason. Optional: also `fmt.Fprintln(os.Stderr, ...)` at codegen time.
+4. **`ProtoFieldSpec` carries an `ExcludedReason string`** field, populated whenever `IsExcluded = true`. The proto generator collects skipped fields per message and emits a final summary in `.entdomain.skipped.json` listing every excluded field with its reason. Optional: also `fmt.Fprintln(os.Stderr, ...)` at codegen time.
 
 5. **`make gen` zero-diff after the refactor.** The end-to-end output of `make gen` on `examples/basic` and `examples/custom` is byte-identical before and after the refactor. This is the load-bearing canary — the consolidation must be observably-equivalent.
 
