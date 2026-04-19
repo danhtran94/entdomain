@@ -17,6 +17,7 @@ package entdomain
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,6 +81,7 @@ func generateProtoFiles(g *gen.Graph, cfg *ProtoConfig, outDir string) error {
 
 	var allEnums []protoEnumData
 	var allMessages []protoMessageData
+	var allSkipped []skippedField
 	allImports := map[string]bool{}
 
 	for _, t := range g.Nodes {
@@ -91,13 +93,14 @@ func generateProtoFiles(g *gen.Graph, cfg *ProtoConfig, outDir string) error {
 			continue
 		}
 
-		enums, msg, imports, allocErr := buildProtoMessageData(t, ant, lock)
+		enums, msg, imports, skipped, allocErr := buildProtoMessageData(t, ant, lock)
 		if allocErr != nil {
 			return fmt.Errorf("entdomain proto: build proto data for %s: %w", t.Name, allocErr)
 		}
 
 		allEnums = append(allEnums, enums...)
 		allMessages = append(allMessages, msg)
+		allSkipped = append(allSkipped, skipped...)
 		for imp := range imports {
 			allImports[imp] = true
 		}
@@ -105,6 +108,11 @@ func generateProtoFiles(g *gen.Graph, cfg *ProtoConfig, outDir string) error {
 
 	if err := saveLockFile(lockPath, lock); err != nil {
 		return fmt.Errorf("entdomain proto: save lock file: %w", err)
+	}
+
+	skippedPath := filepath.Join(protoOutDir, ".entdomain.skipped.json")
+	if err := saveSkippedFile(skippedPath, allSkipped); err != nil {
+		return fmt.Errorf("entdomain proto: save skipped summary: %w", err)
 	}
 
 	// Sort imports for deterministic output.
@@ -135,8 +143,19 @@ func generateProtoFiles(g *gen.Graph, cfg *ProtoConfig, outDir string) error {
 	return nil
 }
 
+// skippedField records a field that was excluded from the generated proto
+// message. The collected slice is written to .entdomain.skipped.json so
+// silently-dropped fields surface diagnostically without changing the
+// generated proto / Go output.
+type skippedField struct {
+	Message string `json:"message"`
+	Field   string `json:"field"`
+	Reason  string `json:"reason"`
+}
+
 // buildProtoMessageData constructs the proto enum and message data for one entity.
-func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFile) (enums []protoEnumData, msg protoMessageData, imports map[string]bool, err error) {
+// Returns skipped to surface silently-excluded fields in the .entdomain.skipped.json artifact.
+func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFile) (enums []protoEnumData, msg protoMessageData, imports map[string]bool, skipped []skippedField, err error) {
 	imports = map[string]bool{}
 	msg.Name = t.Name
 
@@ -153,15 +172,15 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 
 	// ID field (always int64 in proto for non-UUID IDs).
 	idSpec := resolveEntFieldProtoSpec(t.Name, t.ID, nil)
-	idField := pendingField{
-		snakeName: "id",
-		spec:      idSpec,
-	}
-	if !idSpec.IsExcluded {
+	if idSpec.IsExcluded {
+		// Custom-GoType UUID IDs hit this branch via the resolver gate; the
+		// message is unrepresentable in proto without an ID.
+		skipped = append(skipped, skippedField{Message: t.Name, Field: "id", Reason: idSpec.ExcludedReason})
+	} else {
 		// IDs are non-optional in proto.
-		idField.spec.IsOptional = false
+		idSpec.IsOptional = false
+		pending = append(pending, pendingField{snakeName: "id", spec: idSpec})
 	}
-	pending = append(pending, idField)
 
 	// Regular fields.
 	for _, f := range t.Fields {
@@ -176,13 +195,20 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 			return
 		}
 		if fa != nil && fa.SkipProto {
+			skipped = append(skipped, skippedField{Message: t.Name, Field: f.Name, Reason: "field has SkipProto annotation"})
 			continue
 		}
 
 		spec := resolveEntFieldProtoSpec(t.Name, f, fa)
+		// Symmetric exclusion handling: skip immediately like edges/virtuals
+		// rather than carrying excluded specs through pending and re-checking.
+		if spec.IsExcluded {
+			skipped = append(skipped, skippedField{Message: t.Name, Field: f.Name, Reason: spec.ExcludedReason})
+			continue
+		}
 		pf := pendingField{snakeName: f.Name, spec: spec}
 
-		if spec.IsEnum && !spec.IsExcluded {
+		if spec.IsEnum {
 			// Build the enum data: ENTITY_FIELD_VALUE naming.
 			prefix := strings.ToUpper(snake(t.Name)) + "_" + strings.ToUpper(snake(f.StructField()))
 			ed := &protoEnumData{Name: spec.EnumTypeName}
@@ -225,23 +251,27 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 		if ea.HasIDs() && specIdx < len(specs) {
 			spec := specs[specIdx]
 			specIdx++
-			if !spec.IsExcluded {
-				// Compute field name: {singular_edge}_id or {singular_edge}_ids.
-				var fieldName string
-				if e.Unique {
-					fieldName = snake(e.Name) + "_id"
-				} else {
-					fieldName = snake(singular(e.Name)) + "_ids"
-				}
+			// Compute field name: {singular_edge}_id or {singular_edge}_ids.
+			var fieldName string
+			if e.Unique {
+				fieldName = snake(e.Name) + "_id"
+			} else {
+				fieldName = snake(singular(e.Name)) + "_ids"
+			}
+			if spec.IsExcluded {
+				skipped = append(skipped, skippedField{Message: t.Name, Field: fieldName, Reason: spec.ExcludedReason})
+			} else {
 				pending = append(pending, pendingField{snakeName: fieldName, spec: spec})
 			}
 		}
 		if ea.HasNest() && specIdx < len(specs) {
 			spec := specs[specIdx]
 			specIdx++
-			if !spec.IsExcluded {
-				// Field name is the snake-case edge name (e.g., "posts", "pinned_post").
-				pending = append(pending, pendingField{snakeName: snake(e.Name), spec: spec})
+			fieldName := snake(e.Name)
+			if spec.IsExcluded {
+				skipped = append(skipped, skippedField{Message: t.Name, Field: fieldName, Reason: spec.ExcludedReason})
+			} else {
+				pending = append(pending, pendingField{snakeName: fieldName, spec: spec})
 			}
 		}
 	}
@@ -249,31 +279,32 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 	// Virtual fields.
 	for _, vf := range ant.VirtualFields {
 		spec := resolveVirtualFieldProtoSpec(vf)
+		fieldName := snake(vf.Name)
 		if spec.IsExcluded {
+			skipped = append(skipped, skippedField{Message: t.Name, Field: fieldName, Reason: spec.ExcludedReason})
 			continue
 		}
 		pending = append(pending, pendingField{
-			snakeName: snake(vf.Name),
+			snakeName: fieldName,
 			spec:      spec,
 		})
 	}
 
-	// Collect field names for lock allocation.
-	var fieldNames []string
+	// Collect field names for lock allocation. By construction every
+	// pending entry is non-excluded — exclusion sites short-circuit to
+	// the skipped slice before reaching here.
+	fieldNames := make([]string, 0, len(pending))
 	for _, pf := range pending {
-		if !pf.spec.IsExcluded {
-			fieldNames = append(fieldNames, pf.snakeName)
-		}
+		fieldNames = append(fieldNames, pf.snakeName)
 	}
 
 	// Allocate field numbers (stable across generations).
 	fieldNums := allocateFieldNumbers(lock, t.Name, fieldNames)
 
-	// Build the message fields and collect enums/imports.
+	// Build the message fields and collect enums/imports. By construction
+	// pending now contains only non-excluded fields (every exclusion site
+	// short-circuits to the skipped slice above).
 	for _, pf := range pending {
-		if pf.spec.IsExcluded {
-			continue
-		}
 		num, ok := fieldNums[pf.snakeName]
 		if !ok {
 			continue
@@ -308,4 +339,28 @@ func renderProtoFile(path string, fd protoFileData) error {
 		return fmt.Errorf("execute proto template: %w", err)
 	}
 	return os.WriteFile(path, buf.Bytes(), 0644)
+}
+
+// saveSkippedFile writes the per-message skipped-field summary to a sibling
+// of the lock file. Always written (even when empty) for deterministic
+// output. The file is for diagnostics only — the proto and Go generators
+// do not consume it.
+func saveSkippedFile(path string, skipped []skippedField) error {
+	if skipped == nil {
+		skipped = []skippedField{}
+	}
+	sort.SliceStable(skipped, func(i, j int) bool {
+		if skipped[i].Message != skipped[j].Message {
+			return skipped[i].Message < skipped[j].Message
+		}
+		if skipped[i].Field != skipped[j].Field {
+			return skipped[i].Field < skipped[j].Field
+		}
+		return skipped[i].Reason < skipped[j].Reason
+	})
+	data, err := json.MarshalIndent(skipped, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal skipped: %w", err)
+	}
+	return os.WriteFile(path, append(data, '\n'), 0644)
 }

@@ -15,6 +15,7 @@
 package entdomain
 
 import (
+	"fmt"
 	"path"
 	"strings"
 
@@ -36,6 +37,10 @@ type ProtoFieldSpec struct {
 	IsEnum bool
 	// IsExcluded means this field should be omitted from proto output.
 	IsExcluded bool
+	// ExcludedReason explains why IsExcluded was set — populated by the resolvers
+	// at every exclusion site so the proto generator can surface a per-message
+	// summary of skipped fields. Empty when IsExcluded is false.
+	ExcludedReason string
 	// ToProtoExpr is a Go fmt format string (with %s for the source expression) that converts
 	// the domain value to the proto value. Empty string means direct assignment.
 	ToProtoExpr string
@@ -90,7 +95,14 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 
 	// UUID fields: always use string representation with explicit converters.
 	// Check this BEFORE HasGoType since ent represents uuid fields as a GoType.
+	// Inherit the canonical UUID/GoType gate from resolveFieldKind so a custom
+	// uuid GoType is excluded here too (otherwise the generated mapper would
+	// call customType.String() / uuid.MustParse and fail to compile — same
+	// hazard ENTD-001 fixed for FIQL).
 	if f.Type.Type == field.TypeUUID {
+		if kind, reason := resolveFieldKind(f); kind != KindUUID {
+			return ProtoFieldSpec{IsExcluded: true, ExcludedReason: reason}
+		}
 		spec := ProtoFieldSpec{ProtoType: "string", IsOptional: optional}
 		if optional {
 			spec.ToProtoExpr = "uuidPtrToProtoString(%s)"
@@ -113,7 +125,7 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 				FromProtoExpr: "protoStructToMap(%s)",
 			}
 		}
-		return ProtoFieldSpec{IsExcluded: true}
+		return ProtoFieldSpec{IsExcluded: true, ExcludedReason: "JSON field type not exposed via proto (only map[string]any is supported, via google.protobuf.Struct)"}
 	}
 
 	// Custom Go type: try well-known map, else exclude.
@@ -132,7 +144,7 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 
 	switch f.Type.Type {
 	case field.TypeBytes, field.TypeOther:
-		return ProtoFieldSpec{IsExcluded: true}
+		return ProtoFieldSpec{IsExcluded: true, ExcludedReason: "bytes / TypeOther fields not exposed via proto"}
 
 	case field.TypeString:
 		return ProtoFieldSpec{ProtoType: "string", IsOptional: optional}
@@ -209,17 +221,6 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 		}
 		return spec
 
-	case field.TypeUUID:
-		spec := ProtoFieldSpec{ProtoType: "string", IsOptional: optional}
-		if optional {
-			spec.ToProtoExpr = "uuidPtrToProtoString(%s)"
-			spec.FromProtoExpr = "protoStringToUUIDPtr(%s)"
-		} else {
-			spec.ToProtoExpr = "%s.String()"
-			spec.FromProtoExpr = "uuid.MustParse(%s)"
-		}
-		return spec
-
 	case field.TypeEnum:
 		enumTypeName := entityName + f.StructField()
 		spec := ProtoFieldSpec{
@@ -231,7 +232,7 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 		return spec
 	}
 
-	return ProtoFieldSpec{IsExcluded: true}
+	return ProtoFieldSpec{IsExcluded: true, ExcludedReason: fmt.Sprintf("ent field type %v has no proto mapping", f.Type.Type)}
 }
 
 // resolveVirtualFieldProtoSpec resolves the proto spec for a virtual field.
@@ -303,7 +304,7 @@ func resolveVirtualFieldProtoSpec(vf VirtualFieldConfig) ProtoFieldSpec {
 	}
 
 	// Unknown type → exclude.
-	return ProtoFieldSpec{IsExcluded: true}
+	return ProtoFieldSpec{IsExcluded: true, ExcludedReason: "virtual field GoType has no proto mapping"}
 }
 
 // resolveEdgeProtoSpec resolves proto specs for all domain fields contributed by an edge.
@@ -321,17 +322,27 @@ func resolveEdgeProtoSpec(e *gen.Edge, ea *EdgeAnnotation, fa *FieldAnnotation) 
 
 	if ea.HasIDs() {
 		if skipAll {
-			specs = append(specs, ProtoFieldSpec{IsExcluded: true})
+			specs = append(specs, ProtoFieldSpec{IsExcluded: true, ExcludedReason: "field has SkipProto annotation"})
 		} else {
-			idTypeStr, _ := fieldToDomainType(e.Type.Name, e.Type.ID)
-			spec := resolveIDTypeSpec(idTypeStr, e.Unique)
-			specs = append(specs, spec)
+			// Inherit the canonical UUID/GoType gate from resolveFieldKind for the
+			// target entity's ID. resolveIDTypeSpec's default branch emits
+			// uuid.MustParse for any non-numeric/non-string ID type, which would
+			// produce a signature mismatch in the generated mapper if the target's
+			// ID is a custom UUID GoType (not github.com/google/uuid.UUID).
+			targetIDKind, targetIDReason := resolveFieldKind(e.Type.ID)
+			if e.Type.ID.Type.Type == field.TypeUUID && targetIDKind != KindUUID {
+				specs = append(specs, ProtoFieldSpec{IsExcluded: true, ExcludedReason: "edge target " + e.Type.Name + " ID: " + targetIDReason})
+			} else {
+				idTypeStr, _ := fieldToDomainType(e.Type.Name, e.Type.ID)
+				spec := resolveIDTypeSpec(idTypeStr, e.Unique)
+				specs = append(specs, spec)
+			}
 		}
 	}
 
 	if ea.HasNest() {
 		if skipAll {
-			specs = append(specs, ProtoFieldSpec{IsExcluded: true})
+			specs = append(specs, ProtoFieldSpec{IsExcluded: true, ExcludedReason: "field has SkipProto annotation"})
 		} else if e.Unique {
 			specs = append(specs, ProtoFieldSpec{
 				ProtoType:      e.Type.Name,
@@ -355,7 +366,7 @@ func resolveWellKnownGoType(pkgPath, typeName string, optional bool) ProtoFieldS
 	key := [2]string{pkgPath, typeName}
 	mapping, ok := wellKnownGoTypeMap[key]
 	if !ok {
-		return ProtoFieldSpec{IsExcluded: true}
+		return ProtoFieldSpec{IsExcluded: true, ExcludedReason: fmt.Sprintf("custom GoType %s.%s has no well-known proto mapping", pkgPath, typeName)}
 	}
 	spec := ProtoFieldSpec{
 		ProtoType:  mapping[0],

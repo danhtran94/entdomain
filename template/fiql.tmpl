@@ -35,14 +35,14 @@ var {{ $n.Name }}FIQLFields = entdomain.FIQLFields[predicate.{{ $n.Name }}]{
     {{- if eq $kind "Enum" }}
     "{{ $f.Name }}": entdomain.FIQLEnum[predicate.{{ $n.Name }}]{
         {{- range $op := $ops }}
-        {{- if eq $op "==" }}
+        {{- if isOp "EQ" $op }}
         EQ: map[string]predicate.{{ $n.Name }}{
             {{- range $e := $f.Enums }}
             "{{ $e.Value }}": {{ lower $n.Name }}.{{ $f.StructField }}EQ({{ lower $n.Name }}.{{ $e.Name }}),
             {{- end }}
         },
         {{- end }}
-        {{- if eq $op "!=" }}
+        {{- if isOp "NEQ" $op }}
         NEQ: map[string]predicate.{{ $n.Name }}{
             {{- range $e := $f.Enums }}
             "{{ $e.Value }}": {{ lower $n.Name }}.{{ $f.StructField }}NEQ({{ lower $n.Name }}.{{ $e.Name }}),
@@ -54,34 +54,34 @@ var {{ $n.Name }}FIQLFields = entdomain.FIQLFields[predicate.{{ $n.Name }}]{
     {{- else }}
     "{{ $f.Name }}": entdomain.FIQL{{ $kind }}[predicate.{{ $n.Name }}]{
         {{- range $op := $ops }}
-        {{- if eq $op "==" }}
+        {{- if isOp "EQ" $op }}
         EQ: {{ lower $n.Name }}.{{ $f.StructField }}EQ,
         {{- end }}
-        {{- if eq $op "!=" }}
+        {{- if isOp "NEQ" $op }}
         NEQ: {{ lower $n.Name }}.{{ $f.StructField }}NEQ,
         {{- end }}
-        {{- if eq $op "=gt=" }}
+        {{- if isOp "GT" $op }}
         GT: {{ lower $n.Name }}.{{ $f.StructField }}GT,
         {{- end }}
-        {{- if eq $op "=lt=" }}
+        {{- if isOp "LT" $op }}
         LT: {{ lower $n.Name }}.{{ $f.StructField }}LT,
         {{- end }}
-        {{- if eq $op "=ge=" }}
+        {{- if isOp "GTE" $op }}
         GTE: {{ lower $n.Name }}.{{ $f.StructField }}GTE,
         {{- end }}
-        {{- if eq $op "=le=" }}
+        {{- if isOp "LTE" $op }}
         LTE: {{ lower $n.Name }}.{{ $f.StructField }}LTE,
         {{- end }}
-        {{- if eq $op "=like=" }}
+        {{- if isOp "Contains" $op }}
         Contains: {{ lower $n.Name }}.{{ $f.StructField }}Contains,
         {{- end }}
-        {{- if eq $op "=prefix=" }}
+        {{- if isOp "HasPrefix" $op }}
         HasPrefix: {{ lower $n.Name }}.{{ $f.StructField }}HasPrefix,
         {{- end }}
-        {{- if eq $op "=in=" }}
+        {{- if isOp "In" $op }}
         In: {{ lower $n.Name }}.{{ $f.StructField }}In,
         {{- end }}
-        {{- if eq $op "=out=" }}
+        {{- if isOp "NotIn" $op }}
         NotIn: {{ lower $n.Name }}.{{ $f.StructField }}NotIn,
         {{- end }}
         {{- end }}

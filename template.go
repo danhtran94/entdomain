@@ -71,6 +71,7 @@ var (
 		"hasFIQLFields":       hasFIQLFieldsFn,
 		"fieldFIQLAnnotation": fieldFIQLAnnotationFn,
 		"fieldFIQLKind":       fieldFIQLKindFn,
+		"isOp":                isOpFn,
 		"lower":               strings.ToLower,
 		"singular":            func(s string) string { return gen.Funcs["singular"].(func(string) string)(s) },
 		"pascal":              func(s string) string { return gen.Funcs["pascal"].(func(string) string)(s) },
@@ -215,36 +216,10 @@ func fieldFIQLAnnotationFn(f *gen.Field) ([]string, error) {
 	return ops, nil
 }
 
-// fieldFIQLKindFn returns the FIQL type kind string for a field:
-// "String", "Int", "Float", "Bool", "Time", "Enum", "UUID", or "" (unsupported).
-//
-// UUID fields are emitted only when the underlying Go type is the canonical
-// github.com/google/uuid.UUID. ent generates predicate methods using the
-// field's actual GoType, so a custom GoType would produce a signature
-// mismatch when wired into FIQLUUID (which takes uuid.UUID).
+// fieldFIQLKindFn returns the FIQL type kind string for a field. Delegates to
+// resolveFieldKind (kinds.go) so the ent-type → FIQL-kind mapping has one
+// source of truth shared with the proto generator's exclusion-reason logic.
 func fieldFIQLKindFn(f *gen.Field) string {
-	switch f.Type.Type {
-	case field.TypeString:
-		return "String"
-	case field.TypeInt, field.TypeInt8, field.TypeInt16, field.TypeInt32, field.TypeInt64,
-		field.TypeUint, field.TypeUint8, field.TypeUint16, field.TypeUint32, field.TypeUint64:
-		return "Int"
-	case field.TypeFloat32, field.TypeFloat64:
-		return "Float"
-	case field.TypeBool:
-		return "Bool"
-	case field.TypeTime:
-		return "Time"
-	case field.TypeEnum:
-		return "Enum"
-	case field.TypeUUID:
-		if f.Type.RType != nil &&
-			f.Type.RType.PkgPath == "github.com/google/uuid" &&
-			f.Type.RType.Ident == "uuid.UUID" {
-			return "UUID"
-		}
-		return "" // custom GoType: predicates take the custom type, not uuid.UUID
-	default:
-		return "" // JSON and others: not supported
-	}
+	kind, _ := resolveFieldKind(f)
+	return kind.String()
 }
