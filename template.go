@@ -216,7 +216,12 @@ func fieldFIQLAnnotationFn(f *gen.Field) ([]string, error) {
 }
 
 // fieldFIQLKindFn returns the FIQL type kind string for a field:
-// "String", "Int", "Float", "Bool", "Time", "Enum", or "" (unsupported).
+// "String", "Int", "Float", "Bool", "Time", "Enum", "UUID", or "" (unsupported).
+//
+// UUID fields are emitted only when the underlying Go type is the canonical
+// github.com/google/uuid.UUID. ent generates predicate methods using the
+// field's actual GoType, so a custom GoType would produce a signature
+// mismatch when wired into FIQLUUID (which takes uuid.UUID).
 func fieldFIQLKindFn(f *gen.Field) string {
 	switch f.Type.Type {
 	case field.TypeString:
@@ -233,7 +238,12 @@ func fieldFIQLKindFn(f *gen.Field) string {
 	case field.TypeEnum:
 		return "Enum"
 	case field.TypeUUID:
-		return "UUID"
+		if f.Type.RType != nil &&
+			f.Type.RType.PkgPath == "github.com/google/uuid" &&
+			f.Type.RType.Ident == "uuid.UUID" {
+			return "UUID"
+		}
+		return "" // custom GoType: predicates take the custom type, not uuid.UUID
 	default:
 		return "" // JSON and others: not supported
 	}
