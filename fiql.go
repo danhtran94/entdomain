@@ -138,6 +138,12 @@ type FIQLInt[P Predicate] struct {
 func (f FIQLInt[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
+		if op == In && f.In == nil {
+			return zero, fmt.Errorf("operator =in= not allowed on this int field")
+		}
+		if op == NotIn && f.NotIn == nil {
+			return zero, fmt.Errorf("operator =out= not allowed on this int field")
+		}
 		parts, err := parseInListValue(val)
 		if err != nil {
 			return zero, err
@@ -151,13 +157,7 @@ func (f FIQLInt[P]) apply(op FIQLOp, val string) (P, error) {
 			ns[i] = n
 		}
 		if op == In {
-			if f.In == nil {
-				return zero, fmt.Errorf("operator =in= not allowed on this int field")
-			}
 			return f.In(ns...), nil
-		}
-		if f.NotIn == nil {
-			return zero, fmt.Errorf("operator =out= not allowed on this int field")
 		}
 		return f.NotIn(ns...), nil
 	}
@@ -216,6 +216,12 @@ type FIQLFloat[P Predicate] struct {
 func (f FIQLFloat[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
+		if op == In && f.In == nil {
+			return zero, fmt.Errorf("operator =in= not allowed on this float field")
+		}
+		if op == NotIn && f.NotIn == nil {
+			return zero, fmt.Errorf("operator =out= not allowed on this float field")
+		}
 		parts, err := parseInListValue(val)
 		if err != nil {
 			return zero, err
@@ -229,13 +235,7 @@ func (f FIQLFloat[P]) apply(op FIQLOp, val string) (P, error) {
 			ns[i] = n
 		}
 		if op == In {
-			if f.In == nil {
-				return zero, fmt.Errorf("operator =in= not allowed on this float field")
-			}
 			return f.In(ns...), nil
-		}
-		if f.NotIn == nil {
-			return zero, fmt.Errorf("operator =out= not allowed on this float field")
 		}
 		return f.NotIn(ns...), nil
 	}
@@ -368,6 +368,12 @@ type FIQLUUID[P Predicate] struct {
 func (f FIQLUUID[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
+		if op == In && f.In == nil {
+			return zero, fmt.Errorf("operator =in= not allowed on this UUID field")
+		}
+		if op == NotIn && f.NotIn == nil {
+			return zero, fmt.Errorf("operator =out= not allowed on this UUID field")
+		}
 		parts, err := parseInListValue(val)
 		if err != nil {
 			return zero, err
@@ -381,13 +387,7 @@ func (f FIQLUUID[P]) apply(op FIQLOp, val string) (P, error) {
 			us[i] = u
 		}
 		if op == In {
-			if f.In == nil {
-				return zero, fmt.Errorf("operator =in= not allowed on this UUID field")
-			}
 			return f.In(us...), nil
-		}
-		if f.NotIn == nil {
-			return zero, fmt.Errorf("operator =out= not allowed on this UUID field")
 		}
 		return f.NotIn(us...), nil
 	}

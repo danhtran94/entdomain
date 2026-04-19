@@ -36,17 +36,17 @@ The blocker isn't ent — `user.NameIn(vs ...string)` and `user.NameNotIn(...)` 
 5. **List size cap** of 100 elements per `=in=`/`=out=` term — matching the `maxFIQLDepth = 50` precedent. Exceeding the cap returns `=in= list exceeds maximum of 100 values`. Defined as a top-level `maxFIQLListValues` constant for symmetry with `maxFIQLDepth`.
 
 6. **Generator emits the new wirings** in `template/fiql.tmpl`. The else-branch (the `FIQL{{kind}}` instantiation that already handles String/Int/Float/Bool/Time/UUID) gains two new `if eq $op` branches:
-   ```
-   {{- if eq $op "=in=" }}
-   In: {{ lower $n.Name }}.{{ $f.StructField }}In,
-   {{- end }}
-   {{- if eq $op "=out=" }}
-   NotIn: {{ lower $n.Name }}.{{ $f.StructField }}NotIn,
-   {{- end }}
-   ```
+
+       {{- if eq $op "=in=" }}
+       In: {{ lower $n.Name }}.{{ $f.StructField }}In,
+       {{- end }}
+       {{- if eq $op "=out=" }}
+       NotIn: {{ lower $n.Name }}.{{ $f.StructField }}NotIn,
+       {{- end }}
+
    The Enum branch is unchanged — set-membership for enums uses the existing EQ/NEQ maps at apply time.
 
-7. **Round-trip example** in `examples/basic`: `status` (enum) and `score` (int) get `entdomain.In` / `entdomain.NotIn` added to their FIQL annotations. New tests in `fiql_test.go` (root) cover the runtime types; new integration tests in `examples/basic/ent/fiql_test.go` assert `score=in=(10,20,30)` produces SQL containing `IN (?` and `status=out=(open,closed)` produces an AND-of-NEQ.
+7. **Round-trip example** in `examples/basic`: `status` (enum) and `score` (int) get `entdomain.In` / `entdomain.NotIn` added to their FIQL annotations. New tests in `fiql_test.go` (root) cover the runtime types; new integration tests in `examples/basic/ent/fiql_test.go` assert `score=in=(10,20,30)` produces SQL containing `IN (?` and `status=out=(active,inactive)` produces an AND-of-NEQ.
 
 8. **`make gen` zero-diff after regen.** `make test` passes the new `=in=` / `=out=` tests plus all existing FIQL tests unchanged.
 
