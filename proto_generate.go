@@ -353,7 +353,10 @@ func saveSkippedFile(path string, skipped []skippedField) error {
 		if skipped[i].Message != skipped[j].Message {
 			return skipped[i].Message < skipped[j].Message
 		}
-		return skipped[i].Field < skipped[j].Field
+		if skipped[i].Field != skipped[j].Field {
+			return skipped[i].Field < skipped[j].Field
+		}
+		return skipped[i].Reason < skipped[j].Reason
 	})
 	data, err := json.MarshalIndent(skipped, "", "  ")
 	if err != nil {
