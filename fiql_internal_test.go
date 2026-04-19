@@ -39,6 +39,16 @@ func TestOpRegistryCovered(t *testing.T) {
 			assert.True(t, found, "FIQLOp %q is not in opByName — add it to the registry so templates can address it via isOp", op)
 		})
 	}
+
+	// Inverse: every registry entry must map to a known constant. Catches
+	// stale entries left behind after a constant rename or removal.
+	wantSet := make(map[FIQLOp]bool)
+	for _, op := range wantOps {
+		wantSet[op] = true
+	}
+	for name, op := range opByName {
+		assert.True(t, wantSet[op], "opByName[%q] = %q has no matching FIQLOp constant — remove the stale entry or add the constant to wantOps", name, op)
+	}
 }
 
 func TestIsOpFn(t *testing.T) {

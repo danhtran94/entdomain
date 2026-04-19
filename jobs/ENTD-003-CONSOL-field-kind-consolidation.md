@@ -9,7 +9,7 @@
 | Blocked by | —                                                      |
 
 ## Goal
-Collapse three sources of field-type-switch duplication and one source of operator-string duplication into single canonical resolvers. Adds a `FieldKind` enum + `resolveFieldKind` consumed by all three generators (FIQL, proto, domain), an `isOp` template helper backed by a Go-defined op-name registry, and a unified `applyTyped` dispatch helper that fixes the inconsistent op-check ordering across `FIQLString`/`Time` by construction. Also threads an `ExcludedReason` through `ProtoFieldSpec` so silently-skipped proto fields surface in a sibling summary file. The load-bearing canary is `make gen` zero-diff.
+Collapse three sources of field-type-switch duplication and one source of operator-string duplication into single canonical resolvers. Adds a `FieldKind` enum + `resolveFieldKind` consumed by the FIQL template generator and the proto generator (domain deferred — see Discoveries WS2.3), an `isOp` template helper backed by a Go-defined op-name registry, and an `applyListTyped` helper that deduplicates the In/NotIn block in `FIQLInt`/`Float`/`UUID` (full unified `applyTyped` rejected mid-implementation — see Discoveries). Also threads an `ExcludedReason` through `ProtoFieldSpec` so silently-skipped proto fields surface in a sibling `.entdomain.skipped.json` summary file. The load-bearing canary is `make gen` zero-diff on generated proto/Go output (the new `.entdomain.skipped.json` is the one intended addition).
 
 ## Problem
 
@@ -22,9 +22,11 @@ Collapse three sources of field-type-switch duplication and one source of operat
       template/fiql.tmpl: 12+ `{{ if eq $op "=in=" }}` literal branches
         ↳ no compile-time link between them
 
-      6 nearly-identical FIQL apply methods, ~350 lines
-        ↳ inconsistent op-check ordering: String/Time parse-first;
-          others now check op first (CodeRabbit churn over 3 PRs)
+      3 nearly-identical In/NotIn blocks across FIQLInt/Float/UUID
+        ↳ ~25 lines each of nil-check op, parse-list, parse-each-element,
+          dispatch — drifted across CodeRabbit cycles. Full unified
+          apply rejected during implementation (error-wording constraints,
+          see Discoveries); only the In/NotIn block extracted.
 
       proto_types.go returns IsExcluded = true with no reason
 
@@ -38,12 +40,12 @@ Collapse three sources of field-type-switch duplication and one source of operat
         ↳ template helper isOp registered in TemplateFuncs
         ↳ template branches read {{ if isOp "In" $op }}
 
-      fiql.go: applyTyped[T any, P Predicate](op, val, parsers, fields) (P, error)
-        ↳ each FIQL{Type}.apply becomes ~5 lines (kind-specific parsers + field map)
-        ↳ op-check-first is the only path
+      fiql.go: applyListTyped[T any, P Predicate](op, val, in, notIn, parser, labels)
+        ↳ FIQLInt/Float/UUID's In/NotIn block reduces to one call (~25 lines → 3)
+        ↳ FIQLString/Time/Bool/Enum keep their existing apply (different shapes)
 
       proto_types.go: ProtoFieldSpec.ExcludedReason string
-        ↳ generator collects per-message → emits .skipped.json sibling
+        ↳ generator collects per-message → emits .entdomain.skipped.json sibling
 
 ### Components
 
@@ -57,14 +59,14 @@ Collapse three sources of field-type-switch duplication and one source of operat
 - Template func `isOp(name string, op FIQLOp) bool` — looks up registry, returns equality
 - Registered in `template.go:TemplateFuncs` next to existing helpers
 
-**`applyTyped`** (in `fiql.go`)
-- Generic helper holding the fixed control flow: op-check first → parser dispatch → nil-fn check → call
-- Per-type apply methods reduce to 5–10 lines defining the parser fn and a map of op-to-fn
+**`applyListTyped`** (in `fiql.go`) — *shipped as scoped-down replacement for the originally-planned `applyTyped`*
+- Generic helper for the In/NotIn list-handling path only: op-guard → nil-fn check → parse list → parse each element → dispatch
+- Used by FIQLInt/Float/UUID; FIQLString/Time/Bool/Enum keep their existing apply shape (different needs — see Discoveries for why the full unified apply was rejected)
 
 **`ProtoFieldSpec.ExcludedReason string`** (extends existing struct in `proto_types.go`)
 - Populated whenever `IsExcluded = true`
 - `proto_generate.go` collects skipped fields per message
-- New sibling output `entpb.skipped.json` (or fold into `entpb.lock.json` if cleaner) lists `{message, field, reason}` triples
+- New sibling output `.entdomain.skipped.json` (next to the existing `.entdomain.lock.json`) lists `{message, field, reason}` triples
 
 ### Why not alternatives
 
@@ -136,7 +138,7 @@ Foundational — everything else dispatches on this. Lands first.
 | 5.1 | Add `ExcludedReason string` field to `ProtoFieldSpec` | `proto_types.go` | [x] |
 | 5.2 | Populate `ExcludedReason` at every existing `IsExcluded = true` site (including the JSON, Bytes, custom-GoType cases) using the reason from `resolveFieldKind` | `proto_types.go` | [x] |
 | 5.3 | In `proto_generate.go`, collect excluded fields per message during proto-file emission | `proto_generate.go` | [x] |
-| 5.4 | Write `entpb.skipped.json` sibling output containing `[{message, field, reason}]` (or fold into `entpb.lock.json` under a new `skipped` key — pick the cleaner path during implementation) | `proto_generate.go` | [x] |
+| 5.4 | Write `.entdomain.skipped.json` sibling output containing `[{message, field, reason}]` (or fold into `entpb.lock.json` under a new `skipped` key — pick the cleaner path during implementation) | `proto_generate.go` | [x] |
 | 5.5 | Unit test `TestProtoExcludedReason` constructing a JSON field and asserting it appears in the skipped summary with non-empty reason | `proto_generate_test.go` | [x] |
 
 **Key details:** Don't break existing lock-file format if folding in. Either add a new top-level `"skipped"` key (forward-compatible) or write a separate file (cleaner separation, no risk to lock-file consumers). Default to separate file unless the lock-file format is internal-only.
@@ -156,7 +158,7 @@ Foundational — everything else dispatches on this. Lands first.
 |---|------|--------|
 | 7.1 | README — add a one-paragraph "Adding a new ent field type" subsection pointing to `kinds.go:resolveFieldKind` as the single entry point | [x] |
 | 7.2 | README — add a one-paragraph "Adding a new FIQL operator" subsection pointing to the op registry + template helper | [x] |
-| 7.3 | If `entpb.skipped.json` is emitted as a new artifact, document its purpose and format in the README's Generated Output section | [x] |
+| 7.3 | If `.entdomain.skipped.json` is emitted as a new artifact, document its purpose and format in the README's Generated Output section | [x] |
 
 ## Design Decisions
 

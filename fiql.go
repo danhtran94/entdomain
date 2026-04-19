@@ -732,6 +732,14 @@ func applyListTyped[T any, P Predicate](
 	fieldLabel string,
 ) (P, error) {
 	var zero P
+	// Guard: this helper only handles set-membership ops. Without an explicit
+	// switch, the tail `if op == In ... else NotIn` would silently treat any
+	// future caller bug as NotIn instead of failing clearly.
+	switch op {
+	case In, NotIn:
+	default:
+		return zero, fmt.Errorf("operator %q not supported by applyListTyped (only =in= and =out=)", op)
+	}
 	if op == In && inFn == nil {
 		return zero, fmt.Errorf("operator =in= not allowed on this %s field", fieldLabel)
 	}

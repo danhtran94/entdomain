@@ -335,9 +335,19 @@ func resolveEdgeProtoSpec(e *gen.Edge, ea *EdgeAnnotation, fa *FieldAnnotation) 
 		if skipAll {
 			specs = append(specs, ProtoFieldSpec{IsExcluded: true, ExcludedReason: "field has SkipProto annotation"})
 		} else {
-			idTypeStr, _ := fieldToDomainType(e.Type.Name, e.Type.ID)
-			spec := resolveIDTypeSpec(idTypeStr, e.Unique)
-			specs = append(specs, spec)
+			// Inherit the canonical UUID/GoType gate from resolveFieldKind for the
+			// target entity's ID. resolveIDTypeSpec's default branch emits
+			// uuid.MustParse for any non-numeric/non-string ID type, which would
+			// produce a signature mismatch in the generated mapper if the target's
+			// ID is a custom UUID GoType (not github.com/google/uuid.UUID).
+			targetIDKind, targetIDReason := resolveFieldKind(e.Type.ID)
+			if e.Type.ID.Type.Type == field.TypeUUID && targetIDKind != KindUUID {
+				specs = append(specs, ProtoFieldSpec{IsExcluded: true, ExcludedReason: "edge target " + e.Type.Name + " ID: " + targetIDReason})
+			} else {
+				idTypeStr, _ := fieldToDomainType(e.Type.Name, e.Type.ID)
+				spec := resolveIDTypeSpec(idTypeStr, e.Unique)
+				specs = append(specs, spec)
+			}
 		}
 	}
 
