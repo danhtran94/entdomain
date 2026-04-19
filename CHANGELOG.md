@@ -12,12 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Mirrors ent's `SaveX` / `FirstX` / `OnlyX` convention — `ApplyDomainX`, `CreateBulkDomainX`, `UpdateBulkDomainX` opt into panic-on-error to restore fluent chaining in tests and scripts. The error-returning forms remain the primary, request-safe path. See the "Fluent chaining via `X` variants" section in README.
 
 - **`entdomain.WithDomain[T]` / `entdomain.DomainFrom[T]`** — generic context helpers for the narrow case where ent mutation hooks need to read the originating domain struct (including virtual fields) at Save time.
-  Positioned as an opt-in escape hatch; typed transformers remain the primary encoding path. See the "Advanced: ent hook integration" section in README and [ADR-005](adr/005-transformer-runtime-context.md) for scope and caveats.
+  Positioned as an opt-in escape hatch; typed transformers remain the primary encoding path. See the "Advanced: ent hook integration" section in README and [ADR-005](docs/ADR-005-transformer-runtime-context.md) for scope and caveats.
 
 ### Changed — BREAKING
 
 - **Transformer signatures now take `context.Context` + the full domain struct and return `error`.**
-  See [ADR-005](adr/005-transformer-runtime-context.md) for the rationale — alignment with ent's hook/privacy/interceptor conventions, and enabling I/O-based transforms such as KMS-backed field encryption.
+  See [ADR-005](docs/ADR-005-transformer-runtime-context.md) for the rationale — alignment with ent's hook/privacy/interceptor conventions, and enabling I/O-based transforms such as KMS-backed field encryption.
 
   Before:
 

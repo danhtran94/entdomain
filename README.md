@@ -494,7 +494,7 @@ func registerTransformers(kms KMS) {
 }
 ```
 
-See [ADR-005](adr/005-transformer-runtime-context.md) for the design rationale (why ctx+error, why sibling access, why this shape aligns with ent's hook/privacy conventions).
+See [ADR-005](docs/ADR-005-transformer-runtime-context.md) for the design rationale (why ctx+error, why sibling access, why this shape aligns with ent's hook/privacy conventions).
 
 ### Advanced: ent hook integration via `entdomain.WithDomain` (opt-in)
 
@@ -840,4 +840,4 @@ Proto field numbers are tracked in `.entdomain.lock.json`. Commit this file — 
 - `WithNoBulk` is configured at extension level, not per schema — keeps schema annotations focused on domain shape, not generation policy; it also suppresses `*EntityUpsertBulk.ApplyDomain`
 - Upsert generation is auto-detected from `gen.Config.Features` — no entdomain annotation or config option is needed
 
-See [`adr/001-entdomain-extension.md`](adr/001-entdomain-extension.md) for the full design rationale.
+See [`docs/ADR-001-entdomain-extension.md`](docs/ADR-001-entdomain-extension.md) for the full design rationale.
