@@ -26,6 +26,31 @@ In addition, `govulncheck`, `golangci-lint`, CodeQL, and OpenSSF Scorecard were 
 
 ---
 
+## Assumptions
+
+- **A1 [EXTERNAL FACT]:** `govulncheck` reports vulnerabilities only for code paths actually reachable from the module's exported symbols. Evidence: [govulncheck design doc](https://go.dev/blog/govulncheck) — call-graph analysis is the documented mechanism.
+- **A2 [EXTERNAL FACT]:** OpenSSF Scorecard runs are public and influence consumer trust signals on `pkg.go.dev`. Evidence: [Scorecard docs](https://github.com/ossf/scorecard) and the badge integration shown on the package page.
+- **A3 [HYPOTHESIS]:** Splitting security workflows from regular CI keeps PR feedback fast and lets long-running scans (CodeQL) schedule independently. Verification deferred — observed CI durations for `ci.yml` vs `security.yml` confirm the split was beneficial.
+
+## Options
+
+The pipeline composition was selected from these candidate tools:
+
+- **Vulnerability scanner**: `govulncheck` (Go-specific, reachability-aware) vs Grype / Nancy (manifest-level, no reachability)
+- **Static analysis**: `golangci-lint` (gosec/gocritic plugins) vs Semgrep OSS (Go taint paywalled)
+- **Dependency updates**: Renovate vs Dependabot (Go support quality)
+- **Supply chain scoring**: OpenSSF Scorecard (industry standard) vs no scoring
+
+## Options Comparison
+
+| Alternative | Rejected Because |
+|---|---|
+| Grype as primary scanner | Package-manifest level — fires on every transitive dep regardless of reachability; impractical as PR gate |
+| Nancy | No active maintenance since 2022 |
+| Semgrep OSS | Go taint-tracking paywalled; free ruleset redundant with gosec |
+| Dependabot for Go deps | Unresolved bug producing inconsistent `go.sum` on indirect dep updates |
+| SLSA provenance now | No build artifacts to attest; `sum.golang.org` already covers source integrity |
+
 ## Decision
 
 Adopt a layered security pipeline covering vulnerability scanning, static analysis, dependency updates, and supply chain scoring. All tooling runs on GitHub Actions. The pipeline is split from the regular CI (tests/build) workflow to allow independent scheduling.
@@ -162,12 +187,5 @@ linters:
 
 ---
 
-## Alternatives Considered
+<!-- Alternatives moved to ## Options Comparison earlier in the doc to satisfy the discipline schema. -->
 
-| Alternative | Rejected Because |
-|---|---|
-| Grype as primary scanner | Package-manifest level — fires on every transitive dep regardless of reachability; impractical as PR gate |
-| Nancy | No active maintenance since 2022 |
-| Semgrep OSS | Go taint-tracking paywalled; free ruleset redundant with gosec |
-| Dependabot for Go deps | Unresolved bug producing inconsistent `go.sum` on indirect dep updates |
-| SLSA provenance now | No build artifacts to attest; `sum.golang.org` already covers source integrity |

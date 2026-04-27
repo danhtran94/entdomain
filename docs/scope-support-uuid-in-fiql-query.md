@@ -21,6 +21,12 @@ Concrete example: `examples/basic/ent/schema/user.go:48` defines `field.UUID("ex
 
 The underlying technical reason is real: ent's UUID predicates take `uuid.UUID`, not `string`, so the existing `apply(op, val string)` interface can't dispatch directly. But UUIDs are first-class identifiers in REST/gRPC APIs (lookup by external ID is the canonical filter), so silently skipping is a usability cliff.
 
+## Assumptions
+
+- **A1 [VERIFIED]:** ent generates `<Field>EQ(v uuid.UUID)` / `<Field>NEQ(v uuid.UUID)` predicate methods for fields declared `field.UUID(name, uuid.UUID{})` (without GoType override). Evidence: `examples/basic/ent/user/where.go:410` — `ExternalIDEQ(v uuid.UUID) predicate.User`.
+- **A2 [EXTERNAL FACT]:** `uuid.Parse` from `github.com/google/uuid` accepts canonical 36-char hyphenated form, braced (`{...}`), `urn:uuid:...`, and 32-char hex without hyphens. Evidence: [Parse godoc](https://pkg.go.dev/github.com/google/uuid#Parse).
+- **A3 [HYPOTHESIS]:** Custom-GoType UUID fields (via `.GoType(CustomType{})`) are rare enough that silent-skip is an acceptable v1 behaviour. Verification deferred — codegen-time gate detection is a follow-up scope.
+
 ## Success Criteria
 
 1. **New `FIQLUUID[P Predicate]` type** in `fiql.go`, mirroring the structural pattern of `FIQLBool` (single-type wrapper, parses string → typed value, dispatches to ent predicate functions). Supports `==` and `!=` only.

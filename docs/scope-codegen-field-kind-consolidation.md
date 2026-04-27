@@ -36,6 +36,12 @@ A second-order consequence sits in `fiql.go` itself. The six per-type `apply` me
 
 A third silent-failure mode lives in `proto_types.go`. `ProtoFieldSpec.IsExcluded = true` is returned for unsupported fields with no reason string. A typo'd annotation, an unsupported GoType, or a missed type case all collapse to the same silent skip — diagnosable only by reading proto output side-by-side with the schema.
 
+## Assumptions
+
+- **A1 [VERIFIED]:** ent's `gen.Field` exposes `Type.Type` (the `field.Type` enum) and `Type.RType` (Go-runtime type info when GoType is overridden). Evidence: existing usages in `template.go:fieldFIQLKindFn` and `proto_types.go:resolveEntFieldProtoSpec`.
+- **A2 [HYPOTHESIS]:** `make gen` zero-diff is a sufficient observable canary that the consolidation is behaviour-preserving. Verification deferred — generated output is byte-stable across two consecutive runs today; the refactor must preserve that property.
+- **A3 [EXTERNAL FACT]:** Go generics support type-parameterised functions taking `func(...T) P`-style callbacks (per the `applyListTyped` precedent). Evidence: shipped successfully in ENTD-002 ([fiql.go applyListTyped](../fiql.go)).
+
 ## Success Criteria
 
 1. **Single canonical kind enum + resolver** in a new `kinds.go` (or in `template.go` if cleaner): `type FieldKind int` with values `KindString`, `KindInt`, `KindFloat`, `KindBool`, `KindTime`, `KindEnum`, `KindUUID`, `KindUnsupported`. One function `resolveFieldKind(f *gen.Field) (FieldKind, string)` returning the kind and a reason string when `KindUnsupported`. `template.go:fieldFIQLKindFn`, `proto_types.go`, and `generate.go:fieldToDomainTypeWithEnum` all dispatch on the result instead of switching on `f.Type.Type` independently.
