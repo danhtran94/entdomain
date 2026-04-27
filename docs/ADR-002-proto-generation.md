@@ -14,6 +14,29 @@ Therefore entdomain must own the full proto generation pipeline — proto messag
 
 ---
 
+## Assumptions
+
+- **A1 [VERIFIED]:** `entprotobuf` (ent-contrib) generates proto messages from ent fields only and has no concept of entdomain's virtual fields. Evidence: source review of [github.com/ent/contrib/entproto](https://github.com/ent/contrib/tree/master/entproto) — annotation surface is `entproto.Field(...)` keyed off ent field declarations.
+- **A2 [HYPOTHESIS]:** Lock-file-driven field number stability is the right contract for downstream gRPC consumers. Verification deferred — alternatives (manual field number annotations, hash-based numbering) were considered but rejected as more error-prone.
+- **A3 [EXTERNAL FACT]:** proto3 field numbers must remain stable across schema revisions to avoid wire-format breaks. Evidence: [protocol buffers language guide](https://protobuf.dev/programming-guides/proto3/#assigning).
+
+## Options
+
+Three approaches were weighed before adopting first-party proto generation:
+
+- **Use `entprotobuf` from ent-contrib** — Reuse existing ent extension; accept that virtual fields will be invisible to proto.
+- **Hand-author `.proto` files alongside the domain layer** — Engineers write and maintain proto messages by hand; rely on review to catch drift.
+- **First-party proto generator inside entdomain (chosen)** — entdomain owns proto emission so virtual fields are first-class.
+
+## Options Comparison
+
+| Driver | entprotobuf | Hand-authored | First-party (chosen) |
+|---|---|---|---|
+| Virtual fields | Missing | Manual | Generated |
+| Drift risk | Low | High | None |
+| Field number stability | Built-in | Manual discipline | Lock file |
+| Maintenance | External | None | Owned |
+
 ## Decision
 
 Extend entdomain with opt-in proto generation that:

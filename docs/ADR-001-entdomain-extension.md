@@ -15,6 +15,29 @@ Developers who want to enforce a clean architecture boundary are forced to manua
 
 This creates duplication and drift between the ent schema and the domain layer over time.
 
+## Assumptions
+
+- **A1 [EXTERNAL FACT]:** ent v0.14.x supports third-party code generation via the `entc.Extension` interface. Evidence: [ent extension docs](https://entgo.io/docs/extensions/) and the public `gen.Hook` API.
+- **A2 [HYPOTHESIS]:** Schema authors will opt into domain generation per entity (via annotation), not globally. Verification deferred — the annotation API was designed to support it; adoption pattern observed in `examples/basic/` and `examples/custom/`.
+- **A3 [VERIFIED]:** ent's generated package can coexist in the same module as a separate domain package without cyclic imports as long as the domain package has no ent imports. Evidence: `examples/basic/internal/domain/` compiles cleanly with no `entgo.io/ent` references (`grep -L 'entgo.io/ent' examples/basic/internal/domain/*.go`).
+
+## Options
+
+Three approaches were weighed before adopting an ent extension:
+
+- **Hand-written domain layer** — Engineers maintain domain structs and mappers manually for each entity.
+- **Adopt a different ORM that already separates domain from DB** — e.g. an ORM where the user-facing types are pure structs.
+- **ent extension that codegens the domain layer** — Annotation-driven generation runs as part of `entc.Generate`.
+
+## Options Comparison
+
+| Driver | Hand-written | Different ORM | ent extension (chosen) |
+|---|---|---|---|
+| Drift risk | High | None | None |
+| Migration cost | None | Very high | Low |
+| ent ecosystem | Kept | Lost | Kept |
+| Per-entity opt-in | Manual | N/A | Annotation |
+
 ## Decision
 
 Introduce a new ent extension — `entdomain` — that generates a pure Go domain package and mapping helpers from ent schema definitions, controlled via schema annotations.

@@ -30,6 +30,29 @@ At code generation time, entdomain already knows everything needed to build FIQL
 
 ---
 
+## Assumptions
+
+- **A1 [EXTERNAL FACT]:** FIQL is a URI-safe filter syntax suitable for HTTP GET query parameters. Evidence: [draft-nottingham-atompub-fiql-00](https://datatracker.ietf.org/doc/html/draft-nottingham-atompub-fiql-00).
+- **A2 [VERIFIED]:** ent generates per-field predicate functions (`<Field>EQ`, `<Field>NEQ`, etc.) for every typed field at codegen time. Evidence: `examples/basic/ent/user/where.go` contains the full predicate function set.
+- **A3 [HYPOTHESIS]:** Per-field opt-in via schema annotation gives the right safety/usability balance — sensitive fields are never accidentally filterable. Verification deferred — observed usage in `examples/basic/ent/schema/user.go` matches the intent (e.g. `password_hash` has no FIQL annotation and is never wired into the registry).
+
+## Options
+
+Three approaches were weighed before adopting first-party FIQL codegen:
+
+- **Adopt an existing FIQL Go library** — e.g. `github.com/jirenius/go-rsql` or similar; let it parse expressions and produce ent predicates via reflection.
+- **GraphQL-style filter input objects** — Generate typed filter structs per entity (`UserWhereInput`); expose them via a Go API or HTTP body.
+- **First-party FIQL generator + parser (chosen)** — entdomain owns the parser, the per-entity registry, and the ent-predicate wiring.
+
+## Options Comparison
+
+| Driver | External library | GraphQL-style | First-party (chosen) |
+|---|---|---|---|
+| URI-safe (HTTP GET) | Yes | No (POST body) | Yes |
+| Per-field opt-in | Manual | Manual | Annotation-driven |
+| Type safety at codegen | None | Strong | Strong |
+| Runtime dependencies | Heavy | Generated | Self-contained |
+
 ## Decision
 
 Extend entdomain with **opt-in FIQL filter generation** that:

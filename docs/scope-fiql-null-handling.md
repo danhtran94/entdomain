@@ -25,6 +25,12 @@ The blocker isn't ent. ent already emits:
 
 for the basic example's `bio` field (optional). The blocker is two missing pieces: a wire format the parser recognises, and runtime field-type slots to receive `func() P` predicates (every existing slot takes at least one value argument).
 
+## Assumptions
+
+- **A1 [VERIFIED]:** ent generates `<Field>IsNil()` and `<Field>NotNil()` zero-arg predicate methods only for fields declared `Optional()` or `Nillable()`. Evidence: `examples/basic/ent/user/where.go` exposes `BioIsNil`/`BioNotNil` (bio is `field.String("bio").Optional()`); the `name` field is non-optional and has no IsNil counterpart.
+- **A2 [EXTERNAL FACT]:** SQL three-valued logic excludes NULL rows from any NEQ comparison — `WHERE name != 'foo'` evaluates to NULL on a NULL `name`, which is treated as "exclude". Evidence: SQL standard ISO/IEC 9075 §6.3 and the [SQLite docs on NULL handling](https://www.sqlite.org/nulls.html).
+- **A3 [HYPOTHESIS]:** Strict `null` / `notnull` value vocabulary (no `nil` / `empty` / `present` aliases) is the right safety/usability balance. Verification deferred — observable via a future support ticket if users actually request the aliases.
+
 ## Success Criteria
 
 1. **Two new `FIQLOp` constants** in `fiql.go` with synthetic-but-distinct string values:

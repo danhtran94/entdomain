@@ -49,7 +49,15 @@ This ADR applies **only to the ent-side transformers** that customize how fields
 
 ---
 
-## Options Considered
+## Assumptions
+
+- **A1 [EXTERNAL FACT]:** `context.Context` is the idiomatic Go mechanism for propagating request-scoped state and cancellation through call chains. Evidence: [Go standard-library docs](https://pkg.go.dev/context).
+- **A2 [VERIFIED]:** ent's builder methods (`Create`, `Update`) do not themselves accept `context.Context` until `Save(ctx)` is called. Evidence: `examples/basic/ent/user_create.go` — the `*ent.UserCreate` methods are pure mutations; only `Save` takes ctx.
+- **A3 [HYPOTHESIS]:** Transformer authors will need access to runtime state (KMS handles, signers, request metadata) at field-population time. Verification deferred — the use case was raised by an early consumer (HealthLog encryption); the new signature unblocks it without forcing a separate use-case layer.
+
+## Options
+<!-- Subsections below were previously titled "Options Considered"; renamed to "Options" for discipline schema compliance. -->
+
 
 ### 1. Status quo — pure transformers, enrichment elsewhere
 
@@ -101,6 +109,19 @@ ApplyDomainCreate(ctx context.Context, client *ent.Client, opts ...ApplyOption) 
 - **Con:** Larger breaking change — every `ApplyDomain*` call site takes ctx; every transformer handles ctx and error even when the logic is pure (one line: `return nil`). One-way door — hard to remove later.
 
 ---
+
+## Options Comparison
+
+| Driver | 1. Status quo | 2. Stringly encoder | 3. Typed override | 4. Sibling access | 5. Full ctx + error (chosen) |
+|---|---|---|---|---|---|
+| Runtime state access | No | Indirect | Closure-captured | No | Yes (via ctx) |
+| Sibling field access | No | No | No | Yes | Yes |
+| Error reporting | Panic-only | Returned error | Panic-only | Panic-only | Returned error |
+| Mid-apply cancellation | No | No | Closure-only | No | Yes (via ctx) |
+| Type safety | Full | Lost (any/string) | Full | Full | Full |
+| API change scope | None | Per-call option | Per-call option | Per-field signature | ApplyDomain* signature |
+
+> Why Option 2 is "Indirect" while Option 3 is "Closure-captured": both options technically allow a caller to capture state in a closure, but only Option 3 (Typed override) explicitly designs for it — its description names "Ctx captured in closure at the call site" as the supported pattern. Option 2's signature (`fn func(any) (any, error)`) makes no statement about ctx; any closure capture there is ad-hoc and undocumented, so the table records it as Indirect rather than as a real capability.
 
 ## Decision
 

@@ -20,6 +20,12 @@ Both patterns also miss the standard FIQL `=in=` / `=out=` operators that REST c
 
 The blocker isn't ent — `user.NameIn(vs ...string)` and `user.NameNotIn(...)` already exist for every typed field. The blocker is the parser: `readValue` (`fiql.go:507-517`) stops on the first `,` or `)`, so `field=in=(a,b,c)` is unparseable today. The runtime field types (`FIQLString`, `FIQLInt`, `FIQLFloat`, `FIQLEnum`, `FIQLUUID`) also have no slot to receive a list.
 
+## Assumptions
+
+- **A1 [VERIFIED]:** ent generates `<Field>In(vs ...T) predicate.X` and `<Field>NotIn(vs ...T)` variadic predicate methods for every typed scalar field. Evidence: `examples/basic/ent/user/where.go` exposes `NameIn`, `ScoreIn`, etc.
+- **A2 [EXTERNAL FACT]:** Standard FIQL syntax for set membership is `field=in=(a,b,c)` with parenthesised comma-separated values. Evidence: [draft-nottingham-atompub-fiql-00](https://datatracker.ietf.org/doc/html/draft-nottingham-atompub-fiql-00) §3.1 (extended operators).
+- **A3 [HYPOTHESIS]:** A 100-element cap is sufficient for typical filter use cases without enabling DoS via expensive SQL `IN` planning. Verification deferred — observable if users hit the cap and request a higher bound; a configurable cap is a clean follow-up scope.
+
 ## Success Criteria
 
 1. **Two new operator constants** in `fiql.go`: `In FIQLOp = "=in="` and `NotIn FIQLOp = "=out="`. Both accepted by the FIQL annotation system (`entdomain.FIQL(entdomain.In, entdomain.NotIn)`).
