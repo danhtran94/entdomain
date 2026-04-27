@@ -114,11 +114,12 @@ ApplyDomainCreate(ctx context.Context, client *ent.Client, opts ...ApplyOption) 
 
 | Driver | 1. Status quo | 2. Stringly encoder | 3. Typed override | 4. Sibling access | 5. Full ctx + error (chosen) |
 |---|---|---|---|---|---|
-| Runtime state access | No | Indirect | Indirect | No | Yes (via ctx) |
+| Runtime state access | No | Indirect | Closure-captured | No | Yes (via ctx) |
 | Sibling field access | No | No | No | Yes | Yes |
-| Error reporting | Panic-only | Panic-only | Panic-only | Panic-only | Returned error |
-| Mid-apply cancellation | No | No | No | No | Yes (via ctx) |
-| API change scope | None | Per-call | Per-call | Per-field | All ApplyDomain methods |
+| Error reporting | Panic-only | Returned error | Panic-only | Panic-only | Returned error |
+| Mid-apply cancellation | No | No | Closure-only | No | Yes (via ctx) |
+| Type safety | Full | Lost (any/string) | Full | Full | Full |
+| API change scope | None | Per-call option | Per-call option | Per-field signature | ApplyDomain* signature |
 
 ## Decision
 
