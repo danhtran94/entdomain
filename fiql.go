@@ -51,7 +51,26 @@ const (
 	// NotIn matches field NOT IN (v1, v2, ...) — value syntax: =out=(a,b,c).
 	// Supported on string, int, float, enum, uuid fields.
 	NotIn FIQLOp = "=out="
+	// Is is the parser-internal wire form ("=is=") that gets normalized into
+	// IsNull or NotNull based on its value during parseComparison. Never
+	// reaches apply — the normalization is the contract. Kept as a constant
+	// so readOp can recognise the wire form symbolically.
+	Is FIQLOp = "=is="
+	// IsNull matches field IS NULL — value syntax: field=is=null.
+	// Synthetic op produced by parser normalization (never appears on the wire
+	// literally). Supported on Optional() / Nillable() fields only — codegen
+	// errors otherwise.
+	IsNull FIQLOp = "=is=null"
+	// NotNull matches field IS NOT NULL — value syntax: field=is=notnull.
+	// Synthetic op produced by parser normalization. Same optionality
+	// requirement as IsNull.
+	NotNull FIQLOp = "=is=notnull"
 )
+
+// validIsValues is the source of truth for the strict "=is=" value vocabulary.
+// Used by both the parser normalization (parseComparison) and the error message
+// when an unknown value is supplied.
+var validIsValues = []string{"null", "notnull"}
 
 // opByName lets templates address operators by their Go identifier (e.g.
 // "In") instead of hard-coding the FIQL symbol (e.g. "=in="). Adding a new
@@ -71,6 +90,8 @@ var opByName = map[string]FIQLOp{
 	"HasPrefix": HasPrefix,
 	"In":        In,
 	"NotIn":     NotIn,
+	"IsNull":    IsNull,
+	"NotNull":   NotNull,
 }
 
 // isOpFn powers the `isOp` template helper: `{{ if isOp "In" $op }}` instead
@@ -103,6 +124,8 @@ type FIQLString[P Predicate] struct {
 	HasPrefix func(string) P
 	In        func(...string) P
 	NotIn     func(...string) P
+	IsNil     func() P
+	NotNil    func() P
 }
 
 func (f FIQLString[P]) apply(op FIQLOp, val string) (P, error) {
@@ -146,6 +169,8 @@ func (f FIQLString[P]) apply(op FIQLOp, val string) (P, error) {
 			return zero, err
 		}
 		return f.NotIn(parts...), nil
+	case IsNull, NotNull:
+		return applyNullTyped(op, f.IsNil, f.NotNil, "string")
 	default:
 		return zero, fmt.Errorf("operator %q not allowed on string field", op)
 	}
@@ -153,20 +178,25 @@ func (f FIQLString[P]) apply(op FIQLOp, val string) (P, error) {
 
 // FIQLInt handles FIQL filtering for integer fields.
 type FIQLInt[P Predicate] struct {
-	EQ    func(int) P
-	NEQ   func(int) P
-	GT    func(int) P
-	LT    func(int) P
-	GTE   func(int) P
-	LTE   func(int) P
-	In    func(...int) P
-	NotIn func(...int) P
+	EQ     func(int) P
+	NEQ    func(int) P
+	GT     func(int) P
+	LT     func(int) P
+	GTE    func(int) P
+	LTE    func(int) P
+	In     func(...int) P
+	NotIn  func(...int) P
+	IsNil  func() P
+	NotNil func() P
 }
 
 func (f FIQLInt[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
 		return applyListTyped(op, val, f.In, f.NotIn, strconv.Atoi, "integer", "int")
+	}
+	if op == IsNull || op == NotNull {
+		return applyNullTyped(op, f.IsNil, f.NotNil, "int")
 	}
 	n, err := strconv.Atoi(val)
 	if err != nil {
@@ -210,14 +240,16 @@ func (f FIQLInt[P]) apply(op FIQLOp, val string) (P, error) {
 
 // FIQLFloat handles FIQL filtering for float fields.
 type FIQLFloat[P Predicate] struct {
-	EQ    func(float64) P
-	NEQ   func(float64) P
-	GT    func(float64) P
-	LT    func(float64) P
-	GTE   func(float64) P
-	LTE   func(float64) P
-	In    func(...float64) P
-	NotIn func(...float64) P
+	EQ     func(float64) P
+	NEQ    func(float64) P
+	GT     func(float64) P
+	LT     func(float64) P
+	GTE    func(float64) P
+	LTE    func(float64) P
+	In     func(...float64) P
+	NotIn  func(...float64) P
+	IsNil  func() P
+	NotNil func() P
 }
 
 func (f FIQLFloat[P]) apply(op FIQLOp, val string) (P, error) {
@@ -226,6 +258,9 @@ func (f FIQLFloat[P]) apply(op FIQLOp, val string) (P, error) {
 		return applyListTyped(op, val, f.In, f.NotIn,
 			func(s string) (float64, error) { return strconv.ParseFloat(s, 64) },
 			"float", "float")
+	}
+	if op == IsNull || op == NotNull {
+		return applyNullTyped(op, f.IsNil, f.NotNil, "float")
 	}
 	n, err := strconv.ParseFloat(val, 64)
 	if err != nil {
@@ -270,16 +305,21 @@ func (f FIQLFloat[P]) apply(op FIQLOp, val string) (P, error) {
 // FIQLTime handles FIQL filtering for time.Time fields.
 // Values are parsed as RFC3339 (e.g. "2024-01-15T10:30:00Z").
 type FIQLTime[P Predicate] struct {
-	EQ  func(time.Time) P
-	NEQ func(time.Time) P
-	GT  func(time.Time) P
-	LT  func(time.Time) P
-	GTE func(time.Time) P
-	LTE func(time.Time) P
+	EQ     func(time.Time) P
+	NEQ    func(time.Time) P
+	GT     func(time.Time) P
+	LT     func(time.Time) P
+	GTE    func(time.Time) P
+	LTE    func(time.Time) P
+	IsNil  func() P
+	NotNil func() P
 }
 
 func (f FIQLTime[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
+	if op == IsNull || op == NotNull {
+		return applyNullTyped(op, f.IsNil, f.NotNil, "time")
+	}
 	t, err := time.Parse(time.RFC3339, val)
 	if err != nil {
 		return zero, fmt.Errorf("invalid time value %q (expected RFC3339, e.g. 2024-01-15T10:30:00Z): %w", val, err)
@@ -323,11 +363,16 @@ func (f FIQLTime[P]) apply(op FIQLOp, val string) (P, error) {
 // FIQLBool handles FIQL filtering for boolean fields.
 // Values must be "true" or "false".
 type FIQLBool[P Predicate] struct {
-	EQ func(bool) P
+	EQ     func(bool) P
+	IsNil  func() P
+	NotNil func() P
 }
 
 func (f FIQLBool[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
+	if op == IsNull || op == NotNull {
+		return applyNullTyped(op, f.IsNil, f.NotNil, "bool")
+	}
 	if op != EQ {
 		return zero, fmt.Errorf("operator %q not allowed on bool field — only == is supported", op)
 	}
@@ -347,16 +392,21 @@ func (f FIQLBool[P]) apply(op FIQLOp, val string) (P, error) {
 // Only == and != are supported — UUIDs are opaque identifiers, so ordering and
 // substring operators are intentionally rejected.
 type FIQLUUID[P Predicate] struct {
-	EQ    func(uuid.UUID) P
-	NEQ   func(uuid.UUID) P
-	In    func(...uuid.UUID) P
-	NotIn func(...uuid.UUID) P
+	EQ     func(uuid.UUID) P
+	NEQ    func(uuid.UUID) P
+	In     func(...uuid.UUID) P
+	NotIn  func(...uuid.UUID) P
+	IsNil  func() P
+	NotNil func() P
 }
 
 func (f FIQLUUID[P]) apply(op FIQLOp, val string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
 		return applyListTyped(op, val, f.In, f.NotIn, uuid.Parse, "UUID", "UUID")
+	}
+	if op == IsNull || op == NotNull {
+		return applyNullTyped(op, f.IsNil, f.NotNil, "UUID")
 	}
 	u, err := uuid.Parse(val)
 	if err != nil {
@@ -381,8 +431,10 @@ func (f FIQLUUID[P]) apply(op FIQLOp, val string) (P, error) {
 // FIQLEnum handles FIQL filtering for enum fields.
 // Predicates are pre-built at generation time; lookups are O(1) map access.
 type FIQLEnum[P Predicate] struct {
-	EQ  map[string]P
-	NEQ map[string]P
+	EQ     map[string]P
+	NEQ    map[string]P
+	IsNil  func() P
+	NotNil func() P
 }
 
 func (f FIQLEnum[P]) apply(op FIQLOp, val string) (P, error) {
@@ -446,8 +498,10 @@ func (f FIQLEnum[P]) apply(op FIQLOp, val string) (P, error) {
 			return preds[0], nil
 		}
 		return andPreds(preds...), nil
+	case IsNull, NotNull:
+		return applyNullTyped(op, f.IsNil, f.NotNil, "enum")
 	default:
-		return zero, fmt.Errorf("operator %q not allowed on enum field — only ==, !=, =in=, =out= are supported", op)
+		return zero, fmt.Errorf("operator %q not allowed on enum field — only ==, !=, =in=, =out=, =is= are supported", op)
 	}
 }
 
@@ -605,6 +659,23 @@ func (p *fiqlParser[P]) parseComparison() (P, error) {
 		}
 	}
 
+	// Normalize the wire-form Is op into IsNull/NotNull based on its value.
+	// Downstream apply paths only ever see IsNull/NotNull — never Is. The
+	// parser-internal Is constant exists solely so readOp can recognise the
+	// wire form symbolically.
+	if op == Is {
+		switch value {
+		case "null":
+			op = IsNull
+			value = ""
+		case "notnull":
+			op = NotNull
+			value = ""
+		default:
+			return zero, fmt.Errorf("unknown =is= value %q — valid: %s", value, strings.Join(validIsValues, ", "))
+		}
+	}
+
 	fieldDesc, ok := p.fields[selector]
 	if !ok {
 		return zero, fmt.Errorf("unknown field %q — annotate with entdomain.FIQL(...) to enable", selector)
@@ -651,7 +722,7 @@ func (p *fiqlParser[P]) readOp() (FIQLOp, error) {
 		opStr := FIQLOp(p.expr[p.pos : p.pos+1+end+1])
 		p.pos += len(opStr)
 		switch opStr {
-		case GT, LT, GTE, LTE, Contains, HasPrefix, In, NotIn:
+		case GT, LT, GTE, LTE, Contains, HasPrefix, In, NotIn, Is:
 			return opStr, nil
 		default:
 			return "", fmt.Errorf("unknown operator %q at position %d", opStr, p.pos-len(opStr))
@@ -762,6 +833,33 @@ func applyListTyped[T any, P Predicate](
 		return inFn(ts...), nil
 	}
 	return notInFn(ts...), nil
+}
+
+// applyNullTyped centralises the IsNull / NotNull dispatch shared by every
+// typed FIQL field. Each per-type apply method's null branch is identical
+// modulo the field-kind label — six lines × seven types would duplicate the
+// boilerplate; one helper keeps the per-type apply methods uniform and gives
+// the dispatch one place to grow if the contract evolves.
+//
+// fieldLabel is the noun used in op-not-allowed errors ("string", "int",
+// "UUID", etc.) — preserved verbatim across types so existing assertion
+// patterns continue to match.
+func applyNullTyped[P Predicate](op FIQLOp, isNilFn, notNilFn func() P, fieldLabel string) (P, error) {
+	var zero P
+	switch op {
+	case IsNull:
+		if isNilFn == nil {
+			return zero, fmt.Errorf("operator =is=null not allowed on this %s field", fieldLabel)
+		}
+		return isNilFn(), nil
+	case NotNull:
+		if notNilFn == nil {
+			return zero, fmt.Errorf("operator =is=notnull not allowed on this %s field", fieldLabel)
+		}
+		return notNilFn(), nil
+	default:
+		return zero, fmt.Errorf("operator %q not supported by applyNullTyped", op)
+	}
 }
 
 // andPreds combines multiple predicates with AND.

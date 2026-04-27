@@ -368,9 +368,26 @@ func TestTemplate_FIQL_Generated(t *testing.T) {
 		assert.NotContains(t, src, `"password_hash"`, "unannotated fields must not appear in FIQL registry")
 	})
 
-	t.Run("bio not in registry (no FIQL annotation)", func(t *testing.T) {
+	t.Run("bio in registry with IsNil/NotNil only (null-handling annotation)", func(t *testing.T) {
+		// Updated for ENTD-004: bio gained IsNull/NotNull annotation. The
+		// generated entry should contain ONLY those slots, not EQ/NEQ/etc.
+		// Field-scoped predicate function names (user.BioEQ, user.BioContains,
+		// etc.) are unique per field — they only appear in the generated src
+		// if bio's annotation explicitly enables that op. Asserting their
+		// absence catches a regression where someone widens bio's annotation
+		// without intending to.
 		src := fileSource(t, "examples/basic/ent/fiql.go")
-		assert.NotContains(t, src, `"bio"`, "bio has no FIQL annotation and must not appear")
+		assert.Contains(t, src, `"bio": entdomain.FIQLString[predicate.User]{`)
+		assert.Contains(t, src, "user.BioIsNil")
+		assert.Contains(t, src, "user.BioNotNil")
+		// Negative assertions: bio must NOT have any other FIQL slots wired.
+		for _, absent := range []string{
+			"user.BioEQ", "user.BioNEQ",
+			"user.BioContains", "user.BioHasPrefix",
+			"user.BioIn", "user.BioNotIn",
+		} {
+			assert.NotContains(t, src, absent, "bio's annotation only enables IsNull/NotNull — predicate %q must not be wired", absent)
+		}
 	})
 }
 

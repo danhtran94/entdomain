@@ -40,6 +40,7 @@ package entdomain
 
 import (
 	"embed"
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -201,6 +202,11 @@ func hasFIQLNodesFn(nodes []*gen.Type) (bool, error) {
 
 // fieldFIQLAnnotationFn returns the FIQL ops for a field as strings (e.g. "==", "=gt="),
 // or nil if the field is not FIQL-annotated. Returning strings lets templates use eq directly.
+//
+// Enforces the optionality gate: IsNull / NotNull annotations require the field
+// to be Optional() or Nillable() (ent generates the IsNil / NotNil predicate
+// methods only for those). Codegen errors loudly when violated rather than
+// silently producing a build that calls a non-existent predicate.
 func fieldFIQLAnnotationFn(f *gen.Field) ([]string, error) {
 	fa, err := extractFieldAnnotation(f.Annotations)
 	if err != nil {
@@ -208,6 +214,16 @@ func fieldFIQLAnnotationFn(f *gen.Field) ([]string, error) {
 	}
 	if fa == nil || len(fa.FIQLOps) == 0 {
 		return nil, nil
+	}
+	for _, op := range fa.FIQLOps {
+		if op == IsNull || op == NotNull {
+			if !f.Optional && !f.Nillable {
+				return nil, fmt.Errorf(
+					"field %s.%s: =is= operator requires Optional() or Nillable() — ent generates IsNil/NotNil predicates only for those",
+					f.Type.Type, f.Name,
+				)
+			}
+		}
 	}
 	ops := make([]string, len(fa.FIQLOps))
 	for i, op := range fa.FIQLOps {

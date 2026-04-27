@@ -331,6 +331,69 @@ func TestParseFIQL_UUIDField(t *testing.T) {
 	})
 }
 
+func TestParseFIQL_NullHandling(t *testing.T) {
+	var calls []string
+	mkPred := func(tag string) testPred {
+		return testPred(func(s *sql.Selector) { calls = append(calls, tag) })
+	}
+	fields := entdomain.FIQLFields[testPred]{
+		"bio": entdomain.FIQLString[testPred]{
+			IsNil:  func() testPred { return mkPred("bio:isnil") },
+			NotNil: func() testPred { return mkPred("bio:notnil") },
+		},
+	}
+
+	t.Run("=is=null routes to IsNil", func(t *testing.T) {
+		calls = nil
+		pred, err := entdomain.ParseFIQL("bio=is=null", fields)
+		require.NoError(t, err)
+		pred(nil)
+		assert.Equal(t, []string{"bio:isnil"}, calls)
+	})
+
+	t.Run("=is=notnull routes to NotNil", func(t *testing.T) {
+		calls = nil
+		pred, err := entdomain.ParseFIQL("bio=is=notnull", fields)
+		require.NoError(t, err)
+		pred(nil)
+		assert.Equal(t, []string{"bio:notnil"}, calls)
+	})
+
+	t.Run("=is=maybe rejected with valid-values hint", func(t *testing.T) {
+		_, err := entdomain.ParseFIQL("bio=is=maybe", fields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `unknown =is= value "maybe"`)
+		assert.Contains(t, err.Error(), "valid: null, notnull")
+	})
+
+	t.Run("=is= alias rejected (no nil/empty/present)", func(t *testing.T) {
+		for _, alias := range []string{"nil", "empty", "present"} {
+			_, err := entdomain.ParseFIQL("bio=is="+alias, fields)
+			require.Error(t, err, alias)
+			assert.Contains(t, err.Error(), "valid: null, notnull")
+		}
+	})
+
+	t.Run("nil IsNil function returns not-allowed error", func(t *testing.T) {
+		bareFields := entdomain.FIQLFields[testPred]{
+			"bio": entdomain.FIQLString[testPred]{
+				NotNil: func() testPred { return mkPred("bio:notnil") },
+			},
+		}
+		_, err := entdomain.ParseFIQL("bio=is=null", bareFields)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "operator =is=null not allowed on this string field")
+	})
+
+	t.Run("composes with AND/OR", func(t *testing.T) {
+		calls = nil
+		pred, err := entdomain.ParseFIQL("bio=is=null,bio=is=notnull", fields)
+		require.NoError(t, err)
+		pred(sql.Dialect("sqlite3").Select("*").From(sql.Table("t")))
+		assert.ElementsMatch(t, []string{"bio:isnil", "bio:notnil"}, calls)
+	})
+}
+
 func TestParseFIQL_StringIn(t *testing.T) {
 	var got []string
 	fields := entdomain.FIQLFields[testPred]{
