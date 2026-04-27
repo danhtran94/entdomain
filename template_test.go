@@ -371,10 +371,14 @@ func TestTemplate_FIQL_Generated(t *testing.T) {
 	t.Run("bio in registry with IsNil/NotNil only (null-handling annotation)", func(t *testing.T) {
 		// Updated for ENTD-004: bio gained IsNull/NotNull annotation. The
 		// generated entry should contain only those slots, not EQ/NEQ/etc.
+		// Token-level checks rather than full lines — gofmt may realign the
+		// colon spacing as siblings change length.
 		src := fileSource(t, "examples/basic/ent/fiql.go")
 		assert.Contains(t, src, `"bio": entdomain.FIQLString[predicate.User]{`)
-		assert.Contains(t, src, "IsNil:  user.BioIsNil")
-		assert.Contains(t, src, "NotNil: user.BioNotNil")
+		assert.Contains(t, src, "IsNil:")
+		assert.Contains(t, src, "user.BioIsNil")
+		assert.Contains(t, src, "NotNil:")
+		assert.Contains(t, src, "user.BioNotNil")
 	})
 }
 
