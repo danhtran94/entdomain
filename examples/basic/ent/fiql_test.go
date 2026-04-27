@@ -176,6 +176,44 @@ func TestUserFIQL_InBadElement(t *testing.T) {
 	assert.Contains(t, err.Error(), `invalid integer value "abc" in list`)
 }
 
+func TestUserFIQL_BioIsNull(t *testing.T) {
+	pred, err := ent.UserFIQL("bio=is=null")
+	require.NoError(t, err)
+	q := applySQL(pred)
+	assert.Contains(t, q, "`bio` IS NULL")
+}
+
+func TestUserFIQL_BioIsNotNull(t *testing.T) {
+	pred, err := ent.UserFIQL("bio=is=notnull")
+	require.NoError(t, err)
+	q := applySQL(pred)
+	assert.Contains(t, q, "`bio` IS NOT NULL")
+}
+
+func TestUserFIQL_NullCompositionWithEQ(t *testing.T) {
+	// "name==john OR bio IS NULL"
+	pred, err := ent.UserFIQL("name==john,bio=is=null")
+	require.NoError(t, err)
+	q := applySQL(pred)
+	assert.Contains(t, q, "`name` = ?")
+	assert.Contains(t, q, "`bio` IS NULL")
+	assert.Contains(t, q, "OR")
+}
+
+func TestUserFIQL_NullValueRejectedOnUnannotated(t *testing.T) {
+	// `name` doesn't have IsNull annotation — should fall through to the
+	// "operator =is=null not allowed on this string field" branch.
+	_, err := ent.UserFIQL("name=is=null")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "=is=null not allowed")
+}
+
+func TestUserFIQL_IsAliasRejected(t *testing.T) {
+	_, err := ent.UserFIQL("bio=is=maybe")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `unknown =is= value "maybe"`)
+}
+
 // Error cases on the real generated registry
 
 func TestUserFIQL_UnknownField(t *testing.T) {
@@ -186,8 +224,9 @@ func TestUserFIQL_UnknownField(t *testing.T) {
 }
 
 func TestUserFIQL_UnannotatedField(t *testing.T) {
-	// bio has no FIQL annotation
-	_, err := ent.UserFIQL("bio==hello")
+	// username has no FIQL annotation (only SkipProto). bio used to play this
+	// role until ENTD-004 added IsNull/NotNull there.
+	_, err := ent.UserFIQL("username==hello")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown field")
 }

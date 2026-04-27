@@ -20,6 +20,7 @@ import (
 	"entgo.io/ent/entc/gen"
 	"entgo.io/ent/schema/field"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFieldFIQLKind_UUID(t *testing.T) {
@@ -51,5 +52,53 @@ func TestFieldFIQLKind_UUID(t *testing.T) {
 		f := &gen.Field{}
 		f.Type = &field.TypeInfo{Type: field.TypeUUID}
 		assert.Equal(t, "", fieldFIQLKindFn(f))
+	})
+}
+
+// fieldWithFIQLOps constructs a gen.Field with a FieldAnnotation containing
+// the given FIQL ops. Used to exercise the codegen-time optionality gate.
+func fieldWithFIQLOps(name string, optional, nillable bool, ops ...FIQLOp) *gen.Field {
+	f := &gen.Field{Name: name, Optional: optional, Nillable: nillable}
+	f.Type = &field.TypeInfo{Type: field.TypeString}
+	ann := FieldAnnotation{FIQLOps: ops}
+	f.Annotations = map[string]interface{}{ann.Name(): ann}
+	return f
+}
+
+func TestFieldFIQLAnnotation_NullOnNonOptional(t *testing.T) {
+	t.Run("IsNull on non-optional non-nillable field is a codegen error", func(t *testing.T) {
+		f := fieldWithFIQLOps("name", false, false, EQ, IsNull)
+		ops, err := fieldFIQLAnnotationFn(f)
+		require.Error(t, err)
+		assert.Nil(t, ops)
+		assert.Contains(t, err.Error(), "requires Optional() or Nillable()")
+		assert.Contains(t, err.Error(), "name")
+	})
+
+	t.Run("NotNull on non-optional non-nillable field is a codegen error", func(t *testing.T) {
+		f := fieldWithFIQLOps("name", false, false, NotNull)
+		_, err := fieldFIQLAnnotationFn(f)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "requires Optional() or Nillable()")
+	})
+
+	t.Run("IsNull on Optional() field is allowed", func(t *testing.T) {
+		f := fieldWithFIQLOps("bio", true, false, IsNull, NotNull)
+		ops, err := fieldFIQLAnnotationFn(f)
+		require.NoError(t, err)
+		assert.Equal(t, []string{string(IsNull), string(NotNull)}, ops)
+	})
+
+	t.Run("IsNull on Nillable() field is allowed", func(t *testing.T) {
+		f := fieldWithFIQLOps("bio", false, true, IsNull)
+		_, err := fieldFIQLAnnotationFn(f)
+		require.NoError(t, err)
+	})
+
+	t.Run("non-null ops on non-optional field stay allowed", func(t *testing.T) {
+		f := fieldWithFIQLOps("name", false, false, EQ, NEQ, Contains)
+		ops, err := fieldFIQLAnnotationFn(f)
+		require.NoError(t, err)
+		assert.Len(t, ops, 3)
 	})
 }

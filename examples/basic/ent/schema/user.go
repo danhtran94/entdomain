@@ -36,7 +36,8 @@ func (User) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").
 			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ, entdomain.Contains))),
-		field.String("bio").Optional(),
+		field.String("bio").Optional().
+			Annotations(entdomain.Field(entdomain.FIQL(entdomain.IsNull, entdomain.NotNull))),
 		field.Enum("status").Values("active", "inactive").Default("active").
 			Annotations(entdomain.Field(entdomain.FIQL(entdomain.EQ, entdomain.NEQ, entdomain.In, entdomain.NotIn))),
 		field.Time("created_at").Default(time.Now).Immutable().

@@ -49,6 +49,12 @@ var {{ $n.Name }}FIQLFields = entdomain.FIQLFields[predicate.{{ $n.Name }}]{
             {{- end }}
         },
         {{- end }}
+        {{- if isOp "IsNull" $op }}
+        IsNil: {{ lower $n.Name }}.{{ $f.StructField }}IsNil,
+        {{- end }}
+        {{- if isOp "NotNull" $op }}
+        NotNil: {{ lower $n.Name }}.{{ $f.StructField }}NotNil,
+        {{- end }}
         {{- end }}
     },
     {{- else }}
@@ -83,6 +89,12 @@ var {{ $n.Name }}FIQLFields = entdomain.FIQLFields[predicate.{{ $n.Name }}]{
         {{- end }}
         {{- if isOp "NotIn" $op }}
         NotIn: {{ lower $n.Name }}.{{ $f.StructField }}NotIn,
+        {{- end }}
+        {{- if isOp "IsNull" $op }}
+        IsNil: {{ lower $n.Name }}.{{ $f.StructField }}IsNil,
+        {{- end }}
+        {{- if isOp "NotNull" $op }}
+        NotNil: {{ lower $n.Name }}.{{ $f.StructField }}NotNil,
         {{- end }}
         {{- end }}
     },

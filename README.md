@@ -361,10 +361,34 @@ func (User) Fields() []ent.Field {
 | `HasPrefix` | `=prefix=` | string |
 | `In` | `=in=` | string, int, float, enum, uuid (value syntax: `field=in=(a,b,c)`) |
 | `NotIn` | `=out=` | string, int, float, enum, uuid (value syntax: `field=out=(a,b,c)`) |
+| `IsNull` | `=is=null` | every field — but **only when annotated** AND `Optional()` / `Nillable()` |
+| `NotNull` | `=is=notnull` | every field — but **only when annotated** AND `Optional()` / `Nillable()` |
 
 UUID values are parsed via `uuid.Parse` from `github.com/google/uuid` — accepts canonical 36-char hyphenated form, braced (`{...}`), `urn:uuid:...`, and 32-char hex without hyphens.
 
 Logical: `;` = AND, `,` = OR, `(` `)` = grouping. AND binds tighter than OR (standard FIQL precedence).
+
+### Filtering by nullness
+
+The `=is=` operator translates to SQL `IS NULL` / `IS NOT NULL`. Required because chained NEQ (`bio!=foo;bio!=bar`) doesn't substitute — SQL three-valued logic excludes NULL rows from any NEQ comparison.
+
+The field must be `Optional()` or `Nillable()` (ent only generates `XxxIsNil` / `XxxNotNil` predicate methods for those). Annotating a non-optional field with `IsNull` / `NotNull` is a hard codegen error naming the field.
+
+```go
+field.String("bio").Optional().
+    Annotations(entdomain.Field(entdomain.FIQL(
+        entdomain.IsNull,
+        entdomain.NotNull,
+    ))),
+```
+
+```text
+GET /users?filter=bio=is=null         → WHERE bio IS NULL
+GET /users?filter=bio=is=notnull      → WHERE bio IS NOT NULL
+GET /users?filter=name==john,bio=is=null  → WHERE name = ? OR bio IS NULL
+```
+
+Each direction gates independently — annotating only `IsNull` allows `bio=is=null` and rejects `bio=is=notnull` with the standard "operator not allowed" error.
 
 ### Generated Code (`ent/fiql.go`)
 
@@ -374,6 +398,7 @@ Logical: `;` = AND, `,` = OR, `(` `)` = grouping. AND binds tighter than OR (sta
 var UserFIQLFields = entdomain.FIQLFields[predicate.User]{
     "name":       entdomain.FIQLString[predicate.User]{EQ: user.NameEQ, NEQ: user.NameNEQ, Contains: user.NameContains},
     "score":      entdomain.FIQLInt[predicate.User]{EQ: user.ScoreEQ, GT: user.ScoreGT, LT: user.ScoreLT, GTE: user.ScoreGTE, LTE: user.ScoreLTE, In: user.ScoreIn, NotIn: user.ScoreNotIn},
+    "bio":        entdomain.FIQLString[predicate.User]{IsNil: user.BioIsNil, NotNil: user.BioNotNil},
     "status":     entdomain.FIQLEnum[predicate.User]{
         EQ:  map[string]predicate.User{"active": user.StatusEQ(user.StatusActive), "inactive": user.StatusEQ(user.StatusInactive)},
         NEQ: map[string]predicate.User{"active": user.StatusNEQ(user.StatusActive), "inactive": user.StatusNEQ(user.StatusInactive)},
@@ -436,6 +461,7 @@ Two extension points have a single source of truth:
 
 - **UUID fields with custom `GoType(...)`** — only the canonical `github.com/google/uuid.UUID` type is wired. The codegen explicitly checks `f.Type.RType` and skips any other GoType, so a custom UUID field is omitted from the FIQL registry rather than producing a signature-mismatched generated file. The proto generator inherits the same gate; skipped fields surface in `proto/entpb/.entdomain.skipped.json`.
 - **`=in=` / `=out=` constraints** — bool and time fields don't support set membership (`=in=(true,false)` is meaningless; time uses range operators). Maximum 100 values per list. Values containing `,` or `)` cannot be used in lists — chain `==` / `!=` for those.
+- **`=is=null` / `=is=notnull` constraints** — only valid on fields declared `Optional()` or `Nillable()` (ent emits the underlying `XxxIsNil` / `XxxNotNil` predicates only there). Annotating a required field with `IsNull` / `NotNull` is a codegen error naming the field. The value vocabulary is strict — `=is=nil`, `=is=empty`, `=is=present` all return `unknown =is= value`. There is no implicit `""` → null conversion: `bio==` is rejected as empty-value; if you need "empty string OR null" use `bio==,bio=is=null`. SQL three-valued logic still applies — `bio!=foo` excludes NULL bio rows.
 - **Time values** — must be RFC3339 format (`2006-01-02T15:04:05Z07:00`).
 - **Nesting depth** — maximum 50 levels; deeper expressions return `"maximum nesting depth exceeded"`.
 - **Edge fields** — cross-entity filtering (e.g. `owner.name==john`) is out of scope.

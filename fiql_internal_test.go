@@ -17,7 +17,9 @@ package entdomain
 import (
 	"testing"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestOpRegistryCovered guards against drift between the FIQLOp constant
@@ -26,7 +28,7 @@ import (
 //
 // Adding a new FIQLOp constant without an opByName entry fails this test.
 func TestOpRegistryCovered(t *testing.T) {
-	wantOps := []FIQLOp{EQ, NEQ, GT, LT, GTE, LTE, Contains, HasPrefix, In, NotIn}
+	wantOps := []FIQLOp{EQ, NEQ, GT, LT, GTE, LTE, Contains, HasPrefix, In, NotIn, IsNull, NotNull}
 	for _, op := range wantOps {
 		t.Run(string(op), func(t *testing.T) {
 			found := false
@@ -49,6 +51,32 @@ func TestOpRegistryCovered(t *testing.T) {
 	for name, op := range opByName {
 		assert.True(t, wantSet[op], "opByName[%q] = %q has no matching FIQLOp constant — remove the stale entry or add the constant to wantOps", name, op)
 	}
+}
+
+// internalTestPred is a Predicate-satisfying type for internal tests.
+type internalTestPred func(*sql.Selector)
+
+// TestApplyNullTyped_RejectsIsOp guards the contract that the parser-internal
+// Is op is normalized to IsNull/NotNull before reaching apply. If a future
+// caller routes Is into applyNullTyped (via apply or directly), the helper
+// returns the explicit "not supported" error rather than silently degrading.
+func TestApplyNullTyped_RejectsIsOp(t *testing.T) {
+	// Outer-layer guard: FIQLString.apply has no case for Is — falls through
+	// to the default "not allowed on string field" branch.
+	f := FIQLString[internalTestPred]{
+		IsNil: func() internalTestPred { return func(*sql.Selector) {} },
+	}
+	_, err := f.apply(Is, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `not allowed on string field`)
+
+	// Inner-layer guard: applyNullTyped explicitly rejects ops that aren't
+	// IsNull or NotNull. Catches the case where a future caller routes Is
+	// directly into the helper bypassing the per-type apply.
+	zeroFn := func() internalTestPred { return func(*sql.Selector) {} }
+	_, err = applyNullTyped(Is, zeroFn, zeroFn, "string")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `not supported by applyNullTyped`)
 }
 
 func TestIsOpFn(t *testing.T) {

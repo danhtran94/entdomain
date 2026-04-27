@@ -16,6 +16,10 @@ var UserFIQLFields = entdomain.FIQLFields[predicate.User]{
 		NEQ:      user.NameNEQ,
 		Contains: user.NameContains,
 	},
+	"bio": entdomain.FIQLString[predicate.User]{
+		IsNil:  user.BioIsNil,
+		NotNil: user.BioNotNil,
+	},
 	"status": entdomain.FIQLEnum[predicate.User]{
 		EQ: map[string]predicate.User{
 			"active":   user.StatusEQ(user.StatusActive),
