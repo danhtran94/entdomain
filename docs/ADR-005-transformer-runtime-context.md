@@ -121,6 +121,8 @@ ApplyDomainCreate(ctx context.Context, client *ent.Client, opts ...ApplyOption) 
 | Type safety | Full | Lost (any/string) | Full | Full | Full |
 | API change scope | None | Per-call option | Per-call option | Per-field signature | ApplyDomain* signature |
 
+> Why Option 2 is "Indirect" while Option 3 is "Closure-captured": both options technically allow a caller to capture state in a closure, but only Option 3 (Typed override) explicitly designs for it — its description names "Ctx captured in closure at the call site" as the supported pattern. Option 2's signature (`fn func(any) (any, error)`) makes no statement about ctx; any closure capture there is ad-hoc and undocumented, so the table records it as Indirect rather than as a real capability.
+
 ## Decision
 
 **Adopt option 5.** Transformer signatures become:
