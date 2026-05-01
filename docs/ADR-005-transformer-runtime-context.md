@@ -303,3 +303,5 @@ Go's compiler enforces completeness — nothing can be silently missed.
 ### No runtime migration
 
 The change is entirely compile-time. No data migration, no schema change, no coordinated deploy required.
+
+## History

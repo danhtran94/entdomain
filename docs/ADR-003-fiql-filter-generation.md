@@ -285,3 +285,5 @@ invalid value "abc" for field "age" (int): strconv.Atoi: parsing "abc": invalid 
 - **Time values**: must be RFC3339 (`2006-01-02T15:04:05Z07:00`); `time.Parse` error surfaces as `"invalid time value"`
 - **Enum maps**: pre-built at generation time — `map[string]predicate.Entity{"active": user.StatusEQ(user.StatusActive), ...}` — no runtime string→enum lookup
 - **Table-qualified columns**: ent predicates produce `` `tablename`.`column` `` qualified names when a table is set on the selector (typical in multi-table queries)
+
+## History

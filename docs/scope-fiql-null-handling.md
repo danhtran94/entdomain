@@ -118,3 +118,14 @@ for the basic example's `bio` field (optional). The blocker is two missing piece
 - **README's Operator Constants table is getting busy.** Eleven rows after this addition (EQ, NEQ, GT, LT, GTE, LTE, Contains, HasPrefix, In, NotIn, IsNull, NotNull = twelve). *Mitigation:* split the table into "comparison ops" / "set ops" / "nullness ops" subsections if the user finds it noisy on review; otherwise the single sortable table is fine.
 
 - **Living list** — update during implementation as new failure modes surface.
+
+
+| Ticket    | Title                                           | Created    | Status   |
+|-----------|-------------------------------------------------|------------|----------|
+| (initial) | FIQL null handling (`=is=null` / `=is=notnull`) | 2026-04-19 | Accepted |
+
+## History
+
+| Ticket    | Title                                           | Created    | Status   |
+|-----------|-------------------------------------------------|------------|----------|
+| (initial) | FIQL null handling (`=is=null` / `=is=notnull`) | 2026-04-19 | Accepted |

@@ -5,7 +5,7 @@
 | Status     | Done                                                   |
 | Created    | 2026-04-19                                             |
 | Assignee   | danhtran94                                             |
-| Source     | [scope-fiql-set-membership](../docs/scope-fiql-set-membership.md) |
+| Source     | docs/scope-fiql-set-membership.md |
 | Blocked by | —                                                      |
 
 ## Goal

@@ -600,3 +600,5 @@ func (r *UserRepo) DeactivateAll(ctx context.Context) error {
 - Repository interface generation (managed manually by developers)
 - Nested edge create/update in mapper (owned by repository adapter layer)
 - Use case / service layer generation
+
+## History
