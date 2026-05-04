@@ -83,3 +83,14 @@ The blocker isn't ent — `user.NameIn(vs ...string)` and `user.NameNotIn(...)` 
 - **Different SQL plans for enum `=in=` (OR-of-EQ) vs. typed `=in=` (`IN (...)`)** could surprise reviewers expecting symmetry. *Mitigation:* document the difference in the README's FIQL section; performance is equivalent on every supported DB engine (the planner collapses OR-of-EQ-on-same-column to an IN scan), so this is purely cosmetic in the generated SQL.
 
 - **Living list** — update during implementation as new failure modes surface.
+
+
+| Ticket    | Title                                  | Created    | Status   |
+|-----------|----------------------------------------|------------|----------|
+| (initial) | FIQL set membership (`=in=` / `=out=`) | 2026-04-19 | Accepted |
+
+## History
+
+| Ticket    | Title                                  | Created    | Status   |
+|-----------|----------------------------------------|------------|----------|
+| (initial) | FIQL set membership (`=in=` / `=out=`) | 2026-04-19 | Accepted |

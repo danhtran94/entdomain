@@ -5,7 +5,7 @@
 | Status     | Done                                                   |
 | Created    | 2026-04-19                                             |
 | Assignee   | danhtran94                                             |
-| Source     | [scope-codegen-field-kind-consolidation](../docs/scope-codegen-field-kind-consolidation.md) |
+| Source     | docs/scope-codegen-field-kind-consolidation.md |
 | Blocked by | —                                                      |
 
 ## Goal

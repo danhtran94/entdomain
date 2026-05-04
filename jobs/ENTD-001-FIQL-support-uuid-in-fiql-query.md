@@ -5,7 +5,7 @@
 | Status     | Done                                                   |
 | Created    | 2026-04-19                                             |
 | Assignee   | danhtran94                                             |
-| Source     | [scope-support-uuid-in-fiql-query](../docs/scope-support-uuid-in-fiql-query.md) |
+| Source     | docs/scope-support-uuid-in-fiql-query.md |
 | Blocked by | —                                                      |
 
 ## Goal

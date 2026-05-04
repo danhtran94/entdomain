@@ -551,3 +551,5 @@ func ProtoStructToMap(s *structpb.Struct) map[string]any
 - Proto2 syntax
 - `google.protobuf.Any` auto-mapping
 - Streaming RPC support
+
+## History

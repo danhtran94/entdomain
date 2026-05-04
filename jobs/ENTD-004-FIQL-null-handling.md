@@ -5,7 +5,7 @@
 | Status     | Done                                                   |
 | Created    | 2026-04-19                                             |
 | Assignee   | danhtran94                                             |
-| Source     | [scope-fiql-null-handling](../docs/scope-fiql-null-handling.md) |
+| Source     | docs/scope-fiql-null-handling.md |
 | Blocked by | —                                                      |
 
 ## Goal

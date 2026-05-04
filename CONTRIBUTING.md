@@ -81,6 +81,64 @@ When adding a new template:
 
 This split is documented in the package comment of `template.go`. See ADR-001 for the rationale behind ent's template plugin integration.
 
+## Available harness commands
+
+<!-- harness:subcommand-matrix start -->
+| Command | Purpose |
+|---|---|
+| `harness validate-plan` | check approved plan doc exists before writing code |
+| `harness validate-pr-checklist` | run full PR checklist before pushing |
+| `harness validate-commit-checklist` | fast shape checks at commit (HARNESS_COMMIT_LEVEL=light|full) |
+| `harness validate-doc-filename` | check that a jobs/ or docs/ filename matches the convention |
+| `harness validate-docs` | warn on doc-sentinel drift |
+| `harness hook-filename` | PreToolUse hook: filename check via stdin JSON |
+| `harness hook-postbuild` | PostToolUse hook: scoped build dispatch |
+| `harness hook-bash` | PreToolUse hook: git commit/push dispatch |
+| `harness hook-plan` | PreToolUse hook: block Write/Edit until approved plan doc exists |
+| `harness doctor` | drift detector — installed state vs source tree |
+| `harness lint-version` | check golangci-lint version pin |
+<!-- harness:subcommand-matrix end -->
+
+## Enforcement model
+
+<!-- harness:enforcement-matrix start -->
+| Check | Trigger | Type |
+|---|---|---|
+| Approved plan doc exists | every Write/Edit | hard block |
+| File mentioned in active job doc | every Write/Edit | warn |
+| Filename convention (jobs/, docs/) | every Write/Edit | hard block |
+| Scoped package build (Go files) | every Write/Edit | hard block |
+| `make gen` when edit matches a trigger | every Write/Edit | hard block |
+| Filename convention sweep | git commit | hard block |
+| Status ↔ task distribution binding | git commit | hard block |
+| Deferred rows carry `— <reason>` | git commit | hard block |
+| Full PR checklist (`HARNESS_COMMIT_LEVEL=full`) | git commit | hard block |
+| `golangci-lint` installed (Go repos) | git push | hard block |
+| `golangci-lint` version pin (`HARNESS_LINT_VERSION`) | git push | hard block |
+| `make gen` output in sync with git | git push | hard block |
+| No TODO/FIXME markers in changed files | git push | hard block |
+| Full-module `go build ./...` per module root | git push | hard block |
+| Filename convention sweep | git push | hard block |
+| Status ↔ task distribution binding | git push | hard block |
+| No `[ ]` tasks remaining in approved job doc | git push | hard block |
+| Deferred rows carry `— <reason>` | git push | hard block |
+| Discoveries recorded in Done job doc | git push | warn |
+| Doc sentinel drift (`validate-docs`) | git push | warn |
+| Drift detector (`harness doctor`) | manual | info |
+<!-- harness:enforcement-matrix end -->
+
+## File ownership
+
+<!-- harness:ownership-table start -->
+| Path | Owner | Upgrade behavior |
+|---|---|---|
+| `.claude/settings.json` (`hooks` key) | harness | merge hooks key; prior hooks content → `settings.json.bk`; other keys preserved |
+| `.claude/CLAUDE.md` | user | preserve (stack, make targets, repo context) |
+| `.claude/harness.json` | user | preserve (prefix, gen_triggers) |
+| `.claude/settings.local.json` | user | preserve if present |
+| `.golangci.yml` | split | warn-only; manual merge from source if changed |
+<!-- harness:ownership-table end -->
+
 ## Testing
 
 ```sh

@@ -64,3 +64,14 @@ The underlying technical reason is real: ent's UUID predicates take `uuid.UUID`,
 - **ent UUID fields with custom `GoType(...)`.** A schema using `field.UUID("id", customType{})` where `customType` is not `uuid.UUID` will still fall through to silent-skip (out of scope). The generator does not detect this and won't warn. *Mitigation:* accepted limitation — a follow-up scope can add codegen-time detection and a clear "unsupported UUID GoType" diagnostic. Track as a known gap in the job's Discoveries section if encountered.
 
 - **Living list** — update during implementation as new failure modes surface.
+
+
+| Ticket    | Title                        | Created    | Status   |
+|-----------|------------------------------|------------|----------|
+| (initial) | Support UUID in FIQL queries | 2026-04-19 | Accepted |
+
+## History
+
+| Ticket    | Title                        | Created    | Status   |
+|-----------|------------------------------|------------|----------|
+| (initial) | Support UUID in FIQL queries | 2026-04-19 | Accepted |

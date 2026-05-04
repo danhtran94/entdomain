@@ -189,3 +189,5 @@ linters:
 
 <!-- Alternatives moved to ## Options Comparison earlier in the doc to satisfy the discipline schema. -->
 
+
+## History

@@ -89,3 +89,14 @@ A third silent-failure mode lives in `proto_types.go`. `ProtoFieldSpec.IsExclude
 - **`applyListTyped` falling through to `NotIn` for any non-`In` op was a latent caller-bug hazard.** *Mitigation as shipped:* an explicit `switch op { case In, NotIn: default: error }` guards the entry. Future callers cannot silently route the wrong predicate.
 
 - **Living list** — update during implementation as new failure modes surface.
+
+
+| Ticket    | Title                            | Created    | Status   |
+|-----------|----------------------------------|------------|----------|
+| (initial) | codegen field-kind consolidation | 2026-04-19 | Accepted |
+
+## History
+
+| Ticket    | Title                            | Created    | Status   |
+|-----------|----------------------------------|------------|----------|
+| (initial) | codegen field-kind consolidation | 2026-04-19 | Accepted |
