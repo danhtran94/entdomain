@@ -1,14 +1,34 @@
 name: Trigger CodeRabbit review on bot PRs
 
-# CodeRabbit skips bot-authored PRs (renovate[bot], dependabot[bot]) by default;
-# the skip is hardcoded server-side and not overridable via .coderabbit.yaml.
-# This workflow posts a `@coderabbitai review` comment on bot PRs so they get
-# reviewed anyway — important for dependency updates where supply-chain risk
-# benefits from a second pair of eyes.
+# DISABLED — preserved as a reference pattern, not as a working trigger.
+#
+# Intent: CodeRabbit skips bot-authored PRs (renovate[bot], dependabot[bot]) by
+# default; the skip is hardcoded server-side and not overridable via
+# .coderabbit.yaml. This workflow posted a `@coderabbitai review` comment on bot
+# PRs so they got reviewed anyway — valuable for dependency updates where
+# supply-chain risk benefits from a second pair of eyes.
+#
+# Why it never worked: CodeRabbit ignores commands issued by bot accounts (loop
+# prevention). Comments created with GITHUB_TOKEN are authored by
+# `github-actions[bot]`, so every ping this workflow posted was dropped. Measured
+# across all 11 bot PRs from 2026-04-30 to 2026-07-25:
+#
+#   github-actions[bot] posts `@coderabbitai review`  ->  0/11 responses
+#   danhtran94 posts the same comment by hand         ->  11/11, within 4-11s
+#
+# Reviving it requires the comment to come from a non-bot identity: swap
+# GITHUB_TOKEN for a fine-grained PAT (repo-scoped, `pull-requests: write`) held
+# as a repo secret, and pass it to github-script via `github-token`. Until then
+# the trigger is manual — comment `@coderabbitai review` on the PR yourself.
+#
+# The `pull_request_target` trigger is deliberately removed rather than left
+# guarded: it grants a base-repo write token in the context of an external PR,
+# and carrying that surface for a no-op is not worth it. `workflow_dispatch`
+# keeps the file valid without any automatic entry point. The `if:` guard below
+# evaluates false under dispatch, so the job stays inert by design.
 
 on:
-  pull_request_target:
-    types: [opened, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   pull-requests: write
