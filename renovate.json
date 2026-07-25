@@ -12,5 +12,15 @@
     }
   ],
   "timezone": "Asia/Ho_Chi_Minh",
-  "schedule": ["after 0:00 before 1:00"]
+  "description": [
+    "schedule was [\"after 0:00 before 1:00\"] — a 1-hour daily window.",
+    "The hosted Renovate app runs every 3-4 hours, so a window narrower",
+    "than that cycle gets missed on most passes. It silently produced zero",
+    "PRs between 2026-05-24 and 2026-07-25 while codeql-action digests kept",
+    "moving; the dashboard still read 'no pending branches' the whole time.",
+    "Renovate docs warn against windows this narrow. Restore a window of at",
+    "least 4 hours (e.g. 'after 0:00 before 6:00') rather than the old value",
+    "if PR volume needs pacing again."
+  ],
+  "schedule": ["at any time"]
 }
