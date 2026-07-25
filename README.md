@@ -5,7 +5,6 @@
 [![Security](https://github.com/danhtran94/entdomain/actions/workflows/security.yml/badge.svg)](https://github.com/danhtran94/entdomain/actions/workflows/security.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/danhtran94/entdomain/badge)](https://scorecard.dev/viewer/?uri=github.com/danhtran94/entdomain)
 [![Go Reference](https://pkg.go.dev/badge/github.com/danhtran94/entdomain.svg)](https://pkg.go.dev/github.com/danhtran94/entdomain)
-[![Go Report Card](https://goreportcard.com/badge/github.com/danhtran94/entdomain)](https://goreportcard.com/report/github.com/danhtran94/entdomain)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 An [ent](https://entgo.io/ent) extension that generates a pure Go domain layer from your ent schema — with zero ORM dependency in the domain package.
