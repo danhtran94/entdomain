@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/danhtran94/entdomain"
+
 	domain "github.com/danhtran94/entdomain/examples/basic/domain"
 	"github.com/danhtran94/entdomain/examples/basic/ent/user"
 )
