@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"github.com/danhtran94/entdomain"
+
 	domain "github.com/danhtran94/entdomain/examples/custom/internal/domain"
 )
 
