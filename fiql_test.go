@@ -1030,6 +1030,9 @@ func TestToFIQLRoundTrip(t *testing.T) {
 		"bio=is=notnull",
 		"x==1;(y==2,z==3);w==4",
 		"name=like=jo",
+		// ';' is not a terminator inside a parenthesised list, so the parser
+		// accepts it as an operand and the serializer must accept it back.
+		"ids=in=(a;b,c)",
 	} {
 		t.Run(expr, func(t *testing.T) {
 			node, err := entdomain.ParseFIQLExpr(expr)
@@ -1182,4 +1185,99 @@ func TestToFIQLAuthzInjectionRenders(t *testing.T) {
 	again, err := entdomain.ToFIQL(back)
 	require.NoError(t, err)
 	assert.Equal(t, out, again, "the injected scope must survive a parse/render cycle")
+}
+
+// TestToFIQLCanonicalNotByteExact pins what ToFIQL actually promises. The AST
+// does not record redundant grouping and WalkFIQL collapses a compound left
+// with one child, so byte-identity holds only for canonical input. The real
+// guarantee is that the output parses back to the same predicate and that
+// rendering is idempotent from the first pass onward.
+func TestToFIQLCanonicalNotByteExact(t *testing.T) {
+	cases := []struct{ src, canonical string }{
+		{"((a==1))", "a==1"},
+		{"(a==1)", "a==1"},
+		{"(a==1;b==2)", "a==1;b==2"},
+		{"((a==1,b==2));c==3", "(a==1,b==2);c==3"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.src, func(t *testing.T) {
+			node, err := entdomain.ParseFIQLExpr(tc.src)
+			require.NoError(t, err)
+
+			out, err := entdomain.ToFIQL(node)
+			require.NoError(t, err)
+			assert.Equal(t, tc.canonical, out)
+
+			// Idempotent from the first pass onward.
+			again, err := entdomain.ParseFIQLExpr(out)
+			require.NoError(t, err)
+			out2, err := entdomain.ToFIQL(again)
+			require.NoError(t, err)
+			assert.Equal(t, out, out2)
+		})
+	}
+
+	t.Run("WalkFIQL collapsing a compound renders as the surviving child", func(t *testing.T) {
+		node, err := entdomain.ParseFIQLExpr("name==john;age=gt=25")
+		require.NoError(t, err)
+
+		node, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+			if c.Field == "name" {
+				return nil, nil
+			}
+			return c, nil
+		})
+		require.NoError(t, err)
+
+		out, err := entdomain.ToFIQL(node)
+		require.NoError(t, err)
+		assert.Equal(t, "age=gt=25", out, "a one-child FIQLAnd renders as that child, not as a wrapped group")
+	})
+}
+
+// TestFIQLTypedNilNodes covers typed-nil node pointers. A type switch matches
+// (*FIQLCmp)(nil) on its concrete case rather than on `case nil`, so every
+// traversal needs an explicit guard or the next field access panics.
+func TestFIQLTypedNilNodes(t *testing.T) {
+	var (
+		nilCmp *entdomain.FIQLCmp
+		nilAnd *entdomain.FIQLAnd
+		nilOr  *entdomain.FIQLOr
+	)
+	for _, tc := range []struct {
+		name string
+		node entdomain.FIQLNode
+	}{
+		{"*FIQLCmp", nilCmp},
+		{"*FIQLAnd", nilAnd},
+		{"*FIQLOr", nilOr},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := entdomain.ToFIQL(tc.node)
+			assert.Error(t, err, "ToFIQL must reject a typed-nil node")
+
+			_, err = entdomain.CompileFIQL(tc.node, astTestFields())
+			assert.Error(t, err, "CompileFIQL must reject a typed-nil node")
+
+			_, err = entdomain.WalkFIQL(tc.node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+				return c, nil
+			})
+			assert.Error(t, err, "WalkFIQL must reject a typed-nil node")
+
+			assert.NotPanics(t, func() {
+				assert.Empty(t, entdomain.FindFIQL(tc.node, "name"))
+			}, "FindFIQL has no error channel and must skip a typed-nil node")
+		})
+	}
+
+	t.Run("typed-nil nested inside a compound", func(t *testing.T) {
+		node := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "john"},
+			nilCmp,
+		}}
+		_, err := entdomain.ToFIQL(node)
+		assert.Error(t, err)
+		_, err = entdomain.CompileFIQL(node, astTestFields())
+		assert.Error(t, err)
+	})
 }

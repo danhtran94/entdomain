@@ -16,6 +16,7 @@
 package entdomain
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -321,8 +322,14 @@ func WalkFIQL(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) (FIQLNode, error)
 	case nil:
 		return nil, nil
 	case *FIQLCmp:
+		if v == nil {
+			return nil, errNilFIQLNode
+		}
 		return fn(copyCmp(v))
 	case *FIQLAnd:
+		if v == nil {
+			return nil, errNilFIQLNode
+		}
 		kids, err := walkChildren(v.Nodes, fn)
 		if err != nil {
 			return nil, err
@@ -336,6 +343,9 @@ func WalkFIQL(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) (FIQLNode, error)
 			return &FIQLAnd{Nodes: kids}, nil
 		}
 	case *FIQLOr:
+		if v == nil {
+			return nil, errNilFIQLNode
+		}
 		kids, err := walkChildren(v.Nodes, fn)
 		if err != nil {
 			return nil, err
@@ -386,14 +396,23 @@ func FindFIQL(n FIQLNode, field string) []*FIQLCmp {
 func collectCmp(n FIQLNode, field string, out *[]*FIQLCmp) {
 	switch v := n.(type) {
 	case *FIQLCmp:
+		if v == nil {
+			return
+		}
 		if v.Field == field {
 			*out = append(*out, copyCmp(v))
 		}
 	case *FIQLAnd:
+		if v == nil {
+			return
+		}
 		for _, child := range v.Nodes {
 			collectCmp(child, field, out)
 		}
 	case *FIQLOr:
+		if v == nil {
+			return
+		}
 		for _, child := range v.Nodes {
 			collectCmp(child, field, out)
 		}
@@ -418,12 +437,30 @@ func copyCmp(c *FIQLCmp) *FIQLCmp {
 // three, so a value such as "foo(bar" round-trips unharmed.
 const fiqlReservedInValue = ";,)"
 
+// fiqlReservedInListValue is the reserved set for an operand inside an
+// =in= / =out= list. It is narrower than fiqlReservedInValue: readListValue
+// scans to the closing paren without treating ';' as a terminator, so
+// ids=in=(a;b,c) parses to the operands ["a;b", "c"] and must render back.
+// Only the element separator and the list terminator are special here.
+const fiqlReservedInListValue = ",)"
+
+// errNilFIQLNode is returned when a typed-nil node pointer reaches a
+// traversal. A type switch matches *FIQLCmp(nil) on its concrete case rather
+// than on `case nil`, so without this guard the next field access panics.
+var errNilFIQLNode = errors.New("nil FIQL node")
+
 // ToFIQL renders a FIQL AST back to its wire form. Use it to audit-log the
 // expression a query actually ran on after WalkFIQL rewrote it, to build a
 // cache key, or to forward a scoped filter to another service.
 //
-// Rendering is exact for any tree that came from ParseFIQLExpr: parentheses
-// are re-inserted only where an FIQLOr sits inside an FIQLAnd, which is the
+// Rendering is canonical, not byte-exact. The AST does not record redundant
+// grouping, so "((a==1))" parses to a bare comparison and renders as "a==1";
+// WalkFIQL likewise collapses a compound left with a single surviving child.
+// What ToFIQL guarantees is semantic: the output parses back to a tree that
+// compiles to the same predicate, and rendering is idempotent from the first
+// pass onward. Input already in canonical form renders byte-identical.
+//
+// Parentheses are emitted only where an FIQLOr sits inside an FIQLAnd, the
 // single place precedence would otherwise change the meaning.
 //
 // ToFIQL returns an error instead of emitting text that would parse back into
@@ -445,6 +482,9 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 	case nil:
 		return fmt.Errorf("empty FIQL expression")
 	case *FIQLAnd:
+		if v == nil {
+			return errNilFIQLNode
+		}
 		if len(v.Nodes) == 0 {
 			return fmt.Errorf("cannot render an FIQLAnd with no children")
 		}
@@ -467,6 +507,9 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 		}
 		return nil
 	case *FIQLOr:
+		if v == nil {
+			return errNilFIQLNode
+		}
 		if len(v.Nodes) == 0 {
 			return fmt.Errorf("cannot render an FIQLOr with no children")
 		}
@@ -480,6 +523,9 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 		}
 		return nil
 	case *FIQLCmp:
+		if v == nil {
+			return errNilFIQLNode
+		}
 		return writeFIQLCmp(sb, v)
 	default:
 		return fmt.Errorf("unknown FIQL node type %T", n)
@@ -507,7 +553,7 @@ func writeFIQLCmp(sb *strings.Builder, c *FIQLCmp) error {
 			return fmt.Errorf("field %q: operator %q has no values to render", c.Field, c.Op)
 		}
 		for _, val := range c.Values {
-			if err := checkFIQLValue(c.Field, val); err != nil {
+			if err := checkFIQLListValue(c.Field, val); err != nil {
 				return err
 			}
 		}
@@ -540,6 +586,18 @@ func checkFIQLValue(field, val string) error {
 		return fmt.Errorf("field %q: empty value cannot be rendered as FIQL", field)
 	}
 	if i := strings.IndexAny(val, fiqlReservedInValue); i >= 0 {
+		return fmt.Errorf("field %q: value %q contains reserved character %q, which FIQL cannot escape", field, val, string(val[i]))
+	}
+	return nil
+}
+
+// checkFIQLListValue rejects operands an =in= / =out= list cannot carry back.
+// ';' is deliberately absent from the rejected set — see fiqlReservedInListValue.
+func checkFIQLListValue(field, val string) error {
+	if val == "" {
+		return fmt.Errorf("field %q: empty value cannot be rendered as FIQL", field)
+	}
+	if i := strings.IndexAny(val, fiqlReservedInListValue); i >= 0 {
 		return fmt.Errorf("field %q: value %q contains reserved character %q, which FIQL cannot escape", field, val, string(val[i]))
 	}
 	return nil

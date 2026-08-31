@@ -549,18 +549,27 @@ func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
 	case nil:
 		return zero, fmt.Errorf("empty FIQL expression")
 	case *FIQLAnd:
+		if v == nil {
+			return zero, errNilFIQLNode
+		}
 		preds, err := compileChildren(v.Nodes, fields)
 		if err != nil {
 			return zero, err
 		}
 		return andPreds(preds...), nil
 	case *FIQLOr:
+		if v == nil {
+			return zero, errNilFIQLNode
+		}
 		preds, err := compileChildren(v.Nodes, fields)
 		if err != nil {
 			return zero, err
 		}
 		return orPreds(preds...), nil
 	case *FIQLCmp:
+		if v == nil {
+			return zero, errNilFIQLNode
+		}
 		fieldDesc, ok := fields[v.Field]
 		if !ok {
 			return zero, fmt.Errorf("unknown field %q — annotate with entdomain.FIQL(...) to enable", v.Field)

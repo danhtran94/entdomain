@@ -144,3 +144,40 @@ because `;` binds tighter than `,`. Verified against `(a==1,b==2);c==3` and
 `x==1;(y==2,z==3);w==4`, both of which render byte-identical to their source
 despite the parser having dropped and re-derived the grouping.
 
+### [Reviewer] Typed-nil node pointers panicked every traversal
+CodeRabbit flagged it on PR #55 and it reproduced: a type switch matches
+`(*FIQLCmp)(nil)` on its concrete case, not on `case nil`, so `ToFIQL`,
+`CompileFIQL`, and `WalkFIQL` all dereferenced and panicked. The `case nil`
+arm only catches a genuinely nil interface. Fixed with an explicit `v == nil`
+guard per pointer case returning `errNilFIQLNode`; `FindFIQL` skips instead,
+having no error channel. Covered by `TestFIQLTypedNilNodes`, including a
+typed-nil nested inside a compound.
+
+### [Reviewer] "Byte-identical" was an overclaim
+The doc comment and README promised byte-identical rendering for anything that
+came from `ParseFIQLExpr`. False: the AST never records redundant grouping, so
+`((a==1))` renders as `a==1`, and `WalkFIQL` collapses a compound left with one
+child. Reworded to a canonical-semantic guarantee — output reparses to the same
+predicate, rendering is idempotent from the first pass, and byte-identity holds
+only for canonical input. `TestToFIQLCanonicalNotByteExact` pins all four
+shapes plus the walk-collapse case.
+
+### [Reviewer] The serializer was stricter than the parser for list operands
+`readListValue` scans to the closing paren without treating `;` as a
+terminator, so `ids=in=(a;b,c)` parses to operands `["a;b", "c"]` — but
+`checkFIQLValue` rejected `;` and refused to render it back. A tree the parser
+accepted could not round-trip. Split the reserved sets: scalar operands keep
+`;,)`, list operands use `,)` only. Scalar `a;b` is still correctly rejected;
+the list form now round-trips.
+
+### [Reviewer] Two findings rejected, with reasons
+**Future-dated job doc (2026-09-01).** Not a defect. The repo's declared
+timezone is `Asia/Ho_Chi_Minh` (`renovate.json`), where the review timestamp
+`2026-08-31T18:00Z` is already 2026-09-01 01:00. The date is correct locally;
+CodeRabbit compared against UTC.
+
+**MD022 blank lines after headings.** Left as-is. `ENTD-004` uses the same
+heading-then-text form, no markdownlint runs in CI, and CodeRabbit itself rated
+it trivial / low value. Changing only this doc would make it the odd one out
+among six job docs.
+

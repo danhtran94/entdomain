@@ -491,13 +491,24 @@ scoped filter to another service:
 entdomain.ToFIQL(node)    // "ids=in=(id-abc,id-xyz,id-mnz)", nil
 ```
 
-Parentheses are re-derived only where precedence needs them, so anything that
-came from `ParseFIQLExpr` renders byte-identical:
+Rendering is **canonical, not byte-exact**. Parentheses are re-derived only
+where precedence needs them, so an expression already in canonical form comes
+back unchanged:
 
 ```go
 node, _ := entdomain.ParseFIQLExpr("x==1;(y==2,z==3);w==4")
 entdomain.ToFIQL(node)    // "x==1;(y==2,z==3);w==4", nil
 ```
+
+Redundant grouping is not preserved — the AST never recorded it:
+
+```go
+node, _ := entdomain.ParseFIQLExpr("((a==1))")
+entdomain.ToFIQL(node)    // "a==1", nil
+```
+
+The guarantee is semantic: the output parses back to a tree that compiles to
+the same predicate, and rendering is idempotent from the first pass onward.
 
 `ToFIQL` returns an error rather than emitting text that would parse back into
 a different tree. FIQL has no escape syntax, so a value containing `;`, `,`, or
