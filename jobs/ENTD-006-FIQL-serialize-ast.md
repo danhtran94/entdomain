@@ -347,3 +347,26 @@ note on what each actually means — a `ParseFIQLExpr` failure is a syntax fault
 in the caller's input, while a `CompileFIQL` failure means the expression
 parsed but names an unfilterable field, a disallowed operator, or a bad value.
 
+### [Reviewer] A doc comment asserted behaviour the code did not deliver
+`compileChildren` carried the comment "A nil child is rejected rather than
+skipped" — technically true, but it was rejected by `compileNode(nil, ...)`
+returning the *root* contract's `empty FIQL expression`. For a nil child inside
+a populated tree that message points at the wrong fault entirely, and anyone
+debugging a hand-built AST would go looking for a missing expression rather
+than a bad node.
+
+Copilot named `compileChildren`. `writeFIQL` had the identical defect and was
+not mentioned. Fixing only the reported site would have repeated the mistake
+recorded two entries above, so both now route through a shared
+`checkNoNilChildren`, and the root contract stays distinct on purpose:
+
+    CompileFIQL(nil) / ToFIQL(nil)          -> empty FIQL expression
+    CompileFIQL(&FIQLAnd{cmp, nil})         -> nil FIQL node
+    ToFIQL(&FIQLAnd{cmp, nil})              -> nil FIQL node
+    WalkFIQL(&FIQLAnd{cmp, nil}, no-op)     -> nil FIQL node
+
+`TestFIQLNilRootVersusNilChild` pins the two messages apart, and
+`TestWalkFIQLRejectsNilChild` now asserts the exact string on all three paths
+rather than merely that an error occurred — the weaker assertion is what let
+the mismatch survive.
+

@@ -618,7 +618,12 @@ func compileNode[P Predicate](n FIQLNode, fields FIQLFields[P], depth int) (P, e
 // compileChildren compiles every child of an And/Or node. A nil child is
 // rejected rather than skipped: WalkFIQL prunes empty branches on the way
 // out, so a nil surviving into compile means a hand-built tree is malformed.
+// It reports errNilFIQLNode rather than the root's "empty FIQL expression",
+// since the two describe different faults.
 func compileChildren[P Predicate](nodes []FIQLNode, fields FIQLFields[P], depth int) ([]P, error) {
+	if err := checkNoNilChildren(nodes); err != nil {
+		return nil, err
+	}
 	preds := make([]P, 0, len(nodes))
 	for _, child := range nodes {
 		pred, err := compileNode(child, fields, depth)

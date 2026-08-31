@@ -539,6 +539,9 @@ func writeFIQL(sb *strings.Builder, n FIQLNode, depth int) error {
 		if len(v.Nodes) == 0 {
 			return fmt.Errorf("cannot render an FIQLAnd with no children")
 		}
+		if err := checkNoNilChildren(v.Nodes); err != nil {
+			return err
+		}
 		// A one-child compound carries no grouping information: rendering it
 		// as a group would emit parens that the parser then discards, so the
 		// second render would differ from the first and idempotence would
@@ -573,6 +576,9 @@ func writeFIQL(sb *strings.Builder, n FIQLNode, depth int) error {
 		if len(v.Nodes) == 0 {
 			return fmt.Errorf("cannot render an FIQLOr with no children")
 		}
+		if err := checkNoNilChildren(v.Nodes); err != nil {
+			return err
+		}
 		if len(v.Nodes) == 1 {
 			return writeFIQL(sb, v.Nodes[0], depth+1)
 		}
@@ -593,6 +599,21 @@ func writeFIQL(sb *strings.Builder, n FIQLNode, depth int) error {
 	default:
 		return fmt.Errorf("unknown FIQL node type %T", n)
 	}
+}
+
+// checkNoNilChildren rejects a nil entry sitting in a compound's Nodes slice.
+// The root contract stays distinct on purpose: ToFIQL(nil) and CompileFIQL(nil)
+// report an empty expression, because an absent tree is a caller-level state
+// worth naming. A nil *child* inside a populated tree is something else — a
+// malformed node — and reporting it as "empty FIQL expression" sends whoever
+// is debugging a hand-built AST looking in the wrong place.
+func checkNoNilChildren(nodes []FIQLNode) error {
+	for _, child := range nodes {
+		if child == nil {
+			return errNilFIQLNode
+		}
+	}
+	return nil
 }
 
 // effectiveNode follows single-child compounds down to the node that actually

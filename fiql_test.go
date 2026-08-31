@@ -1666,15 +1666,21 @@ func TestWalkFIQLRejectsNilChild(t *testing.T) {
 		{"only a nil child", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{nil}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// All three paths must agree that the tree is malformed.
+			// All three paths must agree that the tree is malformed, and all
+			// three must name the actual fault. Reporting a nil child as
+			// "empty FIQL expression" — the root contract's message — sends
+			// anyone debugging a hand-built AST looking in the wrong place.
 			_, errCompile := entdomain.CompileFIQL(tc.node, fields)
 			require.Error(t, errCompile)
+			assert.Equal(t, "nil FIQL node", errCompile.Error())
 
 			_, errRender := entdomain.ToFIQL(tc.node)
 			require.Error(t, errRender)
+			assert.Equal(t, "nil FIQL node", errRender.Error())
 
 			_, errWalk := entdomain.WalkFIQL(tc.node, noop)
 			require.Error(t, errWalk, "walking must not launder a nil child into an accepted tree")
+			assert.Equal(t, "nil FIQL node", errWalk.Error())
 		})
 	}
 
@@ -1693,5 +1699,35 @@ func TestWalkFIQLRejectsNilChild(t *testing.T) {
 		rendered, err := entdomain.ToFIQL(out)
 		require.NoError(t, err)
 		assert.Equal(t, "age=gt=25", rendered)
+	})
+}
+
+// TestFIQLNilRootVersusNilChild pins the two faults apart. An absent tree is a
+// caller-level state worth naming; a nil child inside a populated tree is a
+// malformed node. Collapsing them into one message costs whoever is debugging
+// a hand-built AST the only clue about where to look.
+func TestFIQLNilRootVersusNilChild(t *testing.T) {
+	fields := astTestFields()
+	cmp := &entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "john"}
+	withNilChild := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{cmp, nil}}
+
+	t.Run("nil root reports an empty expression", func(t *testing.T) {
+		_, err := entdomain.CompileFIQL(nil, fields)
+		require.Error(t, err)
+		assert.Equal(t, "empty FIQL expression", err.Error())
+
+		_, err = entdomain.ToFIQL(nil)
+		require.Error(t, err)
+		assert.Equal(t, "empty FIQL expression", err.Error())
+	})
+
+	t.Run("nil child reports a malformed node", func(t *testing.T) {
+		_, err := entdomain.CompileFIQL(withNilChild, fields)
+		require.Error(t, err)
+		assert.Equal(t, "nil FIQL node", err.Error())
+
+		_, err = entdomain.ToFIQL(withNilChild)
+		require.Error(t, err)
+		assert.Equal(t, "nil FIQL node", err.Error())
 	})
 }
