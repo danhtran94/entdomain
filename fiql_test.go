@@ -1480,3 +1480,111 @@ func TestToFIQLAllowsEmptyListElement(t *testing.T) {
 		assert.Contains(t, err.Error(), "no values to render")
 	})
 }
+
+// TestCompileFIQLRejectsOversizedList mirrors the parser's list bound on the
+// compile path. The bound exists to cap downstream SQL planner cost, so it has
+// to hold wherever a node reaches the predicate helper — and a hand-built or
+// rewritten node never passed through parseInListValue.
+func TestCompileFIQLRejectsOversizedList(t *testing.T) {
+	grown := make([]string, 5000)
+	for i := range grown {
+		grown[i] = fmt.Sprintf("v%d", i)
+	}
+	_, err := entdomain.CompileFIQL(
+		&entdomain.FIQLCmp{Field: "ids", Op: entdomain.In, Values: grown}, astTestFields())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum of 100 entries")
+
+	t.Run("exactly at the bound still compiles", func(t *testing.T) {
+		pred, err := entdomain.CompileFIQL(
+			&entdomain.FIQLCmp{Field: "ids", Op: entdomain.In, Values: grown[:100]}, astTestFields())
+		require.NoError(t, err)
+		assert.Len(t, buildSQLArgs(pred), 100)
+	})
+}
+
+// TestFIQLTraversalsRejectCycles covers a self-referential AST. The exported
+// Nodes slice makes one expressible, the parser's depth limit never sees a
+// hand-built tree, and unbounded recursion on a cycle is a fatal stack
+// overflow that no caller can recover from — so every public traversal counts
+// depth of its own.
+func TestFIQLTraversalsRejectCycles(t *testing.T) {
+	cyclic := &entdomain.FIQLAnd{}
+	cyclic.Nodes = []entdomain.FIQLNode{cyclic}
+
+	t.Run("ToFIQL", func(t *testing.T) {
+		_, err := entdomain.ToFIQL(cyclic)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum nesting depth")
+	})
+	t.Run("CompileFIQL", func(t *testing.T) {
+		_, err := entdomain.CompileFIQL(cyclic, astTestFields())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum nesting depth")
+	})
+	t.Run("WalkFIQL", func(t *testing.T) {
+		_, err := entdomain.WalkFIQL(cyclic, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+			return c, nil
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum nesting depth")
+	})
+	t.Run("FindFIQL stops instead of crashing", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			assert.Empty(t, entdomain.FindFIQL(cyclic, "name"))
+		})
+	})
+
+	t.Run("a legitimately deep tree still works", func(t *testing.T) {
+		var node entdomain.FIQLNode = &entdomain.FIQLCmp{Field: "a", Op: entdomain.EQ, Value: "1"}
+		for i := 0; i < 10; i++ {
+			node = &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+				node,
+				&entdomain.FIQLCmp{Field: "b", Op: entdomain.EQ, Value: "2"},
+			}}
+		}
+		_, err := entdomain.ToFIQL(node)
+		require.NoError(t, err)
+	})
+}
+
+// TestWalkFIQLPruningWidensQuery documents the limit of the prune-to-nil
+// guarantee. Dropping one conjunct produces a strictly broader filter with no
+// error, which is why authorization callbacks must reject terms or inject an
+// independent scope rather than prune.
+func TestWalkFIQLPruningWidensQuery(t *testing.T) {
+	node, err := entdomain.ParseFIQLExpr("org_id==org-42;name==john")
+	require.NoError(t, err)
+
+	widened, err := entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+		if c.Field == "org_id" {
+			return nil, nil
+		}
+		return c, nil
+	})
+	require.NoError(t, err)
+
+	out, err := entdomain.ToFIQL(widened)
+	require.NoError(t, err)
+	assert.Equal(t, "name==john", out, "pruning a conjunct broadens the filter and reports no error")
+
+	t.Run("rejecting the term is the correct authorization shape", func(t *testing.T) {
+		_, err := entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+			if c.Field == "org_id" {
+				return nil, fmt.Errorf("field %q is not filterable by this caller", c.Field)
+			}
+			return c, nil
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("injecting an independent scope is the other correct shape", func(t *testing.T) {
+		scoped := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			node,
+			&entdomain.FIQLCmp{Field: "org_id", Op: entdomain.EQ, Value: "org-42"},
+		}}
+		pred, err := entdomain.CompileFIQL(scoped, astTestFields())
+		require.NoError(t, err)
+		assert.Contains(t, buildSQLArgs(pred), any("org-42"))
+	})
+}

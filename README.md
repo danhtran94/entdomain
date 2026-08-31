@@ -511,8 +511,16 @@ The guarantee is semantic: the output parses back to a tree that compiles to
 the same predicate, and rendering is idempotent from the first pass onward.
 
 `ToFIQL` returns an error rather than emitting text that would parse back into
-a different tree. FIQL has no escape syntax, so a value containing `;`, `,`, or
-`)` — or an empty value — cannot round-trip:
+a different tree. FIQL has no escape syntax, so some operands cannot round-trip.
+The reserved set differs by position, because `;` does not terminate a value
+inside a parenthesised list:
+
+| Operand position | Rejected |
+|---|---|
+| Scalar (`name==v`) | `;` `,` `)`, and the empty string |
+| List element (`ids=in=(v,…)`) | `,` `)` — `;` and the empty string are fine |
+
+So `ids=in=(a;b,c)` renders and round-trips, while `name==a;b` does not:
 
 ```go
 entdomain.ToFIQL(&entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "a,b==c"})
@@ -528,10 +536,17 @@ Two contracts worth knowing:
   in place cannot reach the tree `ParseFIQLExpr` returned. The original stays
   intact for audit logging while the query runs on the rewritten one.
 - **A fully pruned tree compiles to an error, not match-all.**
-  `CompileFIQL(nil, ...)` returns `empty FIQL expression`, so an
-  authorization rewrite that drops every term can never widen the query.
-  Callers that want an empty filter to mean "no restriction" handle that case
-  themselves.
+  `CompileFIQL(nil, ...)` returns `empty FIQL expression`, so a rewrite that
+  drops every term cannot silently become an unfiltered query. Callers that
+  want an empty filter to mean "no restriction" handle that case themselves.
+
+⚠ That last guarantee is narrower than it looks, and authorization code should
+not lean on it. It only covers a *fully* pruned tree. Pruning a single conjunct
+still widens the result — dropping `org_id==x` from `org_id==x;status==active`
+leaves `status==active`, which matches more rows, with no error anywhere. To
+restrict what a caller may filter on, **reject the term** by returning an error
+from the callback, or **add an independent scope** by wrapping the tree in an
+`FIQLAnd`. Do not prune conjuncts.
 
 Values are transformed before coercion, so a rewrite producing an invalid
 value fails at `CompileFIQL` with the normal type error rather than reaching

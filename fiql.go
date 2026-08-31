@@ -544,7 +544,14 @@ func ParseFIQL[P Predicate](expr string, fields FIQLFields[P]) (P, error) {
 // unfiltered query. Callers that want an absent filter to mean "no
 // restriction" must handle the empty case explicitly.
 func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
+	return compileNode(n, fields, 0)
+}
+
+func compileNode[P Predicate](n FIQLNode, fields FIQLFields[P], depth int) (P, error) {
 	var zero P
+	if depth > maxFIQLDepth {
+		return zero, errFIQLDepth
+	}
 	switch v := n.(type) {
 	case nil:
 		return zero, fmt.Errorf("empty FIQL expression")
@@ -558,7 +565,7 @@ func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
 		if len(v.Nodes) == 0 {
 			return zero, fmt.Errorf("cannot compile an FIQLAnd with no children")
 		}
-		preds, err := compileChildren(v.Nodes, fields)
+		preds, err := compileChildren(v.Nodes, fields, depth+1)
 		if err != nil {
 			return zero, err
 		}
@@ -570,7 +577,7 @@ func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
 		if len(v.Nodes) == 0 {
 			return zero, fmt.Errorf("cannot compile an FIQLOr with no children")
 		}
-		preds, err := compileChildren(v.Nodes, fields)
+		preds, err := compileChildren(v.Nodes, fields, depth+1)
 		if err != nil {
 			return zero, err
 		}
@@ -582,8 +589,17 @@ func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
 		// Set membership needs at least one operand. The parser enforces this
 		// via parseInListValue, but a hand-assembled node bypasses the parser
 		// entirely and would otherwise reach the predicate helper with none.
-		if (v.Op == In || v.Op == NotIn) && len(v.Values) == 0 {
-			return zero, fmt.Errorf("field %q: empty value list for =in=/=out= operator", v.Field)
+		if v.Op == In || v.Op == NotIn {
+			if len(v.Values) == 0 {
+				return zero, fmt.Errorf("field %q: empty value list for =in=/=out= operator", v.Field)
+			}
+			// The bound exists to cap downstream SQL planner cost, so it has
+			// to hold on every path into the predicate — not just the parser's.
+			// A hand-built or rewritten node reaches here without ever having
+			// passed parseInListValue.
+			if len(v.Values) > maxFIQLListValues {
+				return zero, fmt.Errorf("field %q: value list of %d exceeds maximum of %d entries", v.Field, len(v.Values), maxFIQLListValues)
+			}
 		}
 		fieldDesc, ok := fields[v.Field]
 		if !ok {
@@ -602,10 +618,10 @@ func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
 // compileChildren compiles every child of an And/Or node. A nil child is
 // rejected rather than skipped: WalkFIQL prunes empty branches on the way
 // out, so a nil surviving into compile means a hand-built tree is malformed.
-func compileChildren[P Predicate](nodes []FIQLNode, fields FIQLFields[P]) ([]P, error) {
+func compileChildren[P Predicate](nodes []FIQLNode, fields FIQLFields[P], depth int) ([]P, error) {
 	preds := make([]P, 0, len(nodes))
 	for _, child := range nodes {
-		pred, err := CompileFIQL(child, fields)
+		pred, err := compileNode(child, fields, depth)
 		if err != nil {
 			return nil, err
 		}

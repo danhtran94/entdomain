@@ -254,3 +254,41 @@ written independently, they drifted. The durable fix is to derive the
 serializer's constraints from the parser's, not to keep patching them one
 character class at a time.
 
+### [Reviewer] A cyclic AST was a fatal stack overflow, not an error
+The exported `Nodes` slice makes `a.Nodes = []FIQLNode{a}` expressible, and the
+parser's depth limit only ever guarded trees the parser built. Confirmed in an
+isolated process: `FindFIQL` on a self-referential node produced
+`fatal error: stack overflow` — unrecoverable, taking the whole process with
+it. Every public traversal now counts its own depth against `maxFIQLDepth`:
+`ToFIQL`, `CompileFIQL`, and `WalkFIQL` return `errFIQLDepth`, while `FindFIQL`
+stops descending because it has no error channel. This matters more than the
+usual malformed-input case because the API is documented for hand-assembly —
+the authorization pattern in the README literally tells callers to build nodes
+by hand.
+
+### [Reviewer] The list bound was enforced on two of three paths
+`maxFIQLListValues` was checked by the parser and, after an earlier finding,
+by `ToFIQL` — but not by `CompileFIQL`. A hand-built node with 5000 operands
+compiled and forwarded all 5000 to the `In` predicate, defeating a bound whose
+stated purpose is capping downstream SQL planner cost. Mirrored before field
+dispatch. Third time in this PR that a constraint held on one path and not its
+sibling.
+
+### [Reviewer] The pruning guarantee was overstated for authorization
+The doc comment claimed a pruning rewrite "can never silently widen a query".
+False: it only holds for a *fully* pruned tree. Dropping one conjunct widens —
+pruning `org_id==x` from `org_id==x;name==john` leaves `name==john`, matching
+more rows, no error. Since the API is documented for authorization, the
+overclaim was the dangerous part. Narrowed in both the doc comment and the
+README, with the two correct shapes named explicitly: reject the term by
+returning an error, or wrap the tree in an `FIQLAnd` to add an independent
+scope. `TestWalkFIQLPruningWidensQuery` demonstrates the widening and both
+correct alternatives.
+
+### [Reviewer] README asserted one reserved set where there are two
+After the empty-element and `;`-in-list fixes, the README still said a value
+containing `;` cannot round-trip — true for a scalar operand, false for a list
+element. Replaced with a table splitting the two positions, since a user
+reading the old text would have rejected `ids=in=(a;b,c)` as unsupported when
+it works.
+

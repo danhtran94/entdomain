@@ -312,12 +312,26 @@ func (p *fiqlExprParser) readListValue() (string, error) {
 //
 // Pruning propagates: an And/Or whose children all prune returns nil to its
 // own parent, and a fully pruned tree returns nil. CompileFIQL rejects a nil
-// node rather than treating it as match-everything, so a pruning rewrite can
-// never silently widen a query.
+// node rather than treating it as match-everything.
+//
+// That guarantee is narrow, and authorization callers should not mistake it
+// for more. It only says a *fully* pruned tree cannot become match-all.
+// Pruning a single conjunct still widens the result — dropping org_id==x from
+// "org_id==x;status==active" leaves "status==active", which matches more rows,
+// with no error anywhere. To restrict what a caller may filter on, reject the
+// term by returning an error, or add an independent scope by wrapping the tree
+// in an FIQLAnd. Do not prune conjuncts.
 //
 // An And/Or left with exactly one surviving child collapses to that child,
 // matching the shape ParseFIQLExpr produces for a single-term expression.
 func WalkFIQL(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) (FIQLNode, error) {
+	return walkNode(n, fn, 0)
+}
+
+func walkNode(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error), depth int) (FIQLNode, error) {
+	if depth > maxFIQLDepth {
+		return nil, errFIQLDepth
+	}
 	switch v := n.(type) {
 	case nil:
 		return nil, nil
@@ -339,7 +353,7 @@ func WalkFIQL(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) (FIQLNode, error)
 		if len(v.Nodes) == 0 {
 			return nil, fmt.Errorf("cannot walk an FIQLAnd with no children")
 		}
-		kids, err := walkChildren(v.Nodes, fn)
+		kids, err := walkChildren(v.Nodes, fn, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -358,7 +372,7 @@ func WalkFIQL(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) (FIQLNode, error)
 		if len(v.Nodes) == 0 {
 			return nil, fmt.Errorf("cannot walk an FIQLOr with no children")
 		}
-		kids, err := walkChildren(v.Nodes, fn)
+		kids, err := walkChildren(v.Nodes, fn, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -376,10 +390,10 @@ func WalkFIQL(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) (FIQLNode, error)
 }
 
 // walkChildren walks each child and drops the ones that pruned to nil.
-func walkChildren(nodes []FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) ([]FIQLNode, error) {
+func walkChildren(nodes []FIQLNode, fn func(*FIQLCmp) (FIQLNode, error), depth int) ([]FIQLNode, error) {
 	kids := make([]FIQLNode, 0, len(nodes))
 	for _, child := range nodes {
-		out, err := WalkFIQL(child, fn)
+		out, err := walkNode(child, fn, depth)
 		if err != nil {
 			return nil, err
 		}
@@ -401,11 +415,16 @@ func walkChildren(nodes []FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) ([]FIQL
 // drops the term.
 func FindFIQL(n FIQLNode, field string) []*FIQLCmp {
 	var out []*FIQLCmp
-	collectCmp(n, field, &out)
+	collectCmp(n, field, &out, 0)
 	return out
 }
 
-func collectCmp(n FIQLNode, field string, out *[]*FIQLCmp) {
+func collectCmp(n FIQLNode, field string, out *[]*FIQLCmp, depth int) {
+	// FindFIQL has no error channel, so an over-deep or cyclic branch is
+	// simply not descended into rather than reported.
+	if depth > maxFIQLDepth {
+		return
+	}
 	switch v := n.(type) {
 	case *FIQLCmp:
 		if v == nil {
@@ -419,14 +438,14 @@ func collectCmp(n FIQLNode, field string, out *[]*FIQLCmp) {
 			return
 		}
 		for _, child := range v.Nodes {
-			collectCmp(child, field, out)
+			collectCmp(child, field, out, depth+1)
 		}
 	case *FIQLOr:
 		if v == nil {
 			return
 		}
 		for _, child := range v.Nodes {
-			collectCmp(child, field, out)
+			collectCmp(child, field, out, depth+1)
 		}
 	}
 }
@@ -461,6 +480,14 @@ const fiqlReservedInListValue = ",)"
 // than on `case nil`, so without this guard the next field access panics.
 var errNilFIQLNode = errors.New("nil FIQL node")
 
+// errFIQLDepth bounds every public traversal. The parser enforces
+// maxFIQLDepth while building a tree, but a hand-assembled or rewritten AST
+// never went through the parser — and the exported Nodes slice makes a
+// self-referential graph expressible (a.Nodes = []FIQLNode{a}). Unbounded
+// recursion on one is a fatal stack overflow, which no caller can recover
+// from, so every entry point counts depth of its own.
+var errFIQLDepth = fmt.Errorf("FIQL node tree exceeds maximum nesting depth of %d", maxFIQLDepth)
+
 // ToFIQL renders a FIQL AST back to its wire form. Use it to audit-log the
 // expression a query actually ran on after WalkFIQL rewrote it, to build a
 // cache key, or to forward a scoped filter to another service.
@@ -483,13 +510,16 @@ var errNilFIQLNode = errors.New("nil FIQL node")
 // its own if value quoting is ever added to the grammar.
 func ToFIQL(n FIQLNode) (string, error) {
 	var sb strings.Builder
-	if err := writeFIQL(&sb, n); err != nil {
+	if err := writeFIQL(&sb, n, 0); err != nil {
 		return "", err
 	}
 	return sb.String(), nil
 }
 
-func writeFIQL(sb *strings.Builder, n FIQLNode) error {
+func writeFIQL(sb *strings.Builder, n FIQLNode, depth int) error {
+	if depth > maxFIQLDepth {
+		return errFIQLDepth
+	}
 	switch v := n.(type) {
 	case nil:
 		return fmt.Errorf("empty FIQL expression")
@@ -505,7 +535,7 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 		// second render would differ from the first and idempotence would
 		// break. Collapse to the child, matching what WalkFIQL already does.
 		if len(v.Nodes) == 1 {
-			return writeFIQL(sb, v.Nodes[0])
+			return writeFIQL(sb, v.Nodes[0], depth+1)
 		}
 		for i, child := range v.Nodes {
 			if i > 0 {
@@ -519,7 +549,7 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 			if needsParens {
 				sb.WriteByte('(')
 			}
-			if err := writeFIQL(sb, child); err != nil {
+			if err := writeFIQL(sb, child, depth+1); err != nil {
 				return err
 			}
 			if needsParens {
@@ -535,13 +565,13 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 			return fmt.Errorf("cannot render an FIQLOr with no children")
 		}
 		if len(v.Nodes) == 1 {
-			return writeFIQL(sb, v.Nodes[0])
+			return writeFIQL(sb, v.Nodes[0], depth+1)
 		}
 		for i, child := range v.Nodes {
 			if i > 0 {
 				sb.WriteByte(',')
 			}
-			if err := writeFIQL(sb, child); err != nil {
+			if err := writeFIQL(sb, child, depth+1); err != nil {
 				return err
 			}
 		}
