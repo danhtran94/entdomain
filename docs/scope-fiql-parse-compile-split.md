@@ -8,6 +8,11 @@
 
 ## Problem
 
+> Every `fiql.go:NNN` citation below refers to the pre-split implementation at
+> [`de9f5b2`](https://github.com/danhtran94/entdomain/tree/de9f5b268d3073d56d94da57cbabc40d59c20dc5),
+> the state this note was written against. They resolve there, not on `main`
+> after ENTD-005.
+
 `ParseFIQL` (`fiql.go:535`) folds a FIQL expression directly into an ent
 predicate. Nothing observable survives the call.
 
@@ -51,8 +56,9 @@ responsibilities are fused into one pass with no technical reason.
 
 - **A1 [VERIFIED]:** `FIQLField.apply` is an unexported method, sealing the
   interface against external implementations. Evidence: `fiql.go:116-118`
-  declares `apply(op FIQLOp, value string) (P, error)` with a lowercase
-  name; all seven implementations (`FIQLString`, `FIQLInt`, `FIQLFloat`,
+  declares it with a lowercase name — the sealing follows from the name, not
+  the signature, which ENTD-005 task 2.1 widens; all seven implementations
+  (`FIQLString`, `FIQLInt`, `FIQLFloat`,
   `FIQLTime`, `FIQLBool`, `FIQLUUID`, `FIQLEnum`) are in-package.
 - **A2 [VERIFIED]:** The parser consults `FIQLFields` at exactly one call
   site. Evidence: `grep -n "p.fields" fiql.go` returns only

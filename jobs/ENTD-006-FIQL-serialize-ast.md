@@ -414,3 +414,29 @@ premises "before the proposal is built on top"; it is a pre-implementation
 artifact, and editing it after the fact falsifies an audit trail rather than
 improving it.
 
+### [Reviewer] Reversed my own rejection on the scope-note citations
+I rejected this in the previous round on repo-convention grounds and was
+partly wrong. Copilot re-raised it with an option I had not addressed —
+anchoring the citations to a fixed commit rather than either keeping them bare
+or deleting them.
+
+That option resolves the actual tension. Checking the base commit
+`de9f5b268d3073d56d94da57cbabc40d59c20dc5` confirms every citation is exactly
+right *there*: line 535 is `func ParseFIQL[P Predicate](...)` and line 637 is
+`func (p *fiqlParser[P]) parseComparison()`. The citations were never wrong,
+only unanchored. A one-line note naming the commit fixes verifiability without
+rewriting a single historical claim, so my "editing it falsifies the audit
+trail" argument does not apply to it.
+
+Also trimmed A1's evidence. It quoted the exact `apply(op FIQLOp, value string)`
+signature, which task 2.1 of this job then widened. The claim A1 makes is that
+the method is *unexported* — sealing follows from the lowercase name, not the
+parameter list. The signature was gratuitous precision that could only go
+stale, so it is gone while the claim, the file reference, and the
+seven-implementation count stay.
+
+What I got wrong the first time: I evaluated the finding against the two
+options I had already considered and rejected the third one implicitly, without
+noticing it was on the table. Being right about convention made me stop
+reading.
+
