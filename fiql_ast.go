@@ -38,7 +38,9 @@ type FIQLNode interface {
 // hand-assembled node may hold exactly one — an authorization helper building
 // a compound from a slice naturally does. That shape is accepted and
 // normalised: WalkFIQL collapses it to its child and ToFIQL renders it as the
-// child. Zero children is malformed and every path rejects it.
+// child. Zero children is malformed: CompileFIQL, ToFIQL, and WalkFIQL all
+// return an error. FindFIQL has no error channel, so it reports nothing rather
+// than rejecting.
 type FIQLAnd struct {
 	Nodes []FIQLNode
 }
@@ -46,7 +48,8 @@ type FIQLAnd struct {
 // FIQLOr is a disjunction of child nodes (FIQL ',').
 //
 // Single-child and zero-child arity behave exactly as for FIQLAnd: one child
-// is accepted and collapses, zero children is malformed.
+// is accepted and collapses, zero children is malformed and rejected by
+// CompileFIQL, ToFIQL, and WalkFIQL.
 type FIQLOr struct {
 	Nodes []FIQLNode
 }

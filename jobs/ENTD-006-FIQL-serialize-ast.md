@@ -378,7 +378,8 @@ considered decision from an earlier finding in this review (an authorization
 helper building a compound from a slice naturally produces a one-element one),
 so the doc contradicted a choice made three rounds earlier. Both comments now
 state the real arity contract: one child is accepted and collapses, zero is
-malformed and rejected everywhere.
+malformed and rejected by `CompileFIQL`, `ToFIQL`, and `WalkFIQL` (`FindFIQL`
+has no error channel and simply reports nothing).
 
 Third time in this review that a comment asserted behaviour the code did not
 have. The pattern is that I wrote the comment describing the design I intended
@@ -439,4 +440,54 @@ What I got wrong the first time: I evaluated the finding against the two
 options I had already considered and rejected the third one implicitly, without
 noticing it was on the table. Being right about convention made me stop
 reading.
+
+### [Reviewer] Fixed one instance of a class, again — three times over
+CodeRabbit came back after its rate limit lifted with three findings, and all
+three are the same shape as findings I had already "fixed" earlier in this
+review.
+
+**README `WalkFIQL` example swallowed an error.** Copilot flagged the identical
+defect in the parse/compile example two rounds ago. I fixed that snippet and
+did not check the other one on the same page. Worse than the first instance,
+because `CompileFIQL` overwriting a `WalkFIQL` error surfaces a callback's
+deliberate rejection as `empty FIQL expression` — the example taught readers to
+lose exactly the error the authorization pattern depends on.
+
+**"Zero children is malformed and every path rejects it."** I wrote that
+sentence *one round ago*, in the commit fixing the previous
+comment-contradicts-code finding. `FindFIQL` has no error channel and returns
+an empty slice, so "every path" was false the moment I typed it. Now names the
+three error-returning APIs and says what `FindFIQL` does instead.
+
+**Scope note criterion 9** described only the multi-survivor case: pruning a
+strict subset of an `FIQLAnd`'s children was said to return an `FIQLAnd`.
+Pruning one of two leaves one survivor, which collapses to that node — verified
+`*entdomain.FIQLCmp`, not `*FIQLAnd`. The criterion predates the collapse
+decision, which came out of a later finding, so it was accurate when written
+and silently wrong afterwards. Corrected to state all three arities. This one I
+did fix in the doc rather than leaving it historical: a success criterion that
+does not match shipped behaviour claims the job passed an acceptance test it
+never ran.
+
+The through-line across all three: I keep treating a finding as a bug report
+about one line rather than a report about a class, and the classes here are
+small enough that checking the whole class costs a grep. That is now four
+rounds in a row where the review's value was catching an incomplete fix rather
+than an original defect.
+
+### [Implementer] Swept the whole class instead of the reported line
+Having just written that I keep fixing instances rather than classes, I ran the
+check across every Go block in the README instead of only the one CodeRabbit
+named. Three more blocks assigned `err` more times than they checked it:
+
+| Block | Verdict |
+|---|---|
+| `ApplyDomain` + `Save` | **Fixed** — the block is labelled "production-safe — recommended on request paths" and then left the second error unchecked |
+| `NewExtension` proto fragment | **Fixed** — assigned `err` and never used it, so it would not compile as pasted |
+| HTTP handler `q.All` | **Left** — the next line is `// ...`, an explicit and conventional elision |
+
+Two of the three were real and neither was reported. The grep took less time
+than reading the review comment did, which is the argument for making it the
+default response to any doc-accuracy finding rather than a reaction to being
+told twice.
 

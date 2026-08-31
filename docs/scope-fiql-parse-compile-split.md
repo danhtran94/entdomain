@@ -99,7 +99,9 @@ responsibilities are fused into one pass with no technical reason.
 8. When `fn` returns `nil` for every `*FIQLCmp` in the tree, `WalkFIQL`
    returns `nil, nil`.
 9. When `fn` returns `nil` for a strict subset of an `FIQLAnd`'s children,
-   `WalkFIQL` returns an `FIQLAnd` holding exactly the surviving children.
+   `WalkFIQL` returns the surviving children by arity: two or more survivors
+   come back as an `FIQLAnd` holding exactly those children, exactly one
+   survivor collapses to that node, and zero survivors return `nil`.
 10. `CompileFIQL(nil, fields)` returns a non-nil error whose message is
     `empty FIQL expression`.
 11. `ParseFIQLExpr(strings.Repeat("(", 51) + "a==1" + strings.Repeat(")", 51))`

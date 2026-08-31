@@ -258,6 +258,7 @@ Every error-returning `ApplyDomain*` / `CreateBulkDomain` / `UpdateBulkDomain` h
 builder, err := client.User.Create().ApplyDomain(ctx, d)
 if err != nil { return err }
 created, err := builder.Save(ctx)
+if err != nil { return err }
 
 // Panicking, fluent — idiomatic in tests and scripts
 created := client.User.Create().ApplyDomainX(ctx, d).SaveX(ctx)
@@ -482,9 +483,20 @@ node, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLN
     }
     return c, nil
 })
+if err != nil {
+    return err          // a callback rejected the expression
+}
+
 pred, err := entdomain.CompileFIQL(node, UserFIQLFields)
+if err != nil {
+    return err
+}
 // WHERE ids IN (?, ?, ?)  →  id-abc, id-xyz, id-mnz
 ```
+
+Checking `WalkFIQL` before compiling matters: a callback that rejects a term
+returns an error here, and letting `CompileFIQL` overwrite it would surface the
+rejection as `empty FIQL expression` instead.
 
 Scope a query to a tenant by wrapping the caller's expression in an `AND`
 it cannot influence:
@@ -850,6 +862,9 @@ ex, err := entdomain.NewExtension(
         entdomain.WithProtoGoPackage("github.com/myorg/myrepo/proto/entpb;entpb"),
     ),
 )
+if err != nil {
+    log.Fatalf("creating entdomain extension: %v", err)
+}
 ```
 
 ### Generated Output
