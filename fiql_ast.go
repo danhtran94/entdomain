@@ -32,12 +32,21 @@ type FIQLNode interface {
 	isFIQLNode()
 }
 
-// FIQLAnd is a conjunction of two or more child nodes (FIQL ';').
+// FIQLAnd is a conjunction of child nodes (FIQL ';').
+//
+// The parser only ever produces one with two or more children, but a
+// hand-assembled node may hold exactly one — an authorization helper building
+// a compound from a slice naturally does. That shape is accepted and
+// normalised: WalkFIQL collapses it to its child and ToFIQL renders it as the
+// child. Zero children is malformed and every path rejects it.
 type FIQLAnd struct {
 	Nodes []FIQLNode
 }
 
-// FIQLOr is a disjunction of two or more child nodes (FIQL ',').
+// FIQLOr is a disjunction of child nodes (FIQL ',').
+//
+// Single-child and zero-child arity behave exactly as for FIQLAnd: one child
+// is accepted and collapses, zero children is malformed.
 type FIQLOr struct {
 	Nodes []FIQLNode
 }

@@ -52,7 +52,7 @@ responsibilities are fused into one pass with no technical reason.
 - **A1 [VERIFIED]:** `FIQLField.apply` is an unexported method, sealing the
   interface against external implementations. Evidence: `fiql.go:116-118`
   declares `apply(op FIQLOp, value string) (P, error)` with a lowercase
-  name; all six implementations (`FIQLString`, `FIQLInt`, `FIQLFloat`,
+  name; all seven implementations (`FIQLString`, `FIQLInt`, `FIQLFloat`,
   `FIQLTime`, `FIQLBool`, `FIQLUUID`, `FIQLEnum`) are in-package.
 - **A2 [VERIFIED]:** The parser consults `FIQLFields` at exactly one call
   site. Evidence: `grep -n "p.fields" fiql.go` returns only

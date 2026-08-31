@@ -370,3 +370,47 @@ recorded two entries above, so both now route through a shared
 rather than merely that an error occurred — the weaker assertion is what let
 the mismatch survive.
 
+### [Reviewer] Compound arity docs contradicted the accepted behaviour
+`FIQLAnd` and `FIQLOr` were documented as "two or more child nodes" while the
+implementation deliberately accepts and normalises a single child — WalkFIQL
+collapses it, ToFIQL renders it as the child. That normalisation was itself a
+considered decision from an earlier finding in this review (an authorization
+helper building a compound from a slice naturally produces a one-element one),
+so the doc contradicted a choice made three rounds earlier. Both comments now
+state the real arity contract: one child is accepted and collapses, zero is
+malformed and rejected everywhere.
+
+Third time in this review that a comment asserted behaviour the code did not
+have. The pattern is that I wrote the comment describing the design I intended
+and never re-read it against the design that landed.
+
+### [Reviewer] Six findings on the scope note rejected, one accepted
+Copilot flagged the scope note's Problem section for present tense and
+`fiql.go:NNN` citations that no longer resolve, and asked for A1–A3 to be
+rewritten to describe the post-split architecture. Rejected, with one
+exception.
+
+**Accepted:** A1 said "all six implementations" and then listed seven
+(`FIQLString`, `FIQLInt`, `FIQLFloat`, `FIQLTime`, `FIQLBool`, `FIQLUUID`,
+`FIQLEnum`). That was wrong when written, independent of any refactor.
+Corrected to seven.
+
+**Rejected — line numbers and present tense.** This is the repo's established
+convention, not a deviation. `docs/scope-fiql-set-membership.md:21` cites
+`readValue (fiql.go:507-517)` in present tense and shipped in ENTD-002;
+`docs/scope-fiql-null-handling.md` opens "FIQL today has no way to...". Both
+are Accepted with stale citations nobody rewrote. `scope-discipline.md`
+mandates `file:line` evidence for `[VERIFIED]` entries, showing
+`harness/internal/doctor/doctor.go:331` as the model. Rewriting this one doc
+would make it the only scope note among six in past tense without citations.
+
+**Rejected — updating A1–A3 to the current architecture.** These assumptions
+document the *pre-split* state, which is what justifies the split. A2 records
+that the parser touched `FIQLFields` at exactly one call site — the observation
+that made the split cheap. Rewriting it to say the parser is registry-free
+would make the doc assert its own conclusion as its premise. `scope-discipline`
+is explicit that the Assumptions section exists so reviewers can challenge
+premises "before the proposal is built on top"; it is a pre-implementation
+artifact, and editing it after the fact falsifies an audit trail rather than
+improving it.
+
