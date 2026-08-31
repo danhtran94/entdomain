@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/danhtran94/entdomain"
@@ -1586,5 +1587,62 @@ func TestWalkFIQLPruningWidensQuery(t *testing.T) {
 		pred, err := entdomain.CompileFIQL(scoped, astTestFields())
 		require.NoError(t, err)
 		assert.Contains(t, buildSQLArgs(pred), any("org-42"))
+	})
+}
+
+// TestToFIQLBoundsCollapseLoop covers a self-referential one-child compound
+// nested inside a multi-child parent. writeFIQL consults rendersAsDisjunction
+// to decide parentheses *before* recursing, so its depth guard never fires on
+// that path; effectiveNode walks the collapse chain iteratively and would spin
+// a CPU core indefinitely rather than overflow the stack.
+func TestToFIQLBoundsCollapseLoop(t *testing.T) {
+	cyclic := &entdomain.FIQLAnd{}
+	cyclic.Nodes = []entdomain.FIQLNode{cyclic}
+
+	for _, tc := range []struct {
+		name string
+		node entdomain.FIQLNode
+	}{
+		{"cycle inside a multi-child And", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLCmp{Field: "a", Op: entdomain.EQ, Value: "1"},
+			cyclic,
+		}}},
+		{"cycle inside a multi-child Or", &entdomain.FIQLOr{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLCmp{Field: "a", Op: entdomain.EQ, Value: "1"},
+			cyclic,
+		}}},
+		{"cycle at the root", cyclic},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			done := make(chan error, 1)
+			go func() {
+				_, err := entdomain.ToFIQL(tc.node)
+				done <- err
+			}()
+			select {
+			case err := <-done:
+				require.Error(t, err, "a cyclic tree must be reported, not rendered")
+				assert.Contains(t, err.Error(), "maximum nesting depth")
+			case <-time.After(5 * time.Second):
+				t.Fatal("ToFIQL did not terminate — the collapse walk is unbounded")
+			}
+		})
+	}
+
+	t.Run("a deep chain of one-child compounds still resolves", func(t *testing.T) {
+		var node entdomain.FIQLNode = &entdomain.FIQLOr{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLCmp{Field: "a", Op: entdomain.EQ, Value: "1"},
+			&entdomain.FIQLCmp{Field: "b", Op: entdomain.EQ, Value: "2"},
+		}}
+		for i := 0; i < 5; i++ {
+			node = &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{node}}
+		}
+		wrapped := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			node,
+			&entdomain.FIQLCmp{Field: "c", Op: entdomain.EQ, Value: "3"},
+		}}
+		out, err := entdomain.ToFIQL(wrapped)
+		require.NoError(t, err)
+		assert.Equal(t, "(a==1,b==2);c==3", out, "collapse must still find the disjunction and parenthesise it")
 	})
 }

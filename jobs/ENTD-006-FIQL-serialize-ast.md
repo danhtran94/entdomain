@@ -292,3 +292,29 @@ element. Replaced with a table splitting the two positions, since a user
 reading the old text would have rejected `ids=in=(a;b,c)` as unsupported when
 it works.
 
+### [Reviewer] The depth guard missed the one non-recursive walk
+My own fix for the cycle finding was incomplete, and CodeRabbit caught the gap
+after its rate limit lifted. I added depth counters to the four *recursive*
+traversals, but `effectiveNode` follows the single-child collapse chain
+**iteratively** — so no stack grows, no depth guard fires, and a one-child
+compound pointing at itself spins a CPU core indefinitely instead of
+overflowing.
+
+The reason my `TestFIQLTraversalsRejectCycles` passed is worth recording: a
+self-referential one-child `FIQLAnd` at the *root* takes writeFIQL's
+`len(Nodes) == 1` shortcut, which recurses with `depth+1` and trips the guard.
+The hang only appears when that same node sits inside a *multi-child* parent,
+because the parent calls `rendersAsDisjunction` to decide parentheses **before**
+recursing. Verified with a goroutine and a 3s timeout: it never returned.
+
+Bounded the loop at `maxFIQLDepth` iterations, returning whatever node it
+reached so the caller's recursion reports the malformed tree.
+`TestToFIQLBoundsCollapseLoop` covers the cycle at root, inside a multi-child
+And, and inside a multi-child Or, each with a hard timeout — plus a legitimate
+5-deep chain of one-child compounds that must still resolve to
+`(a==1,b==2);c==3`.
+
+Lesson for the pattern list: "add a depth guard to every traversal" was the
+right instinct, executed against the wrong inventory. I enumerated the
+functions that recurse, not the functions that walk.
+

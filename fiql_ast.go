@@ -589,8 +589,14 @@ func writeFIQL(sb *strings.Builder, n FIQLNode, depth int) error {
 // effectiveNode follows single-child compounds down to the node that actually
 // gets rendered. A one-child FIQLAnd or FIQLOr emits nothing of its own, so
 // precedence has to be judged against what survives the collapse.
+//
+// The walk is bounded because it is iterative, not recursive: writeFIQL's own
+// depth guard never fires here, and a one-child compound pointing at itself
+// would otherwise spin a CPU core forever. On hitting the bound it returns the
+// node it reached — the caller's writeFIQL recursion then trips its depth
+// guard and reports the malformed tree.
 func effectiveNode(n FIQLNode) FIQLNode {
-	for {
+	for i := 0; i <= maxFIQLDepth; i++ {
 		switch v := n.(type) {
 		case *FIQLAnd:
 			if v == nil || len(v.Nodes) != 1 {
@@ -606,6 +612,7 @@ func effectiveNode(n FIQLNode) FIQLNode {
 			return n
 		}
 	}
+	return n
 }
 
 // rendersAsDisjunction reports whether n ultimately emits a ',' at its top
