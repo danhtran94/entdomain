@@ -1281,3 +1281,33 @@ func TestFIQLTypedNilNodes(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+// TestCompileFIQLRejectsEmptyStructures covers hand-assembled nodes that carry
+// no operands. An empty compound folds into a no-op predicate, so the query
+// would run with no WHERE clause — the same fail-open CompileFIQL(nil) guards
+// against, reached through the public struct literals instead. ToFIQL already
+// refused these shapes; compilation has to agree.
+func TestCompileFIQLRejectsEmptyStructures(t *testing.T) {
+	fields := astTestFields()
+	for _, tc := range []struct {
+		name       string
+		node       entdomain.FIQLNode
+		wantSubstr string
+	}{
+		{"empty And", &entdomain.FIQLAnd{}, "FIQLAnd with no children"},
+		{"empty Or", &entdomain.FIQLOr{}, "FIQLOr with no children"},
+		{"nested empty And", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "john"},
+			&entdomain.FIQLOr{},
+		}}, "FIQLOr with no children"},
+		{"In with nil Values", &entdomain.FIQLCmp{Field: "ids", Op: entdomain.In}, "empty value list"},
+		{"In with empty slice", &entdomain.FIQLCmp{Field: "ids", Op: entdomain.In, Values: []string{}}, "empty value list"},
+		{"NotIn with nil Values", &entdomain.FIQLCmp{Field: "ids", Op: entdomain.NotIn}, "empty value list"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := entdomain.CompileFIQL(tc.node, fields)
+			require.Error(t, err, "an empty structure must not compile to a no-op predicate")
+			assert.Contains(t, err.Error(), tc.wantSubstr)
+		})
+	}
+}

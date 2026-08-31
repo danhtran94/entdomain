@@ -552,6 +552,12 @@ func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
 		if v == nil {
 			return zero, errNilFIQLNode
 		}
+		// An empty compound would fold into a no-op predicate and the query
+		// would run with no WHERE clause at all — the same fail-open the nil
+		// case guards against, reached by a different route.
+		if len(v.Nodes) == 0 {
+			return zero, fmt.Errorf("cannot compile an FIQLAnd with no children")
+		}
 		preds, err := compileChildren(v.Nodes, fields)
 		if err != nil {
 			return zero, err
@@ -561,6 +567,9 @@ func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
 		if v == nil {
 			return zero, errNilFIQLNode
 		}
+		if len(v.Nodes) == 0 {
+			return zero, fmt.Errorf("cannot compile an FIQLOr with no children")
+		}
 		preds, err := compileChildren(v.Nodes, fields)
 		if err != nil {
 			return zero, err
@@ -569,6 +578,12 @@ func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
 	case *FIQLCmp:
 		if v == nil {
 			return zero, errNilFIQLNode
+		}
+		// Set membership needs at least one operand. The parser enforces this
+		// via parseInListValue, but a hand-assembled node bypasses the parser
+		// entirely and would otherwise reach the predicate helper with none.
+		if (v.Op == In || v.Op == NotIn) && len(v.Values) == 0 {
+			return zero, fmt.Errorf("field %q: empty value list for =in=/=out= operator", v.Field)
 		}
 		fieldDesc, ok := fields[v.Field]
 		if !ok {

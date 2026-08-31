@@ -181,3 +181,16 @@ heading-then-text form, no markdownlint runs in CI, and CodeRabbit itself rated
 it trivial / low value. Changing only this doc would make it the odd one out
 among six job docs.
 
+### [Reviewer] Empty compounds compiled to a no-op predicate — fail-open
+The sharpest finding of the review, and mine to own. ENTD-005's design decision
+was "an empty tree is an error, not match-all", but I implemented it only for
+`CompileFIQL(nil, ...)`. `&FIQLAnd{}` and `&FIQLOr{}` folded into a no-op
+predicate and produced `SELECT * FROM t` with no WHERE clause at all — the
+exact fail-open the nil guard exists to prevent, reached through the public
+struct literals instead. `ToFIQL` already refused both shapes, so the two
+halves of the API disagreed. `In`/`NotIn` with empty `Values` had a related
+hole: the parser enforced non-empty via `parseInListValue`, but moving the
+split to parse time in ENTD-005 left hand-built nodes unchecked, and they
+reached the predicate helper with no operands (`WHERE FALSE`). Both now error
+in `CompileFIQL`, covered by `TestCompileFIQLRejectsEmptyStructures`.
+
