@@ -194,3 +194,34 @@ split to parse time in ENTD-005 left hand-built nodes unchecked, and they
 reached the predicate helper with no operands (`WHERE FALSE`). Both now error
 in `CompileFIQL`, covered by `TestCompileFIQLRejectsEmptyStructures`.
 
+### [Reviewer] Round-trip guarantee had to be enforced on the way out too
+`WalkFIQL` can grow `Values` past `maxFIQLListValues`, and `ToFIQL` happily
+emitted all of them — producing text `ParseFIQLExpr` then rejected with
+"exceeds maximum of 100 entries". The bound was enforced only on input, so the
+serializer could manufacture unparseable output from a valid tree. `ToFIQL`
+now checks the same bound before writing. Covered by
+`TestToFIQLRejectsOversizedList`, including the exactly-at-100 case which must
+still render and reparse.
+
+### [Reviewer] The paren rule tested the child's type, not what it renders as
+A one-child `FIQLOr` nested in an `FIQLAnd` rendered as `(a==1);b==2`, which
+reparses to a bare `FIQLAnd` and re-renders as `a==1;b==2` — non-idempotent.
+The first fix (collapse a one-child compound to its child) was not enough: the
+enclosing And decides parens by type-asserting `child.(*FIQLOr)` *before*
+recursing, so it still wrapped a child that was about to collapse. The real fix
+is `rendersAsDisjunction`, which follows the single-child collapse chain via
+`effectiveNode` and asks what the child actually emits. That also handles the
+inverse — an `FIQLAnd` wrapping a real two-child `FIQLOr` still gets its parens.
+
+Collapsing rather than rejecting one-child compounds was deliberate: an
+authorization helper naturally builds `&FIQLOr{Nodes: idsToNodes(allowedOrgs)}`
+from a slice that may hold exactly one element, and rejecting that would punish
+a correct construction.
+
+### [Reviewer] Enum empty-list finding was already closed
+CodeRabbit flagged `FIQLEnum.apply(In, ...)` folding zero predicates through
+`orPreds()` into match-all. The guard added for the earlier empty-structures
+finding sits in `CompileFIQL` ahead of field dispatch, so it is field-type
+agnostic and already covered this. Verified empirically, and
+`TestCompileFIQLRejectsEmptyEnumList` now pins the enum path explicitly.
+

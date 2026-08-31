@@ -1311,3 +1311,100 @@ func TestCompileFIQLRejectsEmptyStructures(t *testing.T) {
 		})
 	}
 }
+
+// TestToFIQLRejectsOversizedList covers a rewriter growing a value list past
+// the parser's bound. Emitting it would produce text ParseFIQLExpr refuses, so
+// the round-trip guarantee has to hold on the way out too.
+func TestToFIQLRejectsOversizedList(t *testing.T) {
+	node, err := entdomain.ParseFIQLExpr("ids=in=(a,b)")
+	require.NoError(t, err)
+
+	node, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+		grown := make([]string, 150)
+		for i := range grown {
+			grown[i] = fmt.Sprintf("v%d", i)
+		}
+		c.Values = grown
+		return c, nil
+	})
+	require.NoError(t, err)
+
+	_, err = entdomain.ToFIQL(node)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum of 100 entries")
+
+	// Exactly at the bound still renders and reparses.
+	node, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+		c.Values = c.Values[:100]
+		return c, nil
+	})
+	require.NoError(t, err)
+	out, err := entdomain.ToFIQL(node)
+	require.NoError(t, err)
+	_, err = entdomain.ParseFIQLExpr(out)
+	require.NoError(t, err)
+}
+
+// TestToFIQLSingleChildCompound covers hand-assembled one-child compounds. A
+// natural authorization helper builds an FIQLOr from a slice that may hold a
+// single element; rendering it as a group would emit parens the parser then
+// discards, so the second render would differ from the first.
+func TestToFIQLSingleChildCompound(t *testing.T) {
+	cmpA := &entdomain.FIQLCmp{Field: "a", Op: entdomain.EQ, Value: "1"}
+	cmpB := &entdomain.FIQLCmp{Field: "b", Op: entdomain.EQ, Value: "2"}
+
+	for _, tc := range []struct {
+		name string
+		node entdomain.FIQLNode
+		want string
+	}{
+		{"one-child Or inside And", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLOr{Nodes: []entdomain.FIQLNode{cmpA}}, cmpB,
+		}}, "a==1;b==2"},
+		{"one-child Or at root", &entdomain.FIQLOr{Nodes: []entdomain.FIQLNode{cmpA}}, "a==1"},
+		{"one-child And at root", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{cmpA}}, "a==1"},
+		{"one-child And wrapping a real Or", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLOr{Nodes: []entdomain.FIQLNode{cmpA, cmpB}},
+		}}, "a==1,b==2"},
+		// A compound that collapses to a real disjunction still needs the
+		// parens an enclosing And would otherwise strip on reparse.
+		{"collapsing compound that is still a disjunction", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+				&entdomain.FIQLOr{Nodes: []entdomain.FIQLNode{cmpA, cmpB}},
+			}},
+			&entdomain.FIQLCmp{Field: "c", Op: entdomain.EQ, Value: "3"},
+		}}, "(a==1,b==2);c==3"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out, err := entdomain.ToFIQL(tc.node)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, out)
+
+			// Idempotent: render, parse, render again yields the same text.
+			back, err := entdomain.ParseFIQLExpr(out)
+			require.NoError(t, err)
+			out2, err := entdomain.ToFIQL(back)
+			require.NoError(t, err)
+			assert.Equal(t, out, out2, "rendering must be idempotent")
+		})
+	}
+}
+
+// TestCompileFIQLRejectsEmptyEnumList pins the empty-list guard for enum
+// fields specifically: FIQLEnum reduces its operands through orPreds, so an
+// empty list would fold into a no-op predicate rather than matching nothing.
+func TestCompileFIQLRejectsEmptyEnumList(t *testing.T) {
+	fields := entdomain.FIQLFields[testPred]{
+		"status": entdomain.FIQLEnum[testPred]{
+			EQ: map[string]testPred{"active": sqlPred("status", "active")},
+		},
+	}
+	for _, op := range []entdomain.FIQLOp{entdomain.In, entdomain.NotIn} {
+		t.Run(string(op), func(t *testing.T) {
+			_, err := entdomain.CompileFIQL(
+				&entdomain.FIQLCmp{Field: "status", Op: op, Values: []string{}}, fields)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "empty value list")
+		})
+	}
+}

@@ -488,13 +488,22 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 		if len(v.Nodes) == 0 {
 			return fmt.Errorf("cannot render an FIQLAnd with no children")
 		}
+		// A one-child compound carries no grouping information: rendering it
+		// as a group would emit parens that the parser then discards, so the
+		// second render would differ from the first and idempotence would
+		// break. Collapse to the child, matching what WalkFIQL already does.
+		if len(v.Nodes) == 1 {
+			return writeFIQL(sb, v.Nodes[0])
+		}
 		for i, child := range v.Nodes {
 			if i > 0 {
 				sb.WriteByte(';')
 			}
 			// An Or inside an And is the only shape needing parens: ';' binds
 			// tighter than ',', so a bare Or child would rebind on reparse.
-			_, needsParens := child.(*FIQLOr)
+			// The test follows single-child collapse, because a compound that
+			// collapses to a disjunction still renders as one.
+			needsParens := rendersAsDisjunction(child)
 			if needsParens {
 				sb.WriteByte('(')
 			}
@@ -513,6 +522,9 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 		if len(v.Nodes) == 0 {
 			return fmt.Errorf("cannot render an FIQLOr with no children")
 		}
+		if len(v.Nodes) == 1 {
+			return writeFIQL(sb, v.Nodes[0])
+		}
 		for i, child := range v.Nodes {
 			if i > 0 {
 				sb.WriteByte(',')
@@ -530,6 +542,35 @@ func writeFIQL(sb *strings.Builder, n FIQLNode) error {
 	default:
 		return fmt.Errorf("unknown FIQL node type %T", n)
 	}
+}
+
+// effectiveNode follows single-child compounds down to the node that actually
+// gets rendered. A one-child FIQLAnd or FIQLOr emits nothing of its own, so
+// precedence has to be judged against what survives the collapse.
+func effectiveNode(n FIQLNode) FIQLNode {
+	for {
+		switch v := n.(type) {
+		case *FIQLAnd:
+			if v == nil || len(v.Nodes) != 1 {
+				return n
+			}
+			n = v.Nodes[0]
+		case *FIQLOr:
+			if v == nil || len(v.Nodes) != 1 {
+				return n
+			}
+			n = v.Nodes[0]
+		default:
+			return n
+		}
+	}
+}
+
+// rendersAsDisjunction reports whether n ultimately emits a ',' at its top
+// level, which is the only case an enclosing And has to parenthesise.
+func rendersAsDisjunction(n FIQLNode) bool {
+	v, ok := effectiveNode(n).(*FIQLOr)
+	return ok && v != nil && len(v.Nodes) > 1
 }
 
 func writeFIQLCmp(sb *strings.Builder, c *FIQLCmp) error {
@@ -551,6 +592,12 @@ func writeFIQLCmp(sb *strings.Builder, c *FIQLCmp) error {
 	case In, NotIn:
 		if len(c.Values) == 0 {
 			return fmt.Errorf("field %q: operator %q has no values to render", c.Field, c.Op)
+		}
+		// A rewriter can grow Values past the parser's bound. Emitting them
+		// would produce text ParseFIQLExpr rejects, so the round-trip
+		// guarantee has to be enforced on the way out as well as in.
+		if len(c.Values) > maxFIQLListValues {
+			return fmt.Errorf("field %q: value list of %d exceeds maximum of %d entries", c.Field, len(c.Values), maxFIQLListValues)
 		}
 		for _, val := range c.Values {
 			if err := checkFIQLListValue(c.Field, val); err != nil {
