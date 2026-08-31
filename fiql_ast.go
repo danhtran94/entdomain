@@ -390,9 +390,18 @@ func walkNode(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error), depth int) (FIQLN
 }
 
 // walkChildren walks each child and drops the ones that pruned to nil.
+//
+// A nil entry already present in Nodes is rejected rather than walked. Letting
+// it through would fold to nil, be dropped here, and hand back a tree that
+// compiles — the same laundering the empty-compound guard prevents, reached
+// through a nil child instead. Pruning is a decision the callback makes; it is
+// never something the input arrives already carrying.
 func walkChildren(nodes []FIQLNode, fn func(*FIQLCmp) (FIQLNode, error), depth int) ([]FIQLNode, error) {
 	kids := make([]FIQLNode, 0, len(nodes))
 	for _, child := range nodes {
+		if child == nil {
+			return nil, errNilFIQLNode
+		}
 		out, err := walkNode(child, fn, depth)
 		if err != nil {
 			return nil, err

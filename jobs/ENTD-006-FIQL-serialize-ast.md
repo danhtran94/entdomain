@@ -318,3 +318,32 @@ Lesson for the pattern list: "add a depth guard to every traversal" was the
 right instinct, executed against the wrong inventory. I enumerated the
 functions that recurse, not the functions that walk.
 
+### [Reviewer] The laundering guard covered one malformed shape, not the class
+Third variant of the same defect. `WalkFIQL` rejected an *empty compound* on
+input after an earlier finding, but a `nil` entry sitting in `Nodes` still fell
+through `case nil: return nil, nil`, got dropped by `walkChildren`, and
+produced a tree that compiled:
+
+    CompileFIQL(&FIQLAnd{cmp, nil})            -> empty FIQL expression
+    ToFIQL(&FIQLAnd{cmp, nil})                 -> empty FIQL expression
+    CompileFIQL(WalkFIQL(same, no-op))         -> OK, "name==john"
+
+The guard I added was shaped around the specific example in the previous
+finding rather than around the invariant behind it. The invariant is: *pruning
+is a decision the callback makes; it is never something the input arrives
+already carrying.* Stated that way, both the empty compound and the nil child
+fall out of it, and so would any future third shape.
+
+`walkChildren` now rejects a nil child before walking.
+`TestWalkFIQLRejectsNilChild` asserts all three paths agree on three malformed
+shapes, plus that callback-driven pruning is unaffected.
+
+### [Reviewer] The README's own teaching example swallowed an error
+The introductory parse/compile snippet reassigned `err` on the second line
+without checking the first, so it demonstrated using `node` even when parsing
+had failed. In a section whose whole purpose is teaching the split, that is the
+one thing it must not model. Both errors are now checked separately, with a
+note on what each actually means — a `ParseFIQLExpr` failure is a syntax fault
+in the caller's input, while a `CompileFIQL` failure means the expression
+parsed but names an unfilterable field, a disallowed operator, or a bad value.
+

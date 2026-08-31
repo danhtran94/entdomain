@@ -1646,3 +1646,52 @@ func TestToFIQLBoundsCollapseLoop(t *testing.T) {
 		assert.Equal(t, "(a==1,b==2);c==3", out, "collapse must still find the disjunction and parenthesise it")
 	})
 }
+
+// TestWalkFIQLRejectsNilChild covers a nil entry already present in Nodes.
+// Walking it would fold to nil, walkChildren would drop it, and the result
+// would compile — the same laundering the empty-compound guard prevents,
+// reached through a different route. Pruning is a decision the callback makes;
+// it is never something the input arrives already carrying.
+func TestWalkFIQLRejectsNilChild(t *testing.T) {
+	fields := astTestFields()
+	noop := func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) { return c, nil }
+	cmp := &entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "john"}
+
+	for _, tc := range []struct {
+		name string
+		node entdomain.FIQLNode
+	}{
+		{"nil child in And", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{cmp, nil}}},
+		{"nil child in Or", &entdomain.FIQLOr{Nodes: []entdomain.FIQLNode{cmp, nil}}},
+		{"only a nil child", &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{nil}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// All three paths must agree that the tree is malformed.
+			_, errCompile := entdomain.CompileFIQL(tc.node, fields)
+			require.Error(t, errCompile)
+
+			_, errRender := entdomain.ToFIQL(tc.node)
+			require.Error(t, errRender)
+
+			_, errWalk := entdomain.WalkFIQL(tc.node, noop)
+			require.Error(t, errWalk, "walking must not launder a nil child into an accepted tree")
+		})
+	}
+
+	t.Run("a callback returning nil still prunes normally", func(t *testing.T) {
+		node, err := entdomain.ParseFIQLExpr("name==john;age=gt=25")
+		require.NoError(t, err)
+
+		out, err := entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+			if c.Field == "name" {
+				return nil, nil
+			}
+			return c, nil
+		})
+		require.NoError(t, err, "pruning via the callback is unaffected by the input-side guard")
+
+		rendered, err := entdomain.ToFIQL(out)
+		require.NoError(t, err)
+		assert.Equal(t, "age=gt=25", rendered)
+	})
+}

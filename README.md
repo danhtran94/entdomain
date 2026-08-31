@@ -440,9 +440,22 @@ GET /users?filter=(status==active,status==inactive);created_at=ge=2024-01-01T00:
 `ParseFIQL` is the composition of two halves you can also call separately:
 
 ```go
-node, err := entdomain.ParseFIQLExpr(expr)          // syntax only — no registry
+node, err := entdomain.ParseFIQLExpr(expr)   // syntax only — no registry
+if err != nil {
+    return err                               // malformed expression
+}
+
 pred, err := entdomain.CompileFIQL(node, UserFIQLFields)  // resolve, coerce, build
+if err != nil {
+    return err                               // unknown field, bad operator, or bad value
+}
 ```
+
+The two errors mean different things and are worth keeping apart: a
+`ParseFIQLExpr` failure is a syntax fault in the caller's input, while a
+`CompileFIQL` failure means the expression parsed but names a field that is
+not filterable, an operator the field does not allow, or a value of the wrong
+type.
 
 `ParseFIQLExpr` returns an AST of `*FIQLAnd`, `*FIQLOr`, and `*FIQLCmp`
 nodes carrying raw, uncoerced strings. Between the two calls you can read
