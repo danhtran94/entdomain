@@ -67,7 +67,7 @@ func TestApplyNullTyped_RejectsIsOp(t *testing.T) {
 	f := FIQLString[internalTestPred]{
 		IsNil: func() internalTestPred { return func(*sql.Selector) {} },
 	}
-	_, err := f.apply(Is, "")
+	_, err := f.apply(Is, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `not allowed on string field`)
 

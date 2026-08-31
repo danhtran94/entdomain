@@ -399,8 +399,12 @@ func TestParseFIQL_StringIn(t *testing.T) {
 	var got []string
 	fields := entdomain.FIQLFields[testPred]{
 		"name": entdomain.FIQLString[testPred]{
-			In:    func(vs ...string) testPred { return testPred(func(s *sql.Selector) { got = append([]string(nil), vs...) }) },
-			NotIn: func(vs ...string) testPred { return testPred(func(s *sql.Selector) { got = append([]string{"not"}, vs...) }) },
+			In: func(vs ...string) testPred {
+				return testPred(func(s *sql.Selector) { got = append([]string(nil), vs...) })
+			},
+			NotIn: func(vs ...string) testPred {
+				return testPred(func(s *sql.Selector) { got = append([]string{"not"}, vs...) })
+			},
 		},
 	}
 
@@ -477,7 +481,9 @@ func TestParseFIQL_FloatIn(t *testing.T) {
 	var got []float64
 	fields := entdomain.FIQLFields[testPred]{
 		"ratio": entdomain.FIQLFloat[testPred]{
-			In: func(vs ...float64) testPred { return testPred(func(s *sql.Selector) { got = append([]float64(nil), vs...) }) },
+			In: func(vs ...float64) testPred {
+				return testPred(func(s *sql.Selector) { got = append([]float64(nil), vs...) })
+			},
 		},
 	}
 	pred, err := entdomain.ParseFIQL("ratio=in=(1.5,2.5,3.5)", fields)
@@ -492,7 +498,9 @@ func TestParseFIQL_UUIDIn(t *testing.T) {
 	var got []uuid.UUID
 	fields := entdomain.FIQLFields[testPred]{
 		"id": entdomain.FIQLUUID[testPred]{
-			In: func(vs ...uuid.UUID) testPred { return testPred(func(s *sql.Selector) { got = append([]uuid.UUID(nil), vs...) }) },
+			In: func(vs ...uuid.UUID) testPred {
+				return testPred(func(s *sql.Selector) { got = append([]uuid.UUID(nil), vs...) })
+			},
 		},
 	}
 
@@ -672,8 +680,8 @@ func TestParseFIQL_ComplexConditions(t *testing.T) {
 	fields := sqlFields("a", "b", "c", "d")
 
 	cases := []struct {
-		expr     string
-		wantSQL  string // expected WHERE fragment in the generated SELECT
+		expr    string
+		wantSQL string // expected WHERE fragment in the generated SELECT
 	}{
 		{
 			// ';' (AND) binds tighter than ',' (OR) — standard FIQL precedence.
@@ -753,4 +761,425 @@ func FuzzParseFIQL(f *testing.F) {
 		// Must not panic regardless of input.
 		_, _ = entdomain.ParseFIQL(input, fields)
 	})
+}
+
+// --- ENTD-005: parse/compile split -----------------------------------------
+
+// astTestFields is the registry shared by the parse/compile split tests. It
+// covers the three shapes the split has to keep working: a string field with
+// set membership, an int field with a range operator, and a second string
+// field standing in for the tenant column an authorization rewrite injects.
+func astTestFields() entdomain.FIQLFields[testPred] {
+	inFn := func(col string) func(...string) testPred {
+		return func(vs ...string) testPred {
+			args := make([]any, len(vs))
+			for i, v := range vs {
+				args[i] = v
+			}
+			return testPred(func(s *sql.Selector) { s.Where(sql.In(col, args...)) })
+		}
+	}
+	return entdomain.FIQLFields[testPred]{
+		"ids": entdomain.FIQLString[testPred]{
+			EQ: func(v string) testPred { return sqlPred("ids", v) },
+			In: inFn("ids"),
+		},
+		"name": entdomain.FIQLString[testPred]{
+			EQ: func(v string) testPred { return sqlPred("name", v) },
+		},
+		"org_id": entdomain.FIQLString[testPred]{
+			EQ: func(v string) testPred { return sqlPred("org_id", v) },
+		},
+		"age": entdomain.FIQLInt[testPred]{
+			GT: func(v int) testPred {
+				return testPred(func(s *sql.Selector) { s.Where(sql.GT("age", v)) })
+			},
+		},
+	}
+}
+
+// buildSQLArgs is buildSQL's sibling for assertions that care about the bound
+// values rather than the WHERE shape.
+func buildSQLArgs(pred testPred) []any {
+	s := sql.Dialect("sqlite3").Select("*").From(sql.Table("t"))
+	pred(s)
+	_, args := s.Query()
+	return args
+}
+
+// TestFIQLErrorMessagesUnchanged pins the exact text of one error per fault
+// class. Splitting parse from compile moved field resolution to a later pass,
+// so ordering between classes changed; the wording of each individual failure
+// is the contract callers actually depend on and must not drift.
+func TestFIQLErrorMessagesUnchanged(t *testing.T) {
+	fields := astTestFields()
+	cases := []struct{ expr, want string }{
+		{"", "empty FIQL expression"},
+		{"name", "expected operator at position 4"},
+		{"name==a;b", "expected operator at position 9"},
+		{"unknown==x", `unknown field "unknown" — annotate with entdomain.FIQL(...) to enable`},
+		{"age=gt=abc", `field "age": invalid integer value "abc": strconv.Atoi: parsing "abc": invalid syntax`},
+		{"name=is=maybe", `unknown =is= value "maybe" — valid: null, notnull`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.expr, func(t *testing.T) {
+			_, err := entdomain.ParseFIQL(tc.expr, fields)
+			require.Error(t, err)
+			assert.Equal(t, tc.want, err.Error())
+		})
+	}
+}
+
+// TestFIQLNodeSealed proves the node set is closed. A type declared outside
+// package entdomain cannot satisfy FIQLNode, so adding a node type later stays
+// non-breaking — nobody outside can be switching exhaustively over it.
+func TestFIQLNodeSealed(t *testing.T) {
+	type notANode struct{ Field string }
+	var v any = notANode{Field: "ids"}
+	_, ok := v.(entdomain.FIQLNode)
+	assert.False(t, ok, "a type outside package entdomain must not satisfy FIQLNode")
+}
+
+// TestFindFIQLInValues covers the read-back path: parse an =in= term and
+// recover its operands as a slice without touching the registry.
+func TestFindFIQLInValues(t *testing.T) {
+	node, err := entdomain.ParseFIQLExpr("ids=in=(abc,xyz,mnz)")
+	require.NoError(t, err)
+
+	found := entdomain.FindFIQL(node, "ids")
+	require.Len(t, found, 1)
+	assert.Equal(t, entdomain.In, found[0].Op)
+	assert.Equal(t, []string{"abc", "xyz", "mnz"}, found[0].Values)
+
+	assert.Empty(t, entdomain.FindFIQL(node, "name"))
+}
+
+// TestWalkFIQLDoesNotMutateSource guards the copy contract. The ergonomic
+// transform edits Values in place; without the defensive copy that edit would
+// reach the tree ParseFIQLExpr returned and destroy the caller's ability to
+// audit-log the original expression while querying with the rewritten one.
+func TestWalkFIQLDoesNotMutateSource(t *testing.T) {
+	node, err := entdomain.ParseFIQLExpr("ids=in=(abc,xyz)")
+	require.NoError(t, err)
+
+	_, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+		c.Values[0] = "CLOBBERED"
+		c.Value = "CLOBBERED"
+		return c, nil
+	})
+	require.NoError(t, err)
+
+	src := entdomain.FindFIQL(node, "ids")
+	require.Len(t, src, 1)
+	assert.Equal(t, []string{"abc", "xyz"}, src[0].Values, "source tree must survive an in-place edit")
+}
+
+// TestFIQLInPrefixRoundTrip is the end-to-end shape the split exists for:
+// parse without a registry, rewrite the operands, then compile to a predicate.
+func TestFIQLInPrefixRoundTrip(t *testing.T) {
+	node, err := entdomain.ParseFIQLExpr("ids=in=(abc,xyz,mnz)")
+	require.NoError(t, err)
+
+	node, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+		if c.Field != "ids" || c.Op != entdomain.In {
+			return c, nil
+		}
+		for i, v := range c.Values {
+			c.Values[i] = "id-" + v
+		}
+		return c, nil
+	})
+	require.NoError(t, err)
+
+	pred, err := entdomain.CompileFIQL(node, astTestFields())
+	require.NoError(t, err)
+	assert.Equal(t, []any{"id-abc", "id-xyz", "id-mnz"}, buildSQLArgs(pred))
+}
+
+// TestWalkFIQLAuthzInjection covers the tenant-scoping shape: the caller's
+// expression is kept intact and ANDed with a predicate it cannot influence.
+func TestWalkFIQLAuthzInjection(t *testing.T) {
+	user, err := entdomain.ParseFIQLExpr("name==john,name==jane")
+	require.NoError(t, err)
+
+	scoped := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+		user,
+		&entdomain.FIQLCmp{Field: "org_id", Op: entdomain.EQ, Value: "org-42"},
+	}}
+
+	pred, err := entdomain.CompileFIQL(scoped, astTestFields())
+	require.NoError(t, err)
+
+	sqlText := buildSQL(pred)
+	assert.Contains(t, sqlText, "org_id")
+	assert.Contains(t, buildSQLArgs(pred), any("org-42"))
+	assert.Contains(t, sqlText, "OR", "the caller's own OR must survive inside the AND")
+}
+
+// TestWalkFIQLValueTransform covers rewriting a scalar operand rather than a
+// list, and confirms untouched terms pass through unchanged.
+func TestWalkFIQLValueTransform(t *testing.T) {
+	node, err := entdomain.ParseFIQLExpr("name==John;age=gt=25")
+	require.NoError(t, err)
+
+	node, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+		if c.Field == "name" {
+			c.Value = strings.ToLower(c.Value)
+		}
+		return c, nil
+	})
+	require.NoError(t, err)
+
+	pred, err := entdomain.CompileFIQL(node, astTestFields())
+	require.NoError(t, err)
+	assert.Contains(t, buildSQLArgs(pred), any("john"))
+	assert.Contains(t, buildSQLArgs(pred), any(25))
+}
+
+// TestWalkFIQLTermFilter covers pruning: dropping one term keeps the rest, and
+// dropping every term yields nil rather than a match-everything predicate.
+func TestWalkFIQLTermFilter(t *testing.T) {
+	dropName := func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+		if c.Field == "name" {
+			return nil, nil
+		}
+		return c, nil
+	}
+
+	t.Run("drops one term, keeps the rest", func(t *testing.T) {
+		node, err := entdomain.ParseFIQLExpr("name==john;age=gt=25")
+		require.NoError(t, err)
+
+		node, err = entdomain.WalkFIQL(node, dropName)
+		require.NoError(t, err)
+
+		pred, err := entdomain.CompileFIQL(node, astTestFields())
+		require.NoError(t, err)
+		args := buildSQLArgs(pred)
+		assert.Contains(t, args, any(25))
+		assert.NotContains(t, args, any("john"))
+	})
+
+	t.Run("dropping every term yields nil, not match-all", func(t *testing.T) {
+		node, err := entdomain.ParseFIQLExpr("name==john,name==jane")
+		require.NoError(t, err)
+
+		out, err := entdomain.WalkFIQL(node, dropName)
+		require.NoError(t, err)
+		assert.Nil(t, out)
+
+		_, err = entdomain.CompileFIQL(out, astTestFields())
+		require.Error(t, err, "a fully pruned tree must not compile to match-everything")
+		assert.Equal(t, "empty FIQL expression", err.Error())
+	})
+
+	t.Run("callback error rejects the whole expression", func(t *testing.T) {
+		node, err := entdomain.ParseFIQLExpr("name==john;age=gt=25")
+		require.NoError(t, err)
+
+		_, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+			if c.Field == "age" {
+				return nil, fmt.Errorf("field %q is not filterable by this caller", c.Field)
+			}
+			return c, nil
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not filterable")
+	})
+}
+
+// TestParseFIQLExprLimitsWithoutRegistry confirms both hostile-input bounds are
+// enforced by the syntax pass. Before the split, the list bound lived in apply
+// and so only fired after a registry lookup had already succeeded.
+func TestParseFIQLExprLimitsWithoutRegistry(t *testing.T) {
+	t.Run("nesting depth", func(t *testing.T) {
+		expr := strings.Repeat("(", 51) + "a==1" + strings.Repeat(")", 51)
+		_, err := entdomain.ParseFIQLExpr(expr)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum nesting depth of 50")
+	})
+
+	t.Run("value list length", func(t *testing.T) {
+		expr := "a=in=(" + strings.TrimSuffix(strings.Repeat("v,", 101), ",") + ")"
+		_, err := entdomain.ParseFIQLExpr(expr)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum of 100 entries")
+	})
+}
+
+// TestCompileFIQLNilNode pins the fail-closed contract in isolation.
+func TestCompileFIQLNilNode(t *testing.T) {
+	_, err := entdomain.CompileFIQL(nil, astTestFields())
+	require.Error(t, err)
+	assert.Equal(t, "empty FIQL expression", err.Error())
+}
+
+// --- ENTD-006: AST serialization -------------------------------------------
+
+// TestToFIQLRoundTrip pins that any expression the parser accepts renders back
+// to the identical string. The parenthesised cases matter most: the parser
+// drops redundant parens, so the serializer has to re-derive exactly the ones
+// precedence requires.
+func TestToFIQLRoundTrip(t *testing.T) {
+	for _, expr := range []string{
+		"ids=in=(abc,xyz,mnz)",
+		"name==john;age=gt=25",
+		"a==1,b==2;c==3",
+		"(a==1,b==2);c==3",
+		"bio=is=null",
+		"bio=is=notnull",
+		"x==1;(y==2,z==3);w==4",
+		"name=like=jo",
+	} {
+		t.Run(expr, func(t *testing.T) {
+			node, err := entdomain.ParseFIQLExpr(expr)
+			require.NoError(t, err)
+
+			out, err := entdomain.ToFIQL(node)
+			require.NoError(t, err)
+			assert.Equal(t, expr, out)
+
+			// Rendering must also be stable: parsing the output and rendering
+			// again yields the same text.
+			again, err := entdomain.ParseFIQLExpr(out)
+			require.NoError(t, err)
+			out2, err := entdomain.ToFIQL(again)
+			require.NoError(t, err)
+			assert.Equal(t, out, out2)
+		})
+	}
+}
+
+// TestToFIQLRejectsUnrepresentable covers operands the grammar cannot carry.
+// The "a,b==c" row is the reason ToFIQL returns an error at all: rendered
+// naively it parses back cleanly into a different query, with nothing to
+// signal that the filter changed meaning.
+func TestToFIQLRejectsUnrepresentable(t *testing.T) {
+	for _, tc := range []struct{ name, value, wantSubstr string }{
+		{"semicolon", "a;b", `reserved character ";"`},
+		{"comma", "a,b", `reserved character ","`},
+		{"close paren", "a)b", `reserved character ")"`},
+		{"silent corruption", "a,b==c", `reserved character ","`},
+		{"empty", "", "empty value cannot be rendered"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			node := &entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: tc.value}
+			_, err := entdomain.ToFIQL(node)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantSubstr)
+		})
+	}
+
+	t.Run("reserved character inside an =in= list", func(t *testing.T) {
+		node := &entdomain.FIQLCmp{Field: "ids", Op: entdomain.In, Values: []string{"ok", "a,b"}}
+		_, err := entdomain.ToFIQL(node)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `reserved character ","`)
+	})
+
+	t.Run("open paren is allowed", func(t *testing.T) {
+		node := &entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "foo(bar"}
+		out, err := entdomain.ToFIQL(node)
+		require.NoError(t, err)
+		assert.Equal(t, "name==foo(bar", out)
+
+		back, err := entdomain.ParseFIQLExpr(out)
+		require.NoError(t, err)
+		assert.Equal(t, "foo(bar", entdomain.FindFIQL(back, "name")[0].Value)
+	})
+}
+
+// TestToFIQLRejectsMalformedNode covers hand-built trees that cannot render.
+// These shapes never come out of ParseFIQLExpr; they come from callers
+// assembling nodes directly, which the authorization pattern encourages.
+func TestToFIQLRejectsMalformedNode(t *testing.T) {
+	cases := []struct {
+		name       string
+		node       entdomain.FIQLNode
+		wantSubstr string
+	}{
+		{"nil", nil, "empty FIQL expression"},
+		{"empty And", &entdomain.FIQLAnd{}, "FIQLAnd with no children"},
+		{"empty Or", &entdomain.FIQLOr{}, "FIQLOr with no children"},
+		{
+			"empty field",
+			&entdomain.FIQLCmp{Op: entdomain.EQ, Value: "x"},
+			"empty field name",
+		},
+		{
+			"field outside the selector grammar",
+			&entdomain.FIQLCmp{Field: "user.name", Op: entdomain.EQ, Value: "x"},
+			`contains character "."`,
+		},
+		{
+			"parser-internal Is op",
+			&entdomain.FIQLCmp{Field: "bio", Op: entdomain.Is, Value: "null"},
+			"cannot be rendered",
+		},
+		{
+			"=in= with no values",
+			&entdomain.FIQLCmp{Field: "ids", Op: entdomain.In},
+			"no values to render",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := entdomain.ToFIQL(tc.node)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantSubstr)
+		})
+	}
+}
+
+// TestToFIQLAfterWalk is the motivating flow: rewrite a filter, render the
+// rewritten form for the audit log, and confirm it still compiles to the
+// predicate the query runs on.
+func TestToFIQLAfterWalk(t *testing.T) {
+	node, err := entdomain.ParseFIQLExpr("ids=in=(abc,xyz,mnz)")
+	require.NoError(t, err)
+
+	rewritten, err := entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+		for i, v := range c.Values {
+			c.Values[i] = "id-" + v
+		}
+		return c, nil
+	})
+	require.NoError(t, err)
+
+	out, err := entdomain.ToFIQL(rewritten)
+	require.NoError(t, err)
+	assert.Equal(t, "ids=in=(id-abc,id-xyz,id-mnz)", out)
+
+	// The original stays renderable and unchanged — that is the whole point of
+	// WalkFIQL copying: both forms can be logged side by side.
+	original, err := entdomain.ToFIQL(node)
+	require.NoError(t, err)
+	assert.Equal(t, "ids=in=(abc,xyz,mnz)", original)
+
+	pred, err := entdomain.CompileFIQL(rewritten, astTestFields())
+	require.NoError(t, err)
+	assert.Equal(t, []any{"id-abc", "id-xyz", "id-mnz"}, buildSQLArgs(pred))
+}
+
+// TestToFIQLAuthzInjectionRenders covers rendering a hand-assembled tree — the
+// tenant-scoping shape from the README — including the parens the injected AND
+// forces around the caller's OR.
+func TestToFIQLAuthzInjectionRenders(t *testing.T) {
+	user, err := entdomain.ParseFIQLExpr("name==john,name==jane")
+	require.NoError(t, err)
+
+	scoped := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+		user,
+		&entdomain.FIQLCmp{Field: "org_id", Op: entdomain.EQ, Value: "org-42"},
+	}}
+
+	out, err := entdomain.ToFIQL(scoped)
+	require.NoError(t, err)
+	assert.Equal(t, "(name==john,name==jane);org_id==org-42", out)
+
+	back, err := entdomain.ParseFIQLExpr(out)
+	require.NoError(t, err)
+	again, err := entdomain.ToFIQL(back)
+	require.NoError(t, err)
+	assert.Equal(t, out, again, "the injected scope must survive a parse/render cycle")
 }

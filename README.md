@@ -435,6 +435,97 @@ GET /users?filter=name==john;score=gt=25,status==active
 GET /users?filter=(status==active,status==inactive);created_at=ge=2024-01-01T00:00:00Z
 ```
 
+### Inspecting and rewriting a filter
+
+`ParseFIQL` is the composition of two halves you can also call separately:
+
+```go
+node, err := entdomain.ParseFIQLExpr(expr)          // syntax only — no registry
+pred, err := entdomain.CompileFIQL(node, UserFIQLFields)  // resolve, coerce, build
+```
+
+`ParseFIQLExpr` returns an AST of `*FIQLAnd`, `*FIQLOr`, and `*FIQLCmp`
+nodes carrying raw, uncoerced strings. Between the two calls you can read
+what the caller asked for, enforce authorization, rewrite values, or drop
+terms.
+
+Read a term with `FindFIQL`:
+
+```go
+node, _ := entdomain.ParseFIQLExpr("ids=in=(abc,xyz,mnz)")
+entdomain.FindFIQL(node, "ids")[0].Values   // ["abc" "xyz" "mnz"]
+```
+
+Rewrite with `WalkFIQL` — return the node to keep it, a different node to
+replace it, `nil` to prune it, or an error to reject the expression:
+
+```go
+node, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+    if c.Field != "ids" || c.Op != entdomain.In {
+        return c, nil
+    }
+    for i, v := range c.Values {
+        c.Values[i] = "id-" + v
+    }
+    return c, nil
+})
+pred, err := entdomain.CompileFIQL(node, UserFIQLFields)
+// WHERE ids IN (?, ?, ?)  →  id-abc, id-xyz, id-mnz
+```
+
+Scope a query to a tenant by wrapping the caller's expression in an `AND`
+it cannot influence:
+
+```go
+scoped := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+    node,
+    &entdomain.FIQLCmp{Field: "org_id", Op: entdomain.EQ, Value: orgID},
+}}
+```
+
+Render a tree back to FIQL text with `ToFIQL` — for audit-logging the
+expression the query actually ran on, building a cache key, or forwarding a
+scoped filter to another service:
+
+```go
+entdomain.ToFIQL(node)    // "ids=in=(id-abc,id-xyz,id-mnz)", nil
+```
+
+Parentheses are re-derived only where precedence needs them, so anything that
+came from `ParseFIQLExpr` renders byte-identical:
+
+```go
+node, _ := entdomain.ParseFIQLExpr("x==1;(y==2,z==3);w==4")
+entdomain.ToFIQL(node)    // "x==1;(y==2,z==3);w==4", nil
+```
+
+`ToFIQL` returns an error rather than emitting text that would parse back into
+a different tree. FIQL has no escape syntax, so a value containing `;`, `,`, or
+`)` — or an empty value — cannot round-trip:
+
+```go
+entdomain.ToFIQL(&entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "a,b==c"})
+// error: field "name": value "a,b==c" contains reserved character ",", which FIQL cannot escape
+```
+
+That one matters: rendered naively it would read back as two OR'd comparisons
+— a different query with nothing to signal the change.
+
+Two contracts worth knowing:
+
+- **`WalkFIQL` hands the callback a copy** with `Values` cloned, so editing
+  in place cannot reach the tree `ParseFIQLExpr` returned. The original stays
+  intact for audit logging while the query runs on the rewritten one.
+- **A fully pruned tree compiles to an error, not match-all.**
+  `CompileFIQL(nil, ...)` returns `empty FIQL expression`, so an
+  authorization rewrite that drops every term can never widen the query.
+  Callers that want an empty filter to mean "no restriction" handle that case
+  themselves.
+
+Values are transformed before coercion, so a rewrite producing an invalid
+value fails at `CompileFIQL` with the normal type error rather than reaching
+SQL.
+
 ### Error Handling
 
 ```

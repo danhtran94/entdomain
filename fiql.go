@@ -114,7 +114,11 @@ type FIQLFields[P Predicate] map[string]FIQLField[P]
 
 // FIQLField is implemented by all typed FIQL field helpers.
 type FIQLField[P Predicate] interface {
-	apply(op FIQLOp, value string) (P, error)
+	// vals carries the operands for In/NotIn, already split and validated by
+	// the parser; val carries the operand for every other operator. Widening
+	// this signature is safe precisely because apply is unexported — no type
+	// outside this package can implement FIQLField.
+	apply(op FIQLOp, val string, vals []string) (P, error)
 }
 
 // FIQLString handles FIQL filtering for string fields.
@@ -129,7 +133,7 @@ type FIQLString[P Predicate] struct {
 	NotNil    func() P
 }
 
-func (f FIQLString[P]) apply(op FIQLOp, val string) (P, error) {
+func (f FIQLString[P]) apply(op FIQLOp, val string, vals []string) (P, error) {
 	var zero P
 	switch op {
 	case EQ:
@@ -156,19 +160,13 @@ func (f FIQLString[P]) apply(op FIQLOp, val string) (P, error) {
 		if f.In == nil {
 			return zero, fmt.Errorf("operator =in= not allowed on this string field")
 		}
-		parts, err := parseInListValue(val)
-		if err != nil {
-			return zero, err
-		}
+		parts := vals
 		return f.In(parts...), nil
 	case NotIn:
 		if f.NotIn == nil {
 			return zero, fmt.Errorf("operator =out= not allowed on this string field")
 		}
-		parts, err := parseInListValue(val)
-		if err != nil {
-			return zero, err
-		}
+		parts := vals
 		return f.NotIn(parts...), nil
 	case IsNull, NotNull:
 		return applyNullTyped(op, f.IsNil, f.NotNil, "string")
@@ -191,10 +189,10 @@ type FIQLInt[P Predicate] struct {
 	NotNil func() P
 }
 
-func (f FIQLInt[P]) apply(op FIQLOp, val string) (P, error) {
+func (f FIQLInt[P]) apply(op FIQLOp, val string, vals []string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
-		return applyListTyped(op, val, f.In, f.NotIn, strconv.Atoi, "integer", "int")
+		return applyListTyped(op, vals, f.In, f.NotIn, strconv.Atoi, "integer", "int")
 	}
 	if op == IsNull || op == NotNull {
 		return applyNullTyped(op, f.IsNil, f.NotNil, "int")
@@ -253,10 +251,10 @@ type FIQLFloat[P Predicate] struct {
 	NotNil func() P
 }
 
-func (f FIQLFloat[P]) apply(op FIQLOp, val string) (P, error) {
+func (f FIQLFloat[P]) apply(op FIQLOp, val string, vals []string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
-		return applyListTyped(op, val, f.In, f.NotIn,
+		return applyListTyped(op, vals, f.In, f.NotIn,
 			func(s string) (float64, error) { return strconv.ParseFloat(s, 64) },
 			"float", "float")
 	}
@@ -316,7 +314,7 @@ type FIQLTime[P Predicate] struct {
 	NotNil func() P
 }
 
-func (f FIQLTime[P]) apply(op FIQLOp, val string) (P, error) {
+func (f FIQLTime[P]) apply(op FIQLOp, val string, vals []string) (P, error) {
 	var zero P
 	if op == IsNull || op == NotNull {
 		return applyNullTyped(op, f.IsNil, f.NotNil, "time")
@@ -369,7 +367,7 @@ type FIQLBool[P Predicate] struct {
 	NotNil func() P
 }
 
-func (f FIQLBool[P]) apply(op FIQLOp, val string) (P, error) {
+func (f FIQLBool[P]) apply(op FIQLOp, val string, vals []string) (P, error) {
 	var zero P
 	if op == IsNull || op == NotNull {
 		return applyNullTyped(op, f.IsNil, f.NotNil, "bool")
@@ -401,10 +399,10 @@ type FIQLUUID[P Predicate] struct {
 	NotNil func() P
 }
 
-func (f FIQLUUID[P]) apply(op FIQLOp, val string) (P, error) {
+func (f FIQLUUID[P]) apply(op FIQLOp, val string, vals []string) (P, error) {
 	var zero P
 	if op == In || op == NotIn {
-		return applyListTyped(op, val, f.In, f.NotIn, uuid.Parse, "UUID", "UUID")
+		return applyListTyped(op, vals, f.In, f.NotIn, uuid.Parse, "UUID", "UUID")
 	}
 	if op == IsNull || op == NotNull {
 		return applyNullTyped(op, f.IsNil, f.NotNil, "UUID")
@@ -438,7 +436,7 @@ type FIQLEnum[P Predicate] struct {
 	NotNil func() P
 }
 
-func (f FIQLEnum[P]) apply(op FIQLOp, val string) (P, error) {
+func (f FIQLEnum[P]) apply(op FIQLOp, val string, vals []string) (P, error) {
 	var zero P
 	switch op {
 	case EQ:
@@ -463,10 +461,7 @@ func (f FIQLEnum[P]) apply(op FIQLOp, val string) (P, error) {
 		if f.EQ == nil {
 			return zero, fmt.Errorf("operator =in= not allowed on this enum field (requires == annotation)")
 		}
-		parts, err := parseInListValue(val)
-		if err != nil {
-			return zero, err
-		}
+		parts := vals
 		preds := make([]P, len(parts))
 		for i, v := range parts {
 			p, ok := f.EQ[v]
@@ -483,10 +478,7 @@ func (f FIQLEnum[P]) apply(op FIQLOp, val string) (P, error) {
 		if f.NEQ == nil {
 			return zero, fmt.Errorf("operator =out= not allowed on this enum field (requires != annotation)")
 		}
-		parts, err := parseInListValue(val)
-		if err != nil {
-			return zero, err
-		}
+		parts := vals
 		preds := make([]P, len(parts))
 		for i, v := range parts {
 			p, ok := f.NEQ[v]
@@ -533,8 +525,69 @@ func sortedMapKeys[P Predicate](m map[string]P) string {
 //   - expr,expr           OR (lower precedence)
 //   - (expr)              grouping
 func ParseFIQL[P Predicate](expr string, fields FIQLFields[P]) (P, error) {
-	p := &fiqlParser[P]{expr: expr, fields: fields}
-	return p.parse()
+	var zero P
+	node, err := ParseFIQLExpr(expr)
+	if err != nil {
+		return zero, err
+	}
+	return CompileFIQL(node, fields)
+}
+
+// CompileFIQL turns a parsed FIQL AST into an ent predicate using the
+// provided field registry. It resolves each comparison's field, checks the
+// operator is allowed on it, and coerces the raw value to the field's Go
+// type — the three things ParseFIQLExpr deliberately does not do.
+//
+// A nil node is an error, not a match-everything predicate. A WalkFIQL
+// rewrite that prunes every term yields nil, and silently compiling that
+// into "match all" would turn a failed authorization filter into an
+// unfiltered query. Callers that want an absent filter to mean "no
+// restriction" must handle the empty case explicitly.
+func CompileFIQL[P Predicate](n FIQLNode, fields FIQLFields[P]) (P, error) {
+	var zero P
+	switch v := n.(type) {
+	case nil:
+		return zero, fmt.Errorf("empty FIQL expression")
+	case *FIQLAnd:
+		preds, err := compileChildren(v.Nodes, fields)
+		if err != nil {
+			return zero, err
+		}
+		return andPreds(preds...), nil
+	case *FIQLOr:
+		preds, err := compileChildren(v.Nodes, fields)
+		if err != nil {
+			return zero, err
+		}
+		return orPreds(preds...), nil
+	case *FIQLCmp:
+		fieldDesc, ok := fields[v.Field]
+		if !ok {
+			return zero, fmt.Errorf("unknown field %q — annotate with entdomain.FIQL(...) to enable", v.Field)
+		}
+		pred, err := fieldDesc.apply(v.Op, v.Value, v.Values)
+		if err != nil {
+			return zero, fmt.Errorf("field %q: %w", v.Field, err)
+		}
+		return pred, nil
+	default:
+		return zero, fmt.Errorf("unknown FIQL node type %T", n)
+	}
+}
+
+// compileChildren compiles every child of an And/Or node. A nil child is
+// rejected rather than skipped: WalkFIQL prunes empty branches on the way
+// out, so a nil surviving into compile means a hand-built tree is malformed.
+func compileChildren[P Predicate](nodes []FIQLNode, fields FIQLFields[P]) ([]P, error) {
+	preds := make([]P, 0, len(nodes))
+	for _, child := range nodes {
+		pred, err := CompileFIQL(child, fields)
+		if err != nil {
+			return nil, err
+		}
+		preds = append(preds, pred)
+	}
+	return preds, nil
 }
 
 // maxFIQLDepth is the maximum nesting depth for parenthesised groups.
@@ -544,224 +597,6 @@ const maxFIQLDepth = 50
 // maxFIQLListValues is the maximum number of values in a single =in= or =out=
 // list. Bounds parse cost and downstream SQL planner cost on hostile input.
 const maxFIQLListValues = 100
-
-// fiqlParser is a recursive descent FIQL parser.
-type fiqlParser[P Predicate] struct {
-	expr   string
-	pos    int
-	depth  int
-	fields FIQLFields[P]
-}
-
-func (p *fiqlParser[P]) parse() (P, error) {
-	var zero P
-	if p.expr == "" {
-		return zero, fmt.Errorf("empty FIQL expression")
-	}
-	pred, err := p.parseOrExpr()
-	if err != nil {
-		return zero, err
-	}
-	if p.pos != len(p.expr) {
-		return zero, fmt.Errorf("unexpected character at position %d: %q", p.pos, string(p.expr[p.pos]))
-	}
-	return pred, nil
-}
-
-func (p *fiqlParser[P]) parseOrExpr() (P, error) {
-	left, err := p.parseAndExpr()
-	if err != nil {
-		return left, err
-	}
-
-	preds := []P{left}
-	for p.pos < len(p.expr) && p.expr[p.pos] == ',' {
-		p.pos++ // consume ','
-		right, err := p.parseAndExpr()
-		if err != nil {
-			return right, err
-		}
-		preds = append(preds, right)
-	}
-
-	if len(preds) == 1 {
-		return preds[0], nil
-	}
-	return orPreds(preds...), nil
-}
-
-func (p *fiqlParser[P]) parseAndExpr() (P, error) {
-	left, err := p.parseAtom()
-	if err != nil {
-		return left, err
-	}
-
-	preds := []P{left}
-	for p.pos < len(p.expr) && p.expr[p.pos] == ';' {
-		p.pos++ // consume ';'
-		right, err := p.parseAtom()
-		if err != nil {
-			return right, err
-		}
-		preds = append(preds, right)
-	}
-
-	if len(preds) == 1 {
-		return preds[0], nil
-	}
-	return andPreds(preds...), nil
-}
-
-func (p *fiqlParser[P]) parseAtom() (P, error) {
-	var zero P
-	if p.pos < len(p.expr) && p.expr[p.pos] == '(' {
-		p.depth++
-		if p.depth > maxFIQLDepth {
-			return zero, fmt.Errorf("expression exceeds maximum nesting depth of %d", maxFIQLDepth)
-		}
-		p.pos++ // consume '('
-		pred, err := p.parseOrExpr()
-		if err != nil {
-			return pred, err
-		}
-		if p.pos >= len(p.expr) || p.expr[p.pos] != ')' {
-			return zero, fmt.Errorf("expected ')' at position %d", p.pos)
-		}
-		p.pos++ // consume ')'
-		p.depth--
-		return pred, nil
-	}
-	return p.parseComparison()
-}
-
-func (p *fiqlParser[P]) parseComparison() (P, error) {
-	var zero P
-
-	selector := p.readSelector()
-	if selector == "" {
-		return zero, fmt.Errorf("expected field name at position %d", p.pos)
-	}
-
-	op, err := p.readOp()
-	if err != nil {
-		return zero, err
-	}
-
-	var value string
-	if op == In || op == NotIn {
-		value, err = p.readListValue()
-		if err != nil {
-			return zero, err
-		}
-	} else {
-		value = p.readValue()
-		if value == "" {
-			return zero, fmt.Errorf("empty value for field %q at position %d", selector, p.pos)
-		}
-	}
-
-	// Normalize the wire-form Is op into IsNull/NotNull based on its value.
-	// Downstream apply paths only ever see IsNull/NotNull — never Is. The
-	// parser-internal Is constant exists solely so readOp can recognise the
-	// wire form symbolically.
-	if op == Is {
-		switch value {
-		case "null":
-			op = IsNull
-			value = ""
-		case "notnull":
-			op = NotNull
-			value = ""
-		default:
-			return zero, fmt.Errorf("unknown =is= value %q — valid: %s", value, strings.Join(validIsValues, ", "))
-		}
-	}
-
-	fieldDesc, ok := p.fields[selector]
-	if !ok {
-		return zero, fmt.Errorf("unknown field %q — annotate with entdomain.FIQL(...) to enable", selector)
-	}
-
-	pred, err := fieldDesc.apply(op, value)
-	if err != nil {
-		return zero, fmt.Errorf("field %q: %w", selector, err)
-	}
-	return pred, nil
-}
-
-func (p *fiqlParser[P]) readSelector() string {
-	start := p.pos
-	for p.pos < len(p.expr) {
-		c := p.expr[p.pos]
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' {
-			p.pos++
-		} else {
-			break
-		}
-	}
-	return p.expr[start:p.pos]
-}
-
-func (p *fiqlParser[P]) readOp() (FIQLOp, error) {
-	if p.pos+2 <= len(p.expr) {
-		if p.expr[p.pos:p.pos+2] == "==" {
-			p.pos += 2
-			return EQ, nil
-		}
-		if p.expr[p.pos:p.pos+2] == "!=" {
-			p.pos += 2
-			return NEQ, nil
-		}
-	}
-	if p.pos < len(p.expr) && p.expr[p.pos] == '=' {
-		// Extended operator of the form =xxx= — find the closing '='
-		rest := p.expr[p.pos+1:]
-		end := strings.Index(rest, "=")
-		if end < 0 {
-			return "", fmt.Errorf("malformed operator at position %d", p.pos)
-		}
-		opStr := FIQLOp(p.expr[p.pos : p.pos+1+end+1])
-		p.pos += len(opStr)
-		switch opStr {
-		case GT, LT, GTE, LTE, Contains, HasPrefix, In, NotIn, Is:
-			return opStr, nil
-		default:
-			return "", fmt.Errorf("unknown operator %q at position %d", opStr, p.pos-len(opStr))
-		}
-	}
-	return "", fmt.Errorf("expected operator at position %d", p.pos)
-}
-
-func (p *fiqlParser[P]) readValue() string {
-	start := p.pos
-	for p.pos < len(p.expr) {
-		c := p.expr[p.pos]
-		if c == ';' || c == ',' || c == ')' {
-			break
-		}
-		p.pos++
-	}
-	return p.expr[start:p.pos]
-}
-
-// readListValue reads a parenthesised value list for =in= / =out= operators.
-// Returns the substring including the enclosing parens (e.g. "(a,b,c)").
-// Per-type apply methods strip the parens and split on ',' — see parseInListValue.
-func (p *fiqlParser[P]) readListValue() (string, error) {
-	if p.pos >= len(p.expr) || p.expr[p.pos] != '(' {
-		return "", fmt.Errorf("expected '(' after =in=/=out= operator at position %d", p.pos)
-	}
-	start := p.pos
-	p.pos++ // consume '('
-	for p.pos < len(p.expr) && p.expr[p.pos] != ')' {
-		p.pos++
-	}
-	if p.pos >= len(p.expr) {
-		return "", fmt.Errorf("unterminated list value starting at position %d", start)
-	}
-	p.pos++ // consume ')'
-	return p.expr[start:p.pos], nil
-}
 
 // parseInListValue strips the enclosing parens from a =in= / =out= value,
 // splits on ',', and enforces maxFIQLListValues. Returns the per-element
@@ -796,7 +631,7 @@ func parseInListValue(val string) ([]string, error) {
 // shapes (map composition, single-EQ) and don't fit.
 func applyListTyped[T any, P Predicate](
 	op FIQLOp,
-	val string,
+	parts []string,
 	inFn func(...T) P,
 	notInFn func(...T) P,
 	parseOne func(string) (T, error),
@@ -817,10 +652,6 @@ func applyListTyped[T any, P Predicate](
 	}
 	if op == NotIn && notInFn == nil {
 		return zero, fmt.Errorf("operator =out= not allowed on this %s field", fieldLabel)
-	}
-	parts, err := parseInListValue(val)
-	if err != nil {
-		return zero, err
 	}
 	ts := make([]T, len(parts))
 	for i, s := range parts {
