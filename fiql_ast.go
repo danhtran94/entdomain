@@ -330,6 +330,15 @@ func WalkFIQL(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) (FIQLNode, error)
 		if v == nil {
 			return nil, errNilFIQLNode
 		}
+		// Zero children on input is malformed, and CompileFIQL and ToFIQL both
+		// reject it. Without this guard a no-op walk would fold the empty
+		// compound into nil, drop it from its parent, and hand back a tree that
+		// compiles — laundering a malformed AST into an accepted one. Note this
+		// is the input count; zero *survivors* after pruning is the intended
+		// prune-to-nil path handled below.
+		if len(v.Nodes) == 0 {
+			return nil, fmt.Errorf("cannot walk an FIQLAnd with no children")
+		}
 		kids, err := walkChildren(v.Nodes, fn)
 		if err != nil {
 			return nil, err
@@ -345,6 +354,9 @@ func WalkFIQL(n FIQLNode, fn func(*FIQLCmp) (FIQLNode, error)) (FIQLNode, error)
 	case *FIQLOr:
 		if v == nil {
 			return nil, errNilFIQLNode
+		}
+		if len(v.Nodes) == 0 {
+			return nil, fmt.Errorf("cannot walk an FIQLOr with no children")
 		}
 		kids, err := walkChildren(v.Nodes, fn)
 		if err != nil {
@@ -640,10 +652,11 @@ func checkFIQLValue(field, val string) error {
 
 // checkFIQLListValue rejects operands an =in= / =out= list cannot carry back.
 // ';' is deliberately absent from the rejected set — see fiqlReservedInListValue.
+// An empty element is deliberately allowed: the parser splits
+// ids=in=(a,,b) into ["a", "", "b"], and rendering that text reparses
+// identically. Rejecting it here would refuse a tree ParseFIQLExpr produced.
+// The whole list still may not be empty — writeFIQLCmp checks len(Values).
 func checkFIQLListValue(field, val string) error {
-	if val == "" {
-		return fmt.Errorf("field %q: empty value cannot be rendered as FIQL", field)
-	}
 	if i := strings.IndexAny(val, fiqlReservedInListValue); i >= 0 {
 		return fmt.Errorf("field %q: value %q contains reserved character %q, which FIQL cannot escape", field, val, string(val[i]))
 	}

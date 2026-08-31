@@ -1408,3 +1408,75 @@ func TestCompileFIQLRejectsEmptyEnumList(t *testing.T) {
 		})
 	}
 }
+
+// TestWalkFIQLRejectsEmptyCompound covers a malformed compound reaching the
+// walk. Without an input-side guard a no-op walk folds it to nil, its parent
+// drops it, and the result compiles — so whether the same AST is accepted would
+// depend on having walked it first. Zero children on input is malformed; zero
+// survivors after pruning is the intended prune-to-nil path and must still work.
+func TestWalkFIQLRejectsEmptyCompound(t *testing.T) {
+	noop := func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) { return c, nil }
+
+	t.Run("empty compound at root", func(t *testing.T) {
+		_, err := entdomain.WalkFIQL(&entdomain.FIQLAnd{}, noop)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "FIQLAnd with no children")
+
+		_, err = entdomain.WalkFIQL(&entdomain.FIQLOr{}, noop)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "FIQLOr with no children")
+	})
+
+	t.Run("a no-op walk must not launder a malformed tree", func(t *testing.T) {
+		bad := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+			&entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "john"},
+			&entdomain.FIQLOr{},
+		}}
+		_, errDirect := entdomain.CompileFIQL(bad, astTestFields())
+		require.Error(t, errDirect, "the malformed tree must not compile")
+
+		_, errWalked := entdomain.WalkFIQL(bad, noop)
+		require.Error(t, errWalked, "walking must not turn it into an acceptable tree")
+	})
+
+	t.Run("pruning every child still yields nil, not an error", func(t *testing.T) {
+		node, err := entdomain.ParseFIQLExpr("name==john,name==jane")
+		require.NoError(t, err)
+
+		out, err := entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+			return nil, nil
+		})
+		require.NoError(t, err, "zero survivors is the intended prune path, not malformed input")
+		assert.Nil(t, out)
+	})
+}
+
+// TestToFIQLAllowsEmptyListElement covers an empty operand inside a list. The
+// parser splits ids=in=(a,,b) into three elements, so refusing to render the
+// empty one would break round-tripping a tree ParseFIQLExpr itself produced. An
+// empty *scalar* operand stays rejected — "name==" does not parse.
+func TestToFIQLAllowsEmptyListElement(t *testing.T) {
+	node, err := entdomain.ParseFIQLExpr("ids=in=(a,,b)")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a", "", "b"}, entdomain.FindFIQL(node, "ids")[0].Values)
+
+	out, err := entdomain.ToFIQL(node)
+	require.NoError(t, err)
+	assert.Equal(t, "ids=in=(a,,b)", out)
+
+	back, err := entdomain.ParseFIQLExpr(out)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a", "", "b"}, entdomain.FindFIQL(back, "ids")[0].Values)
+
+	t.Run("an empty scalar operand is still rejected", func(t *testing.T) {
+		_, err := entdomain.ToFIQL(&entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: ""})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty value cannot be rendered")
+	})
+
+	t.Run("a wholly empty list is still rejected", func(t *testing.T) {
+		_, err := entdomain.ToFIQL(&entdomain.FIQLCmp{Field: "ids", Op: entdomain.In, Values: []string{}})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no values to render")
+	})
+}

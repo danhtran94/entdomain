@@ -225,3 +225,32 @@ finding sits in `CompileFIQL` ahead of field dispatch, so it is field-type
 agnostic and already covered this. Verified empirically, and
 `TestCompileFIQLRejectsEmptyEnumList` now pins the enum path explicitly.
 
+### [Reviewer] A no-op WalkFIQL laundered a malformed tree into an accepted one
+Copilot, not CodeRabbit — the PR draws two independent bot reviewers and the
+second round of findings came from Copilot. `WalkFIQL` folded a zero-child
+compound to nil, its parent then dropped it, and the surviving single child
+collapsed into a tree that compiled cleanly:
+
+    CompileFIQL(&FIQLAnd{cmpA, &FIQLOr{}})            -> error
+    CompileFIQL(WalkFIQL(same, no-op))                -> OK, query runs
+
+Whether an AST was accepted depended on having walked it first. Guarded on the
+input count, deliberately not the survivor count — zero children on input is
+malformed, zero survivors after pruning is the intended prune-to-nil path.
+`TestWalkFIQLRejectsEmptyCompound` pins both halves so a future fix cannot
+collapse them.
+
+### [Reviewer] Empty list elements are representable and must render
+Third instance of the same root cause as the `;`-in-list and oversized-list
+findings: the serializer was stricter than the parser. `ids=in=(a,,b)` splits
+into `["a", "", "b"]`, and that text reparses identically — so rejecting the
+empty element refused a tree `ParseFIQLExpr` had just produced. The empty check
+moved out of `checkFIQLListValue`; an empty *scalar* operand stays rejected
+because `name==` does not parse, and a wholly empty list stays rejected by the
+separate `len(Values)` guard.
+
+Worth naming the pattern: every time the two sides of the round trip were
+written independently, they drifted. The durable fix is to derive the
+serializer's constraints from the parser's, not to keep patching them one
+character class at a time.
+
