@@ -206,7 +206,11 @@ func (p *fiqlExprParser) parseComparison() (FIQLNode, error) {
 		}
 		values, err := parseInListValue(raw)
 		if err != nil {
-			return nil, err
+			// Keep the field prefix these errors carried before list
+			// validation moved to parse time. They used to surface through
+			// apply, which parseComparison wrapped as `field %q: %w`, and an
+			// API returning them to a caller needs to say which field failed.
+			return nil, fmt.Errorf("field %q: %w", selector, err)
 		}
 		return &FIQLCmp{Field: selector, Op: op, Values: values}, nil
 	}
