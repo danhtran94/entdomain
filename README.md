@@ -258,6 +258,7 @@ Every error-returning `ApplyDomain*` / `CreateBulkDomain` / `UpdateBulkDomain` h
 builder, err := client.User.Create().ApplyDomain(ctx, d)
 if err != nil { return err }
 created, err := builder.Save(ctx)
+if err != nil { return err }
 
 // Panicking, fluent — idiomatic in tests and scripts
 created := client.User.Create().ApplyDomainX(ctx, d).SaveX(ctx)
@@ -434,6 +435,147 @@ GET request — no percent-encoding required:
 GET /users?filter=name==john;score=gt=25,status==active
 GET /users?filter=(status==active,status==inactive);created_at=ge=2024-01-01T00:00:00Z
 ```
+
+### Inspecting and rewriting a filter
+
+`ParseFIQL` is the composition of two halves you can also call separately:
+
+```go
+node, err := entdomain.ParseFIQLExpr(expr)   // syntax only — no registry
+if err != nil {
+    return err                               // malformed expression
+}
+
+pred, err := entdomain.CompileFIQL(node, UserFIQLFields)  // resolve, coerce, build
+if err != nil {
+    return err                               // unknown field, bad operator, or bad value
+}
+```
+
+The two errors mean different things and are worth keeping apart: a
+`ParseFIQLExpr` failure is a syntax fault in the caller's input, while a
+`CompileFIQL` failure means the expression parsed but names a field that is
+not filterable, an operator the field does not allow, or a value of the wrong
+type.
+
+`ParseFIQLExpr` returns an AST of `*FIQLAnd`, `*FIQLOr`, and `*FIQLCmp`
+nodes carrying raw, uncoerced strings. Between the two calls you can read
+what the caller asked for, enforce authorization, rewrite values, or drop
+terms.
+
+Read a term with `FindFIQL`:
+
+```go
+node, _ := entdomain.ParseFIQLExpr("ids=in=(abc,xyz,mnz)")
+entdomain.FindFIQL(node, "ids")[0].Values   // ["abc" "xyz" "mnz"]
+```
+
+Rewrite with `WalkFIQL` — return the node to keep it, a different node to
+replace it, `nil` to prune it, or an error to reject the expression:
+
+```go
+node, err = entdomain.WalkFIQL(node, func(c *entdomain.FIQLCmp) (entdomain.FIQLNode, error) {
+    if c.Field != "ids" || c.Op != entdomain.In {
+        return c, nil
+    }
+    for i, v := range c.Values {
+        c.Values[i] = "id-" + v
+    }
+    return c, nil
+})
+if err != nil {
+    return err          // a callback rejected the expression
+}
+
+pred, err := entdomain.CompileFIQL(node, UserFIQLFields)
+if err != nil {
+    return err
+}
+// WHERE ids IN (?, ?, ?)  →  id-abc, id-xyz, id-mnz
+```
+
+Checking `WalkFIQL` before compiling matters: a callback that rejects a term
+returns an error here, and letting `CompileFIQL` overwrite it would surface the
+rejection as `empty FIQL expression` instead.
+
+Scope a query to a tenant by wrapping the caller's expression in an `AND`
+it cannot influence:
+
+```go
+scoped := &entdomain.FIQLAnd{Nodes: []entdomain.FIQLNode{
+    node,
+    &entdomain.FIQLCmp{Field: "org_id", Op: entdomain.EQ, Value: orgID},
+}}
+```
+
+Render a tree back to FIQL text with `ToFIQL` — for audit-logging the
+expression the query actually ran on, building a cache key, or forwarding a
+scoped filter to another service:
+
+```go
+entdomain.ToFIQL(node)    // "ids=in=(id-abc,id-xyz,id-mnz)", nil
+```
+
+Rendering is **canonical, not byte-exact**. Parentheses are re-derived only
+where precedence needs them, so an expression already in canonical form comes
+back unchanged:
+
+```go
+node, _ := entdomain.ParseFIQLExpr("x==1;(y==2,z==3);w==4")
+entdomain.ToFIQL(node)    // "x==1;(y==2,z==3);w==4", nil
+```
+
+Redundant grouping is not preserved — the AST never recorded it:
+
+```go
+node, _ := entdomain.ParseFIQLExpr("((a==1))")
+entdomain.ToFIQL(node)    // "a==1", nil
+```
+
+The guarantee is semantic: the output parses back to a tree that compiles to
+the same predicate, and rendering is idempotent from the first pass onward.
+
+`ToFIQL` returns an error rather than emitting text that would parse back into
+a different tree. FIQL has no escape syntax, so some operands cannot round-trip.
+The reserved set differs by position, because `;` does not terminate a value
+inside a parenthesised list:
+
+| Operand position | Rejected |
+|---|---|
+| Scalar (`name==v`) | `;` `,` `)`, and the empty string |
+| List element (`ids=in=(v,…)`) | `,` `)` — `;` and the empty string are fine |
+
+So `ids=in=(a;b,c)` renders and round-trips, while `name==a;b` does not:
+
+```go
+entdomain.ToFIQL(&entdomain.FIQLCmp{Field: "name", Op: entdomain.EQ, Value: "a,b==c"})
+// error: field "name": value "a,b==c" contains reserved character ",", which FIQL cannot escape
+```
+
+That one matters: rendered naively it would read back as two OR'd comparisons
+— a different query with nothing to signal the change.
+
+Two contracts worth knowing:
+
+- **`WalkFIQL` hands the callback a copy** with `Values` cloned, so editing
+  in place cannot reach the tree `ParseFIQLExpr` returned. The original stays
+  intact for audit logging while the query runs on the rewritten one.
+- **A fully pruned tree compiles to an error, not match-all.**
+  `CompileFIQL(nil, ...)` returns `empty FIQL expression`, so a rewrite that
+  drops every term cannot silently become an unfiltered query. Callers that
+  want an empty filter to mean "no restriction" handle that case themselves.
+
+⚠ That last guarantee is narrower than it looks, and authorization code should
+not lean on it. It only covers a *fully* pruned tree. Pruning a single conjunct
+still widens the result — dropping `org_id==x` from `org_id==x;status==active`
+leaves `status==active`, which matches more rows, with no error anywhere. To
+restrict what a caller may filter on, **reject the term** by returning an error
+from the callback, or **add an independent scope** by wrapping the tree in an
+`FIQLAnd`. Do not prune conjuncts.
+
+Values are transformed before coercion, so a rewrite producing an invalid
+value fails at `CompileFIQL` with the normal type error rather than reaching
+SQL.
 
 ### Error Handling
 
@@ -720,6 +862,9 @@ ex, err := entdomain.NewExtension(
         entdomain.WithProtoGoPackage("github.com/myorg/myrepo/proto/entpb;entpb"),
     ),
 )
+if err != nil {
+    log.Fatalf("creating entdomain extension: %v", err)
+}
 ```
 
 ### Generated Output
