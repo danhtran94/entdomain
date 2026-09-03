@@ -1731,3 +1731,31 @@ func TestFIQLNilRootVersusNilChild(t *testing.T) {
 		assert.Equal(t, "nil FIQL node", err.Error())
 	})
 }
+
+// TestFIQLListErrorsKeepFieldPrefix pins the field prefix on the two list
+// errors that moved to parse time in ENTD-005. They used to surface through
+// apply, which parseComparison wrapped as `field %q: %w`; moving validation
+// earlier dropped the prefix, and an API handing these back to a caller has to
+// say which field failed. Caught by a behavioural diff against the pre-split
+// implementation, not by any type-level API check.
+func TestFIQLListErrorsKeepFieldPrefix(t *testing.T) {
+	fields := astTestFields()
+	for _, tc := range []struct{ name, expr, want string }{
+		{
+			"empty list",
+			"ids=in=()",
+			`field "ids": empty value list for =in=/=out= operator`,
+		},
+		{
+			"oversized list",
+			"ids=in=(" + strings.TrimSuffix(strings.Repeat("v,", 101), ",") + ")",
+			`field "ids": list value exceeds maximum of 100 entries`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := entdomain.ParseFIQL(tc.expr, fields)
+			require.Error(t, err)
+			assert.Equal(t, tc.want, err.Error())
+		})
+	}
+}

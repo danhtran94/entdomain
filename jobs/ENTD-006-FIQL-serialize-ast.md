@@ -491,3 +491,27 @@ than reading the review comment did, which is the argument for making it the
 default response to any doc-accuracy finding rather than a reaction to being
 told twice.
 
+### [Implementer] A behavioural diff against the base commit found what apidiff could not
+Asked whether the PR breaks downstream clients, I checked two ways rather than
+asserting. `apidiff` between the PR base `de9f5b2` and HEAD reports **only
+compatible changes** — nine additions, zero removals or signature changes, and
+`ParseFIQL` untouched. `apply` was widened but is unexported and the interface
+is sealed, so no external type could have implemented it.
+
+Type compatibility is not behavioural compatibility, so I also ran a 39-expression
+corpus through `ParseFIQL` on both commits and diffed the output. 37 matched
+exactly. Two differed, both the same regression:
+
+    base: field "ids": empty value list for =in=/=out= operator
+    head: empty value list for =in=/=out= operator
+
+Moving list validation to parse time in ENTD-005 made these errors escape
+before `parseComparison` wrapped them as `field %q: %w`. Still an error, still
+the same class — but a caller returning it to an API consumer lost which field
+was at fault. Restored the prefix; the corpus now matches on all 39.
+
+Success criterion 6 pinned six error messages and neither of these was among
+them, which is the gap: the criterion pinned examples I picked rather than a
+diff against the previous behaviour. A differential corpus would have caught it
+on the day, and costs about as much to write as six hand-picked assertions.
+
