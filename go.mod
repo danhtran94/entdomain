@@ -1,9 +1,9 @@
 module github.com/danhtran94/entdomain
 
-go 1.25.7
+go 1.26.0
 
 require (
-	entgo.io/ent v0.14.6
+	entgo.io/ent v0.14.7-0.20261014065818-8037bc89bcab
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/stretchr/testify v1.12.1
@@ -23,9 +23,9 @@ require (
 	github.com/zclconf/go-cty v1.14.4 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/mod v0.37.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/mod v0.42.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
-	golang.org/x/tools v0.47.0 // indirect
+	golang.org/x/tools v0.52.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -41,7 +41,7 @@ func (_d *ChildDelete) ExecX(ctx context.Context) int {
 
 func (_d *ChildDelete) sqlExec(ctx context.Context) (int, error) {
 	_spec := sqlgraph.NewDeleteSpec(child.Table, sqlgraph.NewFieldSpec(child.FieldID, field.TypeInt))
-	if ps := _d.mutation.predicates; len(ps) > 0 {
+	if ps := _d.mutation.Predicates(); len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
