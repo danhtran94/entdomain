@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"github.com/danhtran94/entdomain/examples/custom/repo/ent/child"
+	"github.com/danhtran94/entdomain/examples/custom/repo/ent/family"
 	"github.com/danhtran94/entdomain/examples/custom/repo/ent/user"
 )
 
@@ -22,6 +24,10 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Child is the client for interacting with the Child builders.
+	Child *ChildClient
+	// Family is the client for interacting with the Family builders.
+	Family *FamilyClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 }
@@ -35,6 +41,8 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Child = NewChildClient(c.config)
+	c.Family = NewFamilyClient(c.config)
 	c.User = NewUserClient(c.config)
 }
 
@@ -128,6 +136,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:    ctx,
 		config: cfg,
+		Child:  NewChildClient(cfg),
+		Family: NewFamilyClient(cfg),
 		User:   NewUserClient(cfg),
 	}, nil
 }
@@ -148,6 +158,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:    ctx,
 		config: cfg,
+		Child:  NewChildClient(cfg),
+		Family: NewFamilyClient(cfg),
 		User:   NewUserClient(cfg),
 	}, nil
 }
@@ -155,7 +167,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		User.
+//		Child.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -177,22 +189,296 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.Child.Use(hooks...)
+	c.Family.Use(hooks...)
 	c.User.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.Child.Intercept(interceptors...)
+	c.Family.Intercept(interceptors...)
 	c.User.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *ChildMutation:
+		return c.Child.mutate(ctx, m)
+	case *FamilyMutation:
+		return c.Family.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// ChildClient is a client for the Child schema.
+type ChildClient struct {
+	config
+}
+
+// NewChildClient returns a client for the Child from the given config.
+func NewChildClient(c config) *ChildClient {
+	return &ChildClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `child.Hooks(f(g(h())))`.
+func (c *ChildClient) Use(hooks ...Hook) {
+	c.hooks.Child = append(c.hooks.Child, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `child.Intercept(f(g(h())))`.
+func (c *ChildClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Child = append(c.inters.Child, interceptors...)
+}
+
+// Create returns a builder for creating a Child entity.
+func (c *ChildClient) Create() *ChildCreate {
+	mutation := newChildMutation(c.config, OpCreate)
+	return &ChildCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Child entities.
+func (c *ChildClient) CreateBulk(builders ...*ChildCreate) *ChildCreateBulk {
+	return &ChildCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ChildClient) MapCreateBulk(slice any, setFunc func(*ChildCreate, int)) *ChildCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ChildCreateBulk{err: fmt.Errorf("calling to ChildClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ChildCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ChildCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Child.
+func (c *ChildClient) Update() *ChildUpdate {
+	mutation := newChildMutation(c.config, OpUpdate)
+	return &ChildUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChildClient) UpdateOne(_m *Child) *ChildUpdateOne {
+	mutation := newChildMutation(c.config, OpUpdateOne, withChild(_m))
+	return &ChildUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChildClient) UpdateOneID(id int) *ChildUpdateOne {
+	mutation := newChildMutation(c.config, OpUpdateOne, withChildID(id))
+	return &ChildUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Child.
+func (c *ChildClient) Delete() *ChildDelete {
+	mutation := newChildMutation(c.config, OpDelete)
+	return &ChildDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ChildClient) DeleteOne(_m *Child) *ChildDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ChildClient) DeleteOneID(id int) *ChildDeleteOne {
+	builder := c.Delete().Where(child.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChildDeleteOne{builder}
+}
+
+// Query returns a query builder for Child.
+func (c *ChildClient) Query() *ChildQuery {
+	return &ChildQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeChild},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Child entity by its id.
+func (c *ChildClient) Get(ctx context.Context, id int) (*Child, error) {
+	return c.Query().Where(child.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChildClient) GetX(ctx context.Context, id int) *Child {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ChildClient) Hooks() []Hook {
+	return c.hooks.Child
+}
+
+// Interceptors returns the client interceptors.
+func (c *ChildClient) Interceptors() []Interceptor {
+	return c.inters.Child
+}
+
+func (c *ChildClient) mutate(ctx context.Context, m *ChildMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ChildCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ChildUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ChildUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ChildDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Child mutation op: %q", m.Op())
+	}
+}
+
+// FamilyClient is a client for the Family schema.
+type FamilyClient struct {
+	config
+}
+
+// NewFamilyClient returns a client for the Family from the given config.
+func NewFamilyClient(c config) *FamilyClient {
+	return &FamilyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `family.Hooks(f(g(h())))`.
+func (c *FamilyClient) Use(hooks ...Hook) {
+	c.hooks.Family = append(c.hooks.Family, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `family.Intercept(f(g(h())))`.
+func (c *FamilyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Family = append(c.inters.Family, interceptors...)
+}
+
+// Create returns a builder for creating a Family entity.
+func (c *FamilyClient) Create() *FamilyCreate {
+	mutation := newFamilyMutation(c.config, OpCreate)
+	return &FamilyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Family entities.
+func (c *FamilyClient) CreateBulk(builders ...*FamilyCreate) *FamilyCreateBulk {
+	return &FamilyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *FamilyClient) MapCreateBulk(slice any, setFunc func(*FamilyCreate, int)) *FamilyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &FamilyCreateBulk{err: fmt.Errorf("calling to FamilyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*FamilyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &FamilyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Family.
+func (c *FamilyClient) Update() *FamilyUpdate {
+	mutation := newFamilyMutation(c.config, OpUpdate)
+	return &FamilyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *FamilyClient) UpdateOne(_m *Family) *FamilyUpdateOne {
+	mutation := newFamilyMutation(c.config, OpUpdateOne, withFamily(_m))
+	return &FamilyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *FamilyClient) UpdateOneID(id int) *FamilyUpdateOne {
+	mutation := newFamilyMutation(c.config, OpUpdateOne, withFamilyID(id))
+	return &FamilyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Family.
+func (c *FamilyClient) Delete() *FamilyDelete {
+	mutation := newFamilyMutation(c.config, OpDelete)
+	return &FamilyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *FamilyClient) DeleteOne(_m *Family) *FamilyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *FamilyClient) DeleteOneID(id int) *FamilyDeleteOne {
+	builder := c.Delete().Where(family.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &FamilyDeleteOne{builder}
+}
+
+// Query returns a query builder for Family.
+func (c *FamilyClient) Query() *FamilyQuery {
+	return &FamilyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeFamily},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Family entity by its id.
+func (c *FamilyClient) Get(ctx context.Context, id int) (*Family, error) {
+	return c.Query().Where(family.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *FamilyClient) GetX(ctx context.Context, id int) *Family {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *FamilyClient) Hooks() []Hook {
+	return c.hooks.Family
+}
+
+// Interceptors returns the client interceptors.
+func (c *FamilyClient) Interceptors() []Interceptor {
+	return c.inters.Family
+}
+
+func (c *FamilyClient) mutate(ctx context.Context, m *FamilyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&FamilyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&FamilyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&FamilyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&FamilyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Family mutation op: %q", m.Op())
 	}
 }
 
@@ -332,9 +618,9 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		User []ent.Hook
+		Child, Family, User []ent.Hook
 	}
 	inters struct {
-		User []ent.Interceptor
+		Child, Family, User []ent.Interceptor
 	}
 )

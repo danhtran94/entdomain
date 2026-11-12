@@ -58,16 +58,16 @@ var (
 
 	// TemplateFuncs contains the extra template functions used by entdomain.
 	TemplateFuncs = template.FuncMap{
-		"domainNodes":      domainNodesFn,
-		"entityAnnotation": entityAnnotationFn,
-		"edgeAnnotation":   edgeAnnotationFn,
-		"domainImportPath": domainImportPathFn,
-		"domainPkgName":    domainPkgNameFn,
-		"virtualFieldType": virtualFieldTypeFn,
-		"isEnum":           func(f *gen.Field) bool { return f.Type.Type == field.TypeEnum },
-		"isNillable":       func(f *gen.Field) bool { return f.Optional || f.Nillable },
-		"isJSONField":      func(f *gen.Field) bool { return f.Type.Type == field.TypeJSON || f.Type.Type == field.TypeBytes },
-		"hasEnumFields":    hasEnumFieldsFn,
+		"domainNodes":         domainNodesFn,
+		"entityAnnotation":    entityAnnotationFn,
+		"edgeAnnotation":      edgeAnnotationFn,
+		"domainImportPath":    domainImportPathFn,
+		"domainPkgName":       domainPkgNameFn,
+		"virtualFieldType":    virtualFieldTypeFn,
+		"isEnum":              func(f *gen.Field) bool { return f.Type.Type == field.TypeEnum },
+		"isNillable":          func(f *gen.Field) bool { return f.Optional || f.Nillable },
+		"isJSONField":         func(f *gen.Field) bool { return f.Type.Type == field.TypeJSON || f.Type.Type == field.TypeBytes },
+		"hasEnumFields":       hasEnumFieldsFn,
 		"hasUpsert":           hasUpsertFn,
 		"hasFIQLNodes":        hasFIQLNodesFn,
 		"hasFIQLFields":       hasFIQLFieldsFn,
@@ -78,6 +78,9 @@ var (
 		"singular":            func(s string) string { return gen.Funcs["singular"].(func(string) string)(s) },
 		"pascal":              func(s string) string { return gen.Funcs["pascal"].(func(string) string)(s) },
 		"snake":               func(s string) string { return gen.Funcs["snake"].(func(string) string)(s) },
+		// plural delegates to ent so the slice type name matches core
+		// (Child → Children, Family → Families, Sheep → SheepSlice).
+		"plural": func(s string) string { return gen.Funcs["plural"].(func(string) string)(s) },
 	}
 
 	//go:embed template/*

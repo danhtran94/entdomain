@@ -6,5 +6,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Child is the predicate function for child builders.
+type Child func(*sql.Selector)
+
+// Family is the predicate function for family builders.
+type Family func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)

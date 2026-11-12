@@ -485,7 +485,7 @@ func (u *{{ $n.Name }}UpsertBulk) ApplyDomainX(ctx context.Context, d *{{ $pkgNa
 {{- end }}
 
 // ToDomain maps a slice of ent {{ $n.Name }} to {{ $pkgName }}.{{ $n.Name }}List.
-func (es {{ $n.Name }}s) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
+func (es {{ plural $n.Name }}) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
     ds := make({{ $pkgName }}.{{ $n.Name }}List, len(es))
     for i, e := range es {
         ds[i] = e.ToDomain()

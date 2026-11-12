@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/danhtran94/entdomain/examples/custom/repo/ent/child"
+	"github.com/danhtran94/entdomain/examples/custom/repo/ent/family"
 	"github.com/danhtran94/entdomain/examples/custom/repo/ent/user"
 )
 
@@ -73,7 +75,9 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			user.Table: user.ValidColumn,
+			child.Table:  child.ValidColumn,
+			family.Table: family.ValidColumn,
+			user.Table:   user.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

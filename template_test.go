@@ -169,6 +169,7 @@ func TestTemplate_SliceToDomain(t *testing.T) {
 		fd := findFuncDecl(f, "Posts", "ToDomain")
 		require.NotNil(t, fd, "(Posts).ToDomain() must always be generated")
 	})
+
 }
 
 func TestTemplate_CreateBulkDomain(t *testing.T) {
@@ -491,4 +492,37 @@ func TestTemplate_BulkDomainX(t *testing.T) {
 		fd := findFuncDecl(f, "*PostClient", "UpdateBulkDomainX")
 		assert.Nil(t, fd, "X-variant must not be generated when the base method is suppressed by NoBulk")
 	})
+}
+
+// The ToDomain receiver must be the exact slice type ent core declares
+// (`type Families []*Family`), whatever pluralization ent applies.
+func TestTemplate_SliceToDomain_MatchesCoreSliceType(t *testing.T) {
+	const dir = "examples/custom/repo/ent/"
+	domain, err := parser.ParseFile(token.NewFileSet(), dir+"domain.go", nil, 0)
+	require.NoError(t, err)
+
+	for entity, wantSlice := range map[string]string{
+		"user":   "Users",
+		"family": "Families", // y → ies; a naive name+"s" yields "Familys"
+		"child":  "Childs",   // core: inflect irregulars are lowercase-only
+	} {
+		core, err := parser.ParseFile(token.NewFileSet(), dir+entity+".go", nil, 0)
+		require.NoError(t, err)
+		var got string
+		for _, d := range core.Decls {
+			gd, ok := d.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			for _, sp := range gd.Specs {
+				if ts, ok := sp.(*ast.TypeSpec); ok {
+					if _, isSlice := ts.Type.(*ast.ArrayType); isSlice {
+						got = ts.Name.Name
+					}
+				}
+			}
+		}
+		require.Equal(t, wantSlice, got, "ent core slice type for %s", entity)
+		assert.NotNil(t, findFuncDecl(domain, got, "ToDomain"), "(%s).ToDomain must exist", got)
+	}
 }
