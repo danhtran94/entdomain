@@ -297,7 +297,7 @@ func (c *ChildClient) DeleteOne(_m *Child) *ChildDeleteOne {
 func (c *ChildClient) DeleteOneID(id int) *ChildDeleteOne {
 	builder := c.Delete().Where(child.ID(id))
 	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
+	builder.mutation.SetOp(OpDeleteOne)
 	return &ChildDeleteOne{builder}
 }
 
@@ -430,7 +430,7 @@ func (c *FamilyClient) DeleteOne(_m *Family) *FamilyDeleteOne {
 func (c *FamilyClient) DeleteOneID(id int) *FamilyDeleteOne {
 	builder := c.Delete().Where(family.ID(id))
 	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
+	builder.mutation.SetOp(OpDeleteOne)
 	return &FamilyDeleteOne{builder}
 }
 
@@ -563,7 +563,7 @@ func (c *UserClient) DeleteOne(_m *User) *UserDeleteOne {
 func (c *UserClient) DeleteOneID(id int) *UserDeleteOne {
 	builder := c.Delete().Where(user.ID(id))
 	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
+	builder.mutation.SetOp(OpDeleteOne)
 	return &UserDeleteOne{builder}
 }
 

@@ -298,7 +298,7 @@ func (c *PostClient) DeleteOne(_m *Post) *PostDeleteOne {
 func (c *PostClient) DeleteOneID(id int) *PostDeleteOne {
 	builder := c.Delete().Where(post.ID(id))
 	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
+	builder.mutation.SetOp(OpDeleteOne)
 	return &PostDeleteOne{builder}
 }
 
@@ -463,7 +463,7 @@ func (c *TagClient) DeleteOne(_m *Tag) *TagDeleteOne {
 func (c *TagClient) DeleteOneID(id int) *TagDeleteOne {
 	builder := c.Delete().Where(tag.ID(id))
 	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
+	builder.mutation.SetOp(OpDeleteOne)
 	return &TagDeleteOne{builder}
 }
 
@@ -612,7 +612,7 @@ func (c *UserClient) DeleteOne(_m *User) *UserDeleteOne {
 func (c *UserClient) DeleteOneID(id int) *UserDeleteOne {
 	builder := c.Delete().Where(user.ID(id))
 	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
+	builder.mutation.SetOp(OpDeleteOne)
 	return &UserDeleteOne{builder}
 }
 
