@@ -24,3 +24,9 @@ jobs:
 
       - name: Run tests
         run: go test ./...
+
+      - name: Check generated examples are up to date
+        run: |
+          make gen
+          git add -N .
+          git diff --exit-code
