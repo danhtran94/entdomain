@@ -9,6 +9,30 @@ import (
 	"github.com/danhtran94/entdomain/examples/custom/repo/ent"
 )
 
+// The ChildFunc type is an adapter to allow the use of ordinary
+// function as Child mutator.
+type ChildFunc func(context.Context, *ent.ChildMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChildFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChildMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChildMutation", m)
+}
+
+// The FamilyFunc type is an adapter to allow the use of ordinary
+// function as Family mutator.
+type FamilyFunc func(context.Context, *ent.FamilyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f FamilyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.FamilyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FamilyMutation", m)
+}
+
 // The UserFunc type is an adapter to allow the use of ordinary
 // function as User mutator.
 type UserFunc func(context.Context, *ent.UserMutation) (ent.Value, error)

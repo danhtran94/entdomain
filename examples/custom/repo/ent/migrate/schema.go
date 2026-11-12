@@ -8,6 +8,28 @@ import (
 )
 
 var (
+	// ChildsColumns holds the columns for the "childs" table.
+	ChildsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString},
+	}
+	// ChildsTable holds the schema information for the "childs" table.
+	ChildsTable = &schema.Table{
+		Name:       "childs",
+		Columns:    ChildsColumns,
+		PrimaryKey: []*schema.Column{ChildsColumns[0]},
+	}
+	// FamiliesColumns holds the columns for the "families" table.
+	FamiliesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString},
+	}
+	// FamiliesTable holds the schema information for the "families" table.
+	FamiliesTable = &schema.Table{
+		Name:       "families",
+		Columns:    FamiliesColumns,
+		PrimaryKey: []*schema.Column{FamiliesColumns[0]},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -22,6 +44,8 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		ChildsTable,
+		FamiliesTable,
 		UsersTable,
 	}
 )

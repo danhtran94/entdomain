@@ -4,11 +4,532 @@ package ent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/danhtran94/entdomain"
 
 	domain "github.com/danhtran94/entdomain/examples/custom/internal/domain"
 )
+
+// ChildDomainField is the type for Child domain field constants.
+type ChildDomainField = string
+
+const (
+	ChildDomainFieldName ChildDomainField = "name"
+)
+
+// ChildDomainTransformer holds optional transformer functions for Child → domain mapping.
+//
+// Get* functions are pure synchronous projections invoked by ToDomain.
+// Set*OnCreate / Set*OnUpdate are invoked during ApplyDomain and may perform
+// I/O (e.g. KMS-backed field encryption); they receive ctx + the full domain
+// struct so they can access sibling fields and propagate cancellation.
+type ChildDomainTransformer struct {
+}
+
+// ChildTransformer is the package-level transformer for Child (nil by default).
+var ChildTransformer *ChildDomainTransformer
+
+// ToDomain maps the ent Child to a domain.Child.
+func (e *Child) ToDomain() *domain.Child {
+	d := &domain.Child{
+		ID:   e.ID,
+		Name: e.Name,
+	}
+	return d
+}
+
+// ApplyDomain applies domain.Child fields to the ChildCreate builder.
+func (c *ChildCreate) ApplyDomain(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) (*ChildCreate, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	if cfg.ShouldApply("name", d.Name) {
+		c = c.SetName(d.Name)
+	}
+	return c, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. It enables fluent
+// chaining at the cost of converting transformer errors into panics. Mirrors
+// ent's SaveX/FirstX/OnlyX convention: use in tests and scripts, prefer
+// ApplyDomain on request paths where transformer errors (e.g. KMS failures)
+// must be recoverable.
+func (c *ChildCreate) ApplyDomainX(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) *ChildCreate {
+	b, err := c.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ApplyDomain applies domain.Child fields to the ChildUpdateOne builder.
+func (u *ChildUpdateOne) ApplyDomain(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) (*ChildUpdateOne, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	if cfg.ShouldApply("name", d.Name) {
+		u = u.SetName(d.Name)
+	}
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *ChildCreate.ApplyDomainX.
+func (u *ChildUpdateOne) ApplyDomainX(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) *ChildUpdateOne {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ApplyDomain applies domain.Child fields to the ChildUpdate builder.
+// Chain .Where(...) conditions to target specific records.
+//
+// Note: ctx is accepted for API symmetry with ApplyDomainCreate/UpdateOne and
+// to allow future ctx-aware field transformers. Currently no transformer hooks
+// fire here — the error return is always nil.
+func (u *ChildUpdate) ApplyDomain(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) (*ChildUpdate, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	if cfg.ShouldApply("name", d.Name) {
+		u = u.SetName(d.Name)
+	}
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *ChildCreate.ApplyDomainX.
+func (u *ChildUpdate) ApplyDomainX(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) *ChildUpdate {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ApplyDomain applies domain.Child fields to the ChildUpsertOne builder on conflict.
+//
+// Note: ctx is accepted for API symmetry. Transformer hooks do not fire on
+// upsert conflict paths; the error return is always nil.
+func (u *ChildUpsertOne) ApplyDomain(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) (*ChildUpsertOne, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	u = u.Update(func(uu *ChildUpsert) {
+		if cfg.ShouldApply("name", d.Name) {
+			uu.SetName(d.Name)
+		}
+	})
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *ChildCreate.ApplyDomainX.
+func (u *ChildUpsertOne) ApplyDomainX(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) *ChildUpsertOne {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ApplyDomain applies domain.Child fields to the ChildUpsertBulk builder on conflict.
+//
+// Note: ctx is accepted for API symmetry. Transformer hooks do not fire on
+// upsert conflict paths; the error return is always nil.
+func (u *ChildUpsertBulk) ApplyDomain(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) (*ChildUpsertBulk, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	u = u.Update(func(uu *ChildUpsert) {
+		if cfg.ShouldApply("name", d.Name) {
+			uu.SetName(d.Name)
+		}
+	})
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *ChildCreate.ApplyDomainX.
+func (u *ChildUpsertBulk) ApplyDomainX(ctx context.Context, d *domain.Child, opts ...entdomain.ApplyOption) *ChildUpsertBulk {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ToDomain maps a slice of ent Child to domain.ChildList.
+func (es Childs) ToDomain() domain.ChildList {
+	ds := make(domain.ChildList, len(es))
+	for i, e := range es {
+		ds[i] = e.ToDomain()
+	}
+	return ds
+}
+
+// CreateBulkDomain creates a ChildCreateBulk from domain.ChildList.
+//
+// If any per-row transformer returns an error, the first such error is
+// returned immediately and partial bulk is discarded.
+func (c *ChildClient) CreateBulkDomain(ctx context.Context, ds domain.ChildList, opts ...entdomain.ApplyOption) (*ChildCreateBulk, error) {
+	builders := make([]*ChildCreate, len(ds))
+	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("CreateBulkDomain: nil Child at index %d", i)
+		}
+		b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
+		if err != nil {
+			return nil, err
+		}
+		builders[i] = b
+	}
+	return c.CreateBulk(builders...), nil
+}
+
+// CreateBulkDomainX is the panicking variant of CreateBulkDomain. See
+// *ChildCreate.ApplyDomainX for the convention.
+func (c *ChildClient) CreateBulkDomainX(ctx context.Context, ds domain.ChildList, opts ...entdomain.ApplyOption) *ChildCreateBulk {
+	b, err := c.CreateBulkDomain(ctx, ds, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ChildUpdateOneBulk holds a set of ChildUpdateOne builders.
+type ChildUpdateOneBulk struct {
+	builders []*ChildUpdateOne
+}
+
+// Save executes all builders and returns the updated entities as domain.ChildList.
+//
+// Save is not atomic: builders run sequentially, so rows before a failing
+// one stay persisted. The returned error wraps the cause and names the
+// failing index. Run the client inside a transaction (client.Tx) when
+// all-or-nothing semantics are required.
+func (b *ChildUpdateOneBulk) Save(ctx context.Context) (domain.ChildList, error) {
+	result := make(domain.ChildList, 0, len(b.builders))
+	for i, builder := range b.builders {
+		updated, err := builder.Save(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("ChildUpdateOneBulk: row %d of %d (%d already persisted): %w", i, len(b.builders), i, err)
+		}
+		result = append(result, updated.ToDomain())
+	}
+	return result, nil
+}
+
+// SaveX is like Save but panics on error.
+func (b *ChildUpdateOneBulk) SaveX(ctx context.Context) domain.ChildList {
+	result, err := b.Save(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+// Exec executes all builders without returning the updated entities.
+func (b *ChildUpdateOneBulk) Exec(ctx context.Context) error {
+	_, err := b.Save(ctx)
+	return err
+}
+
+// ExecX is like Exec but panics on error.
+func (b *ChildUpdateOneBulk) ExecX(ctx context.Context) {
+	if err := b.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// UpdateBulkDomain returns a ChildUpdateOneBulk from domain.ChildList.
+// Each builder is keyed on ds[i].ID.
+//
+// If any per-row transformer returns an error, the first such error is
+// returned immediately and partial bulk is discarded.
+func (c *ChildClient) UpdateBulkDomain(ctx context.Context, ds domain.ChildList, opts ...entdomain.ApplyOption) (*ChildUpdateOneBulk, error) {
+	builders := make([]*ChildUpdateOne, len(ds))
+	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("UpdateBulkDomain: nil Child at index %d", i)
+		}
+		b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
+		if err != nil {
+			return nil, err
+		}
+		builders[i] = b
+	}
+	return &ChildUpdateOneBulk{builders: builders}, nil
+}
+
+// UpdateBulkDomainX is the panicking variant of UpdateBulkDomain. See
+// *ChildCreate.ApplyDomainX for the convention.
+func (c *ChildClient) UpdateBulkDomainX(ctx context.Context, ds domain.ChildList, opts ...entdomain.ApplyOption) *ChildUpdateOneBulk {
+	b, err := c.UpdateBulkDomain(ctx, ds, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// FamilyDomainField is the type for Family domain field constants.
+type FamilyDomainField = string
+
+const (
+	FamilyDomainFieldName FamilyDomainField = "name"
+)
+
+// FamilyDomainTransformer holds optional transformer functions for Family → domain mapping.
+//
+// Get* functions are pure synchronous projections invoked by ToDomain.
+// Set*OnCreate / Set*OnUpdate are invoked during ApplyDomain and may perform
+// I/O (e.g. KMS-backed field encryption); they receive ctx + the full domain
+// struct so they can access sibling fields and propagate cancellation.
+type FamilyDomainTransformer struct {
+}
+
+// FamilyTransformer is the package-level transformer for Family (nil by default).
+var FamilyTransformer *FamilyDomainTransformer
+
+// ToDomain maps the ent Family to a domain.Family.
+func (e *Family) ToDomain() *domain.Family {
+	d := &domain.Family{
+		ID:   e.ID,
+		Name: e.Name,
+	}
+	return d
+}
+
+// ApplyDomain applies domain.Family fields to the FamilyCreate builder.
+func (c *FamilyCreate) ApplyDomain(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) (*FamilyCreate, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	if cfg.ShouldApply("name", d.Name) {
+		c = c.SetName(d.Name)
+	}
+	return c, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. It enables fluent
+// chaining at the cost of converting transformer errors into panics. Mirrors
+// ent's SaveX/FirstX/OnlyX convention: use in tests and scripts, prefer
+// ApplyDomain on request paths where transformer errors (e.g. KMS failures)
+// must be recoverable.
+func (c *FamilyCreate) ApplyDomainX(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) *FamilyCreate {
+	b, err := c.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ApplyDomain applies domain.Family fields to the FamilyUpdateOne builder.
+func (u *FamilyUpdateOne) ApplyDomain(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) (*FamilyUpdateOne, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	if cfg.ShouldApply("name", d.Name) {
+		u = u.SetName(d.Name)
+	}
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *FamilyCreate.ApplyDomainX.
+func (u *FamilyUpdateOne) ApplyDomainX(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) *FamilyUpdateOne {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ApplyDomain applies domain.Family fields to the FamilyUpdate builder.
+// Chain .Where(...) conditions to target specific records.
+//
+// Note: ctx is accepted for API symmetry with ApplyDomainCreate/UpdateOne and
+// to allow future ctx-aware field transformers. Currently no transformer hooks
+// fire here — the error return is always nil.
+func (u *FamilyUpdate) ApplyDomain(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) (*FamilyUpdate, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	if cfg.ShouldApply("name", d.Name) {
+		u = u.SetName(d.Name)
+	}
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *FamilyCreate.ApplyDomainX.
+func (u *FamilyUpdate) ApplyDomainX(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) *FamilyUpdate {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ApplyDomain applies domain.Family fields to the FamilyUpsertOne builder on conflict.
+//
+// Note: ctx is accepted for API symmetry. Transformer hooks do not fire on
+// upsert conflict paths; the error return is always nil.
+func (u *FamilyUpsertOne) ApplyDomain(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) (*FamilyUpsertOne, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	u = u.Update(func(uu *FamilyUpsert) {
+		if cfg.ShouldApply("name", d.Name) {
+			uu.SetName(d.Name)
+		}
+	})
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *FamilyCreate.ApplyDomainX.
+func (u *FamilyUpsertOne) ApplyDomainX(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) *FamilyUpsertOne {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ApplyDomain applies domain.Family fields to the FamilyUpsertBulk builder on conflict.
+//
+// Note: ctx is accepted for API symmetry. Transformer hooks do not fire on
+// upsert conflict paths; the error return is always nil.
+func (u *FamilyUpsertBulk) ApplyDomain(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) (*FamilyUpsertBulk, error) {
+	cfg := entdomain.NewApplyConfig(opts...)
+	_ = cfg
+	_ = ctx
+	u = u.Update(func(uu *FamilyUpsert) {
+		if cfg.ShouldApply("name", d.Name) {
+			uu.SetName(d.Name)
+		}
+	})
+	return u, nil
+}
+
+// ApplyDomainX is the panicking variant of ApplyDomain. See *FamilyCreate.ApplyDomainX.
+func (u *FamilyUpsertBulk) ApplyDomainX(ctx context.Context, d *domain.Family, opts ...entdomain.ApplyOption) *FamilyUpsertBulk {
+	b, err := u.ApplyDomain(ctx, d, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ToDomain maps a slice of ent Family to domain.FamilyList.
+func (es Families) ToDomain() domain.FamilyList {
+	ds := make(domain.FamilyList, len(es))
+	for i, e := range es {
+		ds[i] = e.ToDomain()
+	}
+	return ds
+}
+
+// CreateBulkDomain creates a FamilyCreateBulk from domain.FamilyList.
+//
+// If any per-row transformer returns an error, the first such error is
+// returned immediately and partial bulk is discarded.
+func (c *FamilyClient) CreateBulkDomain(ctx context.Context, ds domain.FamilyList, opts ...entdomain.ApplyOption) (*FamilyCreateBulk, error) {
+	builders := make([]*FamilyCreate, len(ds))
+	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("CreateBulkDomain: nil Family at index %d", i)
+		}
+		b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
+		if err != nil {
+			return nil, err
+		}
+		builders[i] = b
+	}
+	return c.CreateBulk(builders...), nil
+}
+
+// CreateBulkDomainX is the panicking variant of CreateBulkDomain. See
+// *FamilyCreate.ApplyDomainX for the convention.
+func (c *FamilyClient) CreateBulkDomainX(ctx context.Context, ds domain.FamilyList, opts ...entdomain.ApplyOption) *FamilyCreateBulk {
+	b, err := c.CreateBulkDomain(ctx, ds, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// FamilyUpdateOneBulk holds a set of FamilyUpdateOne builders.
+type FamilyUpdateOneBulk struct {
+	builders []*FamilyUpdateOne
+}
+
+// Save executes all builders and returns the updated entities as domain.FamilyList.
+//
+// Save is not atomic: builders run sequentially, so rows before a failing
+// one stay persisted. The returned error wraps the cause and names the
+// failing index. Run the client inside a transaction (client.Tx) when
+// all-or-nothing semantics are required.
+func (b *FamilyUpdateOneBulk) Save(ctx context.Context) (domain.FamilyList, error) {
+	result := make(domain.FamilyList, 0, len(b.builders))
+	for i, builder := range b.builders {
+		updated, err := builder.Save(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("FamilyUpdateOneBulk: row %d of %d (%d already persisted): %w", i, len(b.builders), i, err)
+		}
+		result = append(result, updated.ToDomain())
+	}
+	return result, nil
+}
+
+// SaveX is like Save but panics on error.
+func (b *FamilyUpdateOneBulk) SaveX(ctx context.Context) domain.FamilyList {
+	result, err := b.Save(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+// Exec executes all builders without returning the updated entities.
+func (b *FamilyUpdateOneBulk) Exec(ctx context.Context) error {
+	_, err := b.Save(ctx)
+	return err
+}
+
+// ExecX is like Exec but panics on error.
+func (b *FamilyUpdateOneBulk) ExecX(ctx context.Context) {
+	if err := b.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// UpdateBulkDomain returns a FamilyUpdateOneBulk from domain.FamilyList.
+// Each builder is keyed on ds[i].ID.
+//
+// If any per-row transformer returns an error, the first such error is
+// returned immediately and partial bulk is discarded.
+func (c *FamilyClient) UpdateBulkDomain(ctx context.Context, ds domain.FamilyList, opts ...entdomain.ApplyOption) (*FamilyUpdateOneBulk, error) {
+	builders := make([]*FamilyUpdateOne, len(ds))
+	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("UpdateBulkDomain: nil Family at index %d", i)
+		}
+		b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
+		if err != nil {
+			return nil, err
+		}
+		builders[i] = b
+	}
+	return &FamilyUpdateOneBulk{builders: builders}, nil
+}
+
+// UpdateBulkDomainX is the panicking variant of UpdateBulkDomain. See
+// *FamilyCreate.ApplyDomainX for the convention.
+func (c *FamilyClient) UpdateBulkDomainX(ctx context.Context, ds domain.FamilyList, opts ...entdomain.ApplyOption) *FamilyUpdateOneBulk {
+	b, err := c.UpdateBulkDomain(ctx, ds, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
 
 // UserDomainField is the type for User domain field constants.
 type UserDomainField = string
@@ -190,6 +711,9 @@ func (es Users) ToDomain() domain.UserList {
 func (c *UserClient) CreateBulkDomain(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) (*UserCreateBulk, error) {
 	builders := make([]*UserCreate, len(ds))
 	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("CreateBulkDomain: nil User at index %d", i)
+		}
 		b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
 		if err != nil {
 			return nil, err
@@ -215,12 +739,17 @@ type UserUpdateOneBulk struct {
 }
 
 // Save executes all builders and returns the updated entities as domain.UserList.
+//
+// Save is not atomic: builders run sequentially, so rows before a failing
+// one stay persisted. The returned error wraps the cause and names the
+// failing index. Run the client inside a transaction (client.Tx) when
+// all-or-nothing semantics are required.
 func (b *UserUpdateOneBulk) Save(ctx context.Context) (domain.UserList, error) {
 	result := make(domain.UserList, 0, len(b.builders))
-	for _, builder := range b.builders {
+	for i, builder := range b.builders {
 		updated, err := builder.Save(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("UserUpdateOneBulk: row %d of %d (%d already persisted): %w", i, len(b.builders), i, err)
 		}
 		result = append(result, updated.ToDomain())
 	}
@@ -257,6 +786,9 @@ func (b *UserUpdateOneBulk) ExecX(ctx context.Context) {
 func (c *UserClient) UpdateBulkDomain(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) (*UserUpdateOneBulk, error) {
 	builders := make([]*UserUpdateOne, len(ds))
 	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("UpdateBulkDomain: nil User at index %d", i)
+		}
 		b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
 		if err != nil {
 			return nil, err
