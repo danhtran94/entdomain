@@ -383,3 +383,32 @@ func TestUpdateBulkDomain_ShortCircuitsOnFirstError(t *testing.T) {
 	assert.Nil(t, b)
 	assert.Equal(t, 2, callCount, "bulk update must abort at the failing row")
 }
+
+func TestBulkDomain_RejectsNilElement(t *testing.T) {
+	client := newTestClient(t)
+	ds := domain.UserList{sampleUser(), nil}
+
+	b, err := client.User.CreateBulkDomain(context.Background(), ds)
+	assert.ErrorContains(t, err, "nil User at index 1")
+	assert.Nil(t, b)
+
+	ub, err := client.User.UpdateBulkDomain(context.Background(), ds)
+	assert.ErrorContains(t, err, "nil User at index 1")
+	assert.Nil(t, ub)
+}
+
+func TestUpdateOneBulk_SaveWrapsFailingRow(t *testing.T) {
+	client := newTestClient(t)
+	ctx := context.Background()
+
+	// ID 9999 does not exist, so the first row's Save fails with NotFound.
+	missing := sampleUser()
+	missing.ID = 9999
+	b, err := client.User.UpdateBulkDomain(ctx, domain.UserList{missing})
+	require.NoError(t, err)
+
+	_, err = b.Save(ctx)
+	var nf *ent.NotFoundError
+	assert.ErrorAs(t, err, &nf, "cause must stay reachable via errors.As")
+	assert.ErrorContains(t, err, "row 0 of 1 (0 already persisted)")
+}

@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/danhtran94/entdomain"
 
@@ -173,6 +174,9 @@ func (es Childs) ToDomain() domain.ChildList {
 func (c *ChildClient) CreateBulkDomain(ctx context.Context, ds domain.ChildList, opts ...entdomain.ApplyOption) (*ChildCreateBulk, error) {
 	builders := make([]*ChildCreate, len(ds))
 	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("CreateBulkDomain: nil Child at index %d", i)
+		}
 		b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
 		if err != nil {
 			return nil, err
@@ -198,12 +202,17 @@ type ChildUpdateOneBulk struct {
 }
 
 // Save executes all builders and returns the updated entities as domain.ChildList.
+//
+// Save is not atomic: builders run sequentially, so rows before a failing
+// one stay persisted. The returned error wraps the cause and names the
+// failing index. Run the client inside a transaction (client.Tx) when
+// all-or-nothing semantics are required.
 func (b *ChildUpdateOneBulk) Save(ctx context.Context) (domain.ChildList, error) {
 	result := make(domain.ChildList, 0, len(b.builders))
-	for _, builder := range b.builders {
+	for i, builder := range b.builders {
 		updated, err := builder.Save(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ChildUpdateOneBulk: row %d of %d (%d already persisted): %w", i, len(b.builders), i, err)
 		}
 		result = append(result, updated.ToDomain())
 	}
@@ -240,6 +249,9 @@ func (b *ChildUpdateOneBulk) ExecX(ctx context.Context) {
 func (c *ChildClient) UpdateBulkDomain(ctx context.Context, ds domain.ChildList, opts ...entdomain.ApplyOption) (*ChildUpdateOneBulk, error) {
 	builders := make([]*ChildUpdateOne, len(ds))
 	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("UpdateBulkDomain: nil Child at index %d", i)
+		}
 		b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
 		if err != nil {
 			return nil, err
@@ -422,6 +434,9 @@ func (es Families) ToDomain() domain.FamilyList {
 func (c *FamilyClient) CreateBulkDomain(ctx context.Context, ds domain.FamilyList, opts ...entdomain.ApplyOption) (*FamilyCreateBulk, error) {
 	builders := make([]*FamilyCreate, len(ds))
 	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("CreateBulkDomain: nil Family at index %d", i)
+		}
 		b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
 		if err != nil {
 			return nil, err
@@ -447,12 +462,17 @@ type FamilyUpdateOneBulk struct {
 }
 
 // Save executes all builders and returns the updated entities as domain.FamilyList.
+//
+// Save is not atomic: builders run sequentially, so rows before a failing
+// one stay persisted. The returned error wraps the cause and names the
+// failing index. Run the client inside a transaction (client.Tx) when
+// all-or-nothing semantics are required.
 func (b *FamilyUpdateOneBulk) Save(ctx context.Context) (domain.FamilyList, error) {
 	result := make(domain.FamilyList, 0, len(b.builders))
-	for _, builder := range b.builders {
+	for i, builder := range b.builders {
 		updated, err := builder.Save(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("FamilyUpdateOneBulk: row %d of %d (%d already persisted): %w", i, len(b.builders), i, err)
 		}
 		result = append(result, updated.ToDomain())
 	}
@@ -489,6 +509,9 @@ func (b *FamilyUpdateOneBulk) ExecX(ctx context.Context) {
 func (c *FamilyClient) UpdateBulkDomain(ctx context.Context, ds domain.FamilyList, opts ...entdomain.ApplyOption) (*FamilyUpdateOneBulk, error) {
 	builders := make([]*FamilyUpdateOne, len(ds))
 	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("UpdateBulkDomain: nil Family at index %d", i)
+		}
 		b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
 		if err != nil {
 			return nil, err
@@ -688,6 +711,9 @@ func (es Users) ToDomain() domain.UserList {
 func (c *UserClient) CreateBulkDomain(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) (*UserCreateBulk, error) {
 	builders := make([]*UserCreate, len(ds))
 	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("CreateBulkDomain: nil User at index %d", i)
+		}
 		b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
 		if err != nil {
 			return nil, err
@@ -713,12 +739,17 @@ type UserUpdateOneBulk struct {
 }
 
 // Save executes all builders and returns the updated entities as domain.UserList.
+//
+// Save is not atomic: builders run sequentially, so rows before a failing
+// one stay persisted. The returned error wraps the cause and names the
+// failing index. Run the client inside a transaction (client.Tx) when
+// all-or-nothing semantics are required.
 func (b *UserUpdateOneBulk) Save(ctx context.Context) (domain.UserList, error) {
 	result := make(domain.UserList, 0, len(b.builders))
-	for _, builder := range b.builders {
+	for i, builder := range b.builders {
 		updated, err := builder.Save(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("UserUpdateOneBulk: row %d of %d (%d already persisted): %w", i, len(b.builders), i, err)
 		}
 		result = append(result, updated.ToDomain())
 	}
@@ -755,6 +786,9 @@ func (b *UserUpdateOneBulk) ExecX(ctx context.Context) {
 func (c *UserClient) UpdateBulkDomain(ctx context.Context, ds domain.UserList, opts ...entdomain.ApplyOption) (*UserUpdateOneBulk, error) {
 	builders := make([]*UserUpdateOne, len(ds))
 	for i := range ds {
+		if ds[i] == nil {
+			return nil, fmt.Errorf("UpdateBulkDomain: nil User at index %d", i)
+		}
 		b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
 		if err != nil {
 			return nil, err

@@ -501,6 +501,9 @@ func (es {{ plural $n.Name }}) ToDomain() {{ $pkgName }}.{{ $n.Name }}List {
 func (c *{{ $n.Name }}Client) CreateBulkDomain(ctx context.Context, ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) (*{{ $n.Name }}CreateBulk, error) {
     builders := make([]*{{ $n.Name }}Create, len(ds))
     for i := range ds {
+        if ds[i] == nil {
+            return nil, fmt.Errorf("CreateBulkDomain: nil {{ $n.Name }} at index %d", i)
+        }
         b, err := c.Create().ApplyDomain(ctx, ds[i], opts...)
         if err != nil {
             return nil, err
@@ -526,12 +529,17 @@ type {{ $n.Name }}UpdateOneBulk struct {
 }
 
 // Save executes all builders and returns the updated entities as {{ $pkgName }}.{{ $n.Name }}List.
+//
+// Save is not atomic: builders run sequentially, so rows before a failing
+// one stay persisted. The returned error wraps the cause and names the
+// failing index. Run the client inside a transaction (client.Tx) when
+// all-or-nothing semantics are required.
 func (b *{{ $n.Name }}UpdateOneBulk) Save(ctx context.Context) ({{ $pkgName }}.{{ $n.Name }}List, error) {
     result := make({{ $pkgName }}.{{ $n.Name }}List, 0, len(b.builders))
-    for _, builder := range b.builders {
+    for i, builder := range b.builders {
         updated, err := builder.Save(ctx)
         if err != nil {
-            return nil, err
+            return nil, fmt.Errorf("{{ $n.Name }}UpdateOneBulk: row %d of %d (%d already persisted): %w", i, len(b.builders), i, err)
         }
         result = append(result, updated.ToDomain())
     }
@@ -568,6 +576,9 @@ func (b *{{ $n.Name }}UpdateOneBulk) ExecX(ctx context.Context) {
 func (c *{{ $n.Name }}Client) UpdateBulkDomain(ctx context.Context, ds {{ $pkgName }}.{{ $n.Name }}List, opts ...entdomain.ApplyOption) (*{{ $n.Name }}UpdateOneBulk, error) {
     builders := make([]*{{ $n.Name }}UpdateOne, len(ds))
     for i := range ds {
+        if ds[i] == nil {
+            return nil, fmt.Errorf("UpdateBulkDomain: nil {{ $n.Name }} at index %d", i)
+        }
         b, err := c.UpdateOneID(ds[i].ID).ApplyDomain(ctx, ds[i], opts...)
         if err != nil {
             return nil, err
