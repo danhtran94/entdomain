@@ -137,6 +137,10 @@ func (p ProtoTypeOpt) WithConversion(toExpr, fromExpr string) ProtoTypeOpt {
 type EntityAnnotation struct {
 	VirtualFields []VirtualFieldConfig
 	NoBulk        bool
+	// Slice names the vertical slice the entity belongs to. Empty means the
+	// root domain package. A named slice is generated into
+	// {pkgPath}/{Slice} as package {Slice}.
+	Slice string
 }
 
 // Name implements schema.Annotation.
@@ -156,6 +160,9 @@ func (a EntityAnnotation) Merge(other schema.Annotation) schema.Annotation {
 		return a
 	}
 	a.VirtualFields = append(a.VirtualFields, ant.VirtualFields...)
+	if ant.Slice != "" {
+		a.Slice = ant.Slice
+	}
 	return a
 }
 
@@ -178,6 +185,17 @@ func Entity(opts ...entityOption) EntityAnnotation {
 		opt(&a)
 	}
 	return a
+}
+
+// Slice assigns the entity to a named vertical slice. The generator writes the
+// slice's domain structs to {pkgPath}/{name}/ as package {name}, and its proto
+// mappers next to them.
+//
+// Edges inside a slice behave as without slices. A Nest edge to an entity in a
+// different slice fails generation; use IDs() for cross-slice edges. Valid
+// names match ^[a-z][a-z0-9]*$ and are neither a Go keyword nor "pbmap".
+func Slice(name string) entityOption {
+	return func(a *EntityAnnotation) { a.Slice = name }
 }
 
 // VirtualField returns an entityOption that adds a virtual field.
