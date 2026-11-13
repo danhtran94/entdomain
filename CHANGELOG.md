@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Domain vertical slices: `entdomain.Slice("billing")` on `entdomain.Entity(...)`.**
+  Entities with the same slice are generated into `{pkgPath}/{slice}/` as `package {slice}`; proto mappers follow into `{slice}/pbmap/` (or the slice package under `WithProtoHelpersInDomain()`). `ent/domain.go` imports one package per slice under the alias `<slice>domain`. Edges inside a slice are unchanged; a `Nest()` edge across slices fails generation with `cross-slice Nest`, use `IDs()` instead. Entities without `Slice` generate byte-identical output. See the "Vertical Slices" section in README and [`examples/sliced`](examples/sliced).
+
 - **Panicking `X`-variants for every error-returning `ApplyDomain*` / bulk method.**
   Mirrors ent's `SaveX` / `FirstX` / `OnlyX` convention — `ApplyDomainX`, `CreateBulkDomainX`, `UpdateBulkDomainX` opt into panic-on-error to restore fluent chaining in tests and scripts. The error-returning forms remain the primary, request-safe path. See the "Fluent chaining via `X` variants" section in README.
 
