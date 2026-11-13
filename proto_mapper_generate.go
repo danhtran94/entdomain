@@ -137,10 +137,14 @@ var protoHelperFuncNames = []string{
 
 // generateProtoMapperFiles generates the proto mapper files for each entity.
 //
-// Default (cfg.helpersInDomain=false): mapper + helpers live in {domain}/pbmap/ subpackage.
+// Entities are grouped by slice (see groupBySlice); every group gets its own
+// mapper directory and imports only its own domain package. The root group
+// (entities without a Slice) keeps the pre-slice layout.
+//
+// Default (cfg.helpersInDomain=false): mapper + helpers live in {group dir}/pbmap/ subpackage.
 // Both domain and proto types are qualified; helper functions are exported.
 //
-// With WithProtoHelpersInDomain(): mapper + helpers live in the domain package.
+// With WithProtoHelpersInDomain(): mapper + helpers live in the group's domain package.
 // Domain types are bare; mapper functions use method-receiver style.
 func generateProtoMapperFiles(g *gen.Graph, cfg *ProtoConfig, outDir, domainPkgPath, domainPkgName string) error {
 	protoGoImport, protoPkgAlias := parseGoPackage(cfg.goPackage)
@@ -148,6 +152,20 @@ func generateProtoMapperFiles(g *gen.Graph, cfg *ProtoConfig, outDir, domainPkgP
 		protoPkgAlias = cfg.pkgName
 	}
 
+	groups, err := groupBySlice(g.Nodes, domainPkgPath, domainPkgName)
+	if err != nil {
+		return err
+	}
+	for _, grp := range groups {
+		if err := generateProtoMapperGroup(g, cfg, outDir, grp, protoGoImport, protoPkgAlias); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// generateProtoMapperGroup writes the mapper files of one slice group.
+func generateProtoMapperGroup(g *gen.Graph, cfg *ProtoConfig, outDir string, grp sliceGroup, protoGoImport, protoPkgAlias string) error {
 	var mapperOutDir string
 	var mapperPkgName string
 	var domainGoImport string
@@ -155,17 +173,17 @@ func generateProtoMapperFiles(g *gen.Graph, cfg *ProtoConfig, outDir, domainPkgP
 	helpersExported := !cfg.helpersInDomain
 
 	if cfg.helpersInDomain {
-		// Legacy domain mode: flat in the domain package, method-receiver style.
-		mapperOutDir = filepath.Join(outDir, domainPkgPath)
-		mapperPkgName = domainPkgName
+		// Legacy domain mode: flat in the group's domain package, method-receiver style.
+		mapperOutDir = filepath.Join(outDir, grp.Dir)
+		mapperPkgName = grp.PkgName
 		tmpl = protoMapperDomainTmpl
 	} else {
-		// Default: pbmap subpackage nested under the domain directory.
-		mapperOutDir = filepath.Join(outDir, domainPkgPath, "pbmap")
-		mapperPkgName = "pbmap"
+		// Default: pbmap subpackage nested under the group's domain directory.
+		mapperOutDir = filepath.Join(outDir, grp.Dir, pbmapDir)
+		mapperPkgName = pbmapDir
 		tmpl = protoMapperSubpkgTmpl
 		var err error
-		domainGoImport, err = resolveGoImportPath(g, domainPkgPath)
+		domainGoImport, err = resolveGoImportPath(g, grp.Dir)
 		if err != nil {
 			return fmt.Errorf("entdomain proto mapper: resolve domain import path: %w", err)
 		}
@@ -177,19 +195,16 @@ func generateProtoMapperFiles(g *gen.Graph, cfg *ProtoConfig, outDir, domainPkgP
 
 	hasHelpers := false
 
-	for _, t := range g.Nodes {
+	for _, t := range grp.Nodes {
 		ant, err := extractEntityAnnotation(t.Annotations)
 		if err != nil {
 			return fmt.Errorf("entdomain proto mapper: extract annotation for %s: %w", t.Name, err)
-		}
-		if ant == nil {
-			continue
 		}
 
 		data, needsHelpers, buildErr := buildProtoMapperFileData(
 			t, ant,
 			mapperPkgName, protoGoImport, protoPkgAlias,
-			domainGoImport, domainPkgName,
+			domainGoImport, grp.Alias,
 			helpersExported,
 		)
 		if buildErr != nil {
