@@ -88,6 +88,6 @@ A spike (patch kept outside the repo, discarded) shows that treating the field a
 
 ## History
 
-| Ticket    | Title                                                                              | Created    | Status |
-|-----------|------------------------------------------------------------------------------------|------------|--------|
-| (initial) | Edge-bound foreign keys in the domain layer (treat the FK as a regular field)       | 2026-11-14 | Draft |
+| Ticket    | Title                                                                         | Created    | Status   |
+|-----------|-------------------------------------------------------------------------------|------------|----------|
+| (initial) | Edge-bound foreign keys in the domain layer (treat the FK as a regular field) | 2026-11-14 | Accepted |
