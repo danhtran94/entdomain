@@ -31,7 +31,6 @@ That should be green on a fresh checkout. If it isn't, please open an issue befo
 │   ├── basic/              — schema + generated output exercising the full feature surface
 │   └── custom/             — schema demonstrating non-default layouts (custom domain pkg path, etc.)
 ├── .github/workflows/      — CI: ci.yml (tests), security.yml (govulncheck/gosec/CodeQL), scorecard.yml
-├── CHANGELOG.md            — Keep-a-Changelog format; see "When to add an entry" below
 ├── SECURITY.md             — vulnerability reporting policy
 └── README.md
 ```
@@ -192,17 +191,9 @@ Add a new ADR when:
 
 Don't add an ADR for: bug fixes, dependency updates, internal refactors with no behavior change, documentation tweaks.
 
-## When to add a CHANGELOG entry
+## Release notes
 
-`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Add an entry when:
-
-- The user-facing API changes (added, changed, removed, deprecated)
-- A bug affecting users is fixed
-- Security fix that affects users
-
-Don't add an entry for: internal refactors with byte-identical output, test-only changes, CI/tooling changes that don't affect library behavior, documentation updates.
-
-Group entries under `Added` / `Changed — BREAKING` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`.
+There is no CHANGELOG file. Release notes are written in [GitHub Releases](https://github.com/danhtran94/entdomain/releases) when a tag is cut: state what changed for users, and run `apidiff` against the previous tag to report additions, removals, and signature changes. Breaking changes also get an ADR (see above).
 
 ## Pull requests
 
