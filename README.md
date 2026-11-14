@@ -210,6 +210,7 @@ func (RingVersion) Edges() []ent.Edge {
 | `Required()` key | `RingID uuid.UUID` | from `e.RingID` | `SetRingID` on create; on update unless `Immutable()` |
 | `Optional()` key | `RingID *uuid.UUID` | `nil` when the column is NULL | `SetRingID` when non-nil; `nil` leaves the key unchanged |
 
+- **A stored zero key reads as `nil`.** ent scans NULL into the zero value, so an `Optional()` key of `uuid.Nil` (or `0`) is indistinguishable from NULL in `ToDomain`. If a zero key is a valid reference, declare the field `.Optional().Nillable()`: the entity then holds `*T`, the domain copies it as is, and NULL stays distinct from a stored zero.
 - **No clearing through the domain.** `nil` never clears a key, as for every optional field. Use the ent builder (`ClearRingID`) to set NULL.
 - **`IDs()` on a bound edge.** The edge emits one `RingID`, taken from the field. Before this change the value was filled only under `WithRing()` and never written.
 - **Type change for one shape.** A schema with an `Optional()` bound field and `IDs()` on the same edge now gets `RingID *uuid.UUID` where it used to get `RingID uuid.UUID`.

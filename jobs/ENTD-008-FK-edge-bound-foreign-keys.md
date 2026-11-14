@@ -217,3 +217,9 @@ Before the job started, three questions were probed on a throwaway prototype and
 
 ### [Implementer] Local lint
 The installed `golangci-lint` is v1.64.8 while CI pins v2.11.4, so lint ran as `go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run ./...` and reported 0 issues. `gofmt -l` still lists `generate.go:301` and two other files; those are pre-existing and out of scope.
+
+### [Reviewer] A deduplicated IDs() spec must still be consumed in proto generation
+PR review flagged that `resolveEdgeProtoSpec` returns the IDs spec before the Nest spec, but the first version skipped the whole IDs block when `edgeIDsDeduped(e)` was true, so `specIdx` stayed 0 and the Nest block read the IDs spec. For a bound edge with both `IDs()` and `Nest()`, the proto field came out as `string ring` and the mapper as `ToProto(d.Ring)` with no entity name, which does not compile. The scope fixtures never combined the two, which is why every earlier check passed. Fixed in `proto_generate.go` and `proto_mapper_generate.go` by consuming the spec and skipping only the emission; `RingVersion`'s edge now carries `IDs()` and `Nest()`, and `TestBoundFK_Proto` fails without the fix.
+
+### [Reviewer] Zero keys read as nil, and two findings belong to ent
+`PtrNonZero` cannot tell a stored `uuid.Nil` from NULL because ent scans both into the zero value. This is a documented limit (scope Risks, README, helper doc comment) with `.Optional().Nillable()` as the escape, verified on a spike. The finding on `RingTagUpdate.check` (clear guard for a required edge) comes from ent's own `builder/update.tmpl`, which this repository does not override, so it is not changed here. The finding on a `Ring` with ID `uuid.Nil` attaching to NULL-FK notes is the same zero-key limit in the example schema, not a generator defect.

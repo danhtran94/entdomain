@@ -134,6 +134,8 @@ func (c *ApplyConfig) IsAppendEdge(field string) bool {
 // an edge (foreign keys): ent scans NULL into the zero value, and a pointer to
 // that zero value would violate the foreign key when written back. Do not use
 // it for ordinary fields, where the zero value is a legitimate stored value.
+// A schema whose zero key is a valid reference declares the field
+// Optional().Nillable(), which bypasses this helper.
 func PtrNonZero[T comparable](v T) *T {
 	var zero T
 	if v == zero {

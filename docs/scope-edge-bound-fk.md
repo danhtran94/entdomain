@@ -83,8 +83,8 @@ A spike (patch kept outside the repo, discarded) shows that treating the field a
   - Mitigation: Success Criterion 14 diffs all four existing examples after `make gen`.
 - **FIQL surface grows.** Bound fields become filterable once annotated.
   - Mitigation: FIQL remains opt-in per field annotation (A5); no field gains FIQL without an explicit `entdomain.FIQL(...)`.
-- **Zero value is a valid FK for a non-UUID key.** `PtrNonZero` treats `0` as NULL. An integer FK of `0` is not a valid ent row ID in the supported ID types.
-  - Mitigation: `PtrNonZero` applies only to `Optional`, non-`Nillable` edge-bound fields; document the rule in the helper's doc comment.
+- **A zero key reads as NULL.** `PtrNonZero` treats `uuid.Nil` and `0` as NULL, so an `Optional()` bound key whose target legitimately has the zero ID reads back as `nil`, and a create from that domain value stores NULL (raised in PR review).
+  - Mitigation: `PtrNonZero` applies only to `Optional`, non-`Nillable` edge-bound fields. A schema whose zero key is valid declares `.Optional().Nillable()`, which makes the entity field `*T` and bypasses the helper (verified on a spike). The README "Foreign key fields" section and the helper's doc comment state the rule.
 
 ## History
 
