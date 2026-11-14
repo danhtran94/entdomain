@@ -187,6 +187,36 @@ func (User) Edges() []ent.Edge {
 | `Nest()` | `Posts []Post` | from `Edges.Posts` | skipped |
 | `IDs(), Nest()` | both | from `Edges.Posts` | `AddPostIDs` only (if len > 0) |
 
+### Foreign key fields
+
+An edge bound to a field (`.Field("ring_id")`) keeps its foreign key in the domain struct as a regular field. No `IDs()` annotation is needed, and `WithRing()` is not required to read it.
+
+```go
+func (RingVersion) Fields() []ent.Field {
+    return []ent.Field{field.UUID("ring_id", uuid.UUID{}).Immutable(), field.Int("version")}
+}
+
+func (RingVersion) Edges() []ent.Edge {
+    return []ent.Edge{
+        edge.From("ring", Ring.Type).Ref("versions").Field("ring_id").
+            Unique().Required().Immutable(),
+    }
+}
+// domain.RingVersion { RingID uuid.UUID; Version int }
+```
+
+| Schema | Domain field | `ToDomain()` | `ApplyDomain` |
+|---|---|---|---|
+| `Required()` key | `RingID uuid.UUID` | from `e.RingID` | `SetRingID` on create; on update unless `Immutable()` |
+| `Optional()` key | `RingID *uuid.UUID` | `nil` when the column is NULL | `SetRingID` when non-nil; `nil` leaves the key unchanged |
+
+- **No clearing through the domain.** `nil` never clears a key, as for every optional field. Use the ent builder (`ClearRingID`) to set NULL.
+- **`IDs()` on a bound edge.** The edge emits one `RingID`, taken from the field. Before this change the value was filled only under `WithRing()` and never written.
+- **Type change for one shape.** A schema with an `Optional()` bound field and `IDs()` on the same edge now gets `RingID *uuid.UUID` where it used to get `RingID uuid.UUID`.
+- **FIQL and proto.** A bound field is filterable once you annotate it with `entdomain.FIQL(...)`, and proto messages carry it as an ordinary field.
+
+`examples/boundfk` shows all of these cases.
+
 ### Virtual Fields
 
 Virtual fields appear in the domain struct but have no corresponding ent schema field. They are set to their zero value by `ToDomain()` — the caller (or a Transformer) is responsible for hydrating them.
