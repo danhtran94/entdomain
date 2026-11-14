@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/danhtran94/entdomain"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -158,4 +159,29 @@ func TestEntityAnnotation_VirtualFields(t *testing.T) {
 	assert.Equal(t, "price", ant.VirtualFields[2].Name)
 	assert.Equal(t, "github.com/shopspring/decimal", ant.VirtualFields[2].FieldType.PkgPath)
 	assert.Equal(t, "Decimal", ant.VirtualFields[2].FieldType.TypeName)
+}
+
+func TestPtrNonZero(t *testing.T) {
+	t.Run("zero uuid is nil", func(t *testing.T) {
+		assert.Nil(t, entdomain.PtrNonZero(uuid.Nil))
+	})
+	t.Run("zero int is nil", func(t *testing.T) {
+		assert.Nil(t, entdomain.PtrNonZero(0))
+	})
+	t.Run("empty string is nil", func(t *testing.T) {
+		assert.Nil(t, entdomain.PtrNonZero(""))
+	})
+	t.Run("non-zero int points to the value", func(t *testing.T) {
+		p := entdomain.PtrNonZero(7)
+		if assert.NotNil(t, p) {
+			assert.Equal(t, 7, *p)
+		}
+	})
+	t.Run("non-zero uuid points to the value", func(t *testing.T) {
+		id := uuid.New()
+		p := entdomain.PtrNonZero(id)
+		if assert.NotNil(t, p) {
+			assert.Equal(t, id, *p)
+		}
+	})
 }

@@ -185,10 +185,6 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 
 	// Regular fields.
 	for _, f := range t.Fields {
-		if f.IsEdgeField() {
-			continue
-		}
-
 		// Check SkipProto field annotation.
 		fa, faErr := extractFieldAnnotation(f.Annotations)
 		if faErr != nil {
@@ -249,7 +245,7 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 		specs := resolveEdgeProtoSpec(e, ea, fa)
 		specIdx := 0
 
-		if ea.HasIDs() && specIdx < len(specs) {
+		if ea.HasIDs() && !edgeIDsDeduped(e) && specIdx < len(specs) {
 			spec := specs[specIdx]
 			specIdx++
 			// Compute field name: {singular_edge}_id or {singular_edge}_ids.

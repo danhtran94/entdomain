@@ -28,7 +28,6 @@ import (
 // Pass it to entdomain.ParseFIQL to filter {{ $n.Name }} entities.
 var {{ $n.Name }}FIQLFields = entdomain.FIQLFields[predicate.{{ $n.Name }}]{
     {{- range $f := $n.Fields }}
-    {{- if not $f.IsEdgeField }}
     {{- $ops := fieldFIQLAnnotation $f }}
     {{- if $ops }}
     {{- $kind := fieldFIQLKind $f }}
@@ -98,7 +97,6 @@ var {{ $n.Name }}FIQLFields = entdomain.FIQLFields[predicate.{{ $n.Name }}]{
         {{- end }}
         {{- end }}
     },
-    {{- end }}
     {{- end }}
     {{- end }}
     {{- end }}

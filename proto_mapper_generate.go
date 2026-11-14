@@ -273,9 +273,6 @@ func buildProtoMapperFileData(
 
 	// Regular fields.
 	for _, f := range t.Fields {
-		if f.IsEdgeField() {
-			continue
-		}
 		fa, err := extractFieldAnnotation(f.Annotations)
 		if err != nil {
 			return nil, false, fmt.Errorf("extract field annotation for %s: %w", f.Name, err)
@@ -359,7 +356,7 @@ func buildProtoMapperFileData(
 		specs := resolveEdgeProtoSpec(e, ea, fa)
 		specIdx := 0
 
-		if ea.HasIDs() && specIdx < len(specs) {
+		if ea.HasIDs() && !edgeIDsDeduped(e) && specIdx < len(specs) {
 			spec := specs[specIdx]
 			specIdx++
 			if !spec.IsExcluded {
