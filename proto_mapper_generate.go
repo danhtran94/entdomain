@@ -356,10 +356,13 @@ func buildProtoMapperFileData(
 		specs := resolveEdgeProtoSpec(e, ea, fa)
 		specIdx := 0
 
-		if ea.HasIDs() && !edgeIDsDeduped(e) && specIdx < len(specs) {
+		if ea.HasIDs() && specIdx < len(specs) {
 			spec := specs[specIdx]
 			specIdx++
-			if !spec.IsExcluded {
+			// A deduplicated IDs() spec is consumed but not emitted: the bound
+			// field already carries the key, and the Nest spec that may follow
+			// must still read its own entry.
+			if !spec.IsExcluded && !edgeIDsDeduped(e) {
 				var domainFieldName, protoFieldName string
 				if e.Unique {
 					domainFieldName = pascal(e.Name) + "ID"

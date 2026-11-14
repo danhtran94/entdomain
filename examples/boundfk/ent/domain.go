@@ -838,6 +838,7 @@ func (e *RingVersion) ToDomain() *domain.RingVersion {
 		Version: e.Version,
 	}
 	if _e := e.Edges.Ring; _e != nil {
+		d.Ring = _e.ToDomain()
 	}
 	return d
 }

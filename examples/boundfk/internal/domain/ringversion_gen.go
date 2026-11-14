@@ -10,6 +10,7 @@ type RingVersion struct {
 	ID      int
 	RingID  uuid.UUID
 	Version int
+	Ring    *Ring
 }
 
 // RingVersionList is a slice of RingVersion.

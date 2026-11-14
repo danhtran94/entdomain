@@ -47,7 +47,7 @@ func (RingVersion) Edges() []ent.Edge {
 			Unique().
 			Required().
 			Immutable().
-			Annotations(entdomain.Edge(entdomain.IDs())),
+			Annotations(entdomain.Edge(entdomain.IDs(), entdomain.Nest())),
 	}
 }
 

@@ -46,11 +46,20 @@ func TestBoundFK_Proto(t *testing.T) {
 	}
 	assert.Regexp(t, `optional string ring_id`, proto)
 
+	// RingVersion's bound edge has IDs() and Nest(): the deduplicated IDs spec
+	// must not shift the Nest spec, so `ring` stays a nested message.
+	assert.Regexp(t, `\bRing ring = \d+;`, proto, "nested Ring is a message field, not the scalar ID type")
+	assert.NotRegexp(t, `string ring = \d+;`, proto)
+
 	mapperOut := t.TempDir()
 	require.NoError(t, generateProtoMapperFiles(g, cfg, mapperOut, boundFKDomainDir, "domain"))
 	for _, name := range []string{"ringversion", "ringnote", "ringtag"} {
 		src := readText(t, filepath.Join(mapperOut, boundFKDomainDir, "pbmap", name+"_proto_gen.go"))
 		assert.Equal(t, 1, count(src, `\bRingId:`), "%s mapper: RingId assigned once to proto", name)
 		assert.Equal(t, 1, count(src, `\bRingID:`), "%s mapper: RingID assigned once to domain", name)
+		if name != "ringnote" { // RingNote has no Nest(); the other two nest Ring.
+			assert.Regexp(t, `Ring:\s+RingToProto\(d\.Ring\)`, src, "%s mapper: nested Ring uses the entity-qualified converter", name)
+			assert.Regexp(t, `Ring:\s+RingFromProto\(p\.Ring\)`, src, "%s mapper: nested Ring reads back through RingFromProto", name)
+		}
 	}
 }

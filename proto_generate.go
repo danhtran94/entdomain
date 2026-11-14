@@ -245,20 +245,25 @@ func buildProtoMessageData(t *gen.Type, ant *EntityAnnotation, lock *ProtoLockFi
 		specs := resolveEdgeProtoSpec(e, ea, fa)
 		specIdx := 0
 
-		if ea.HasIDs() && !edgeIDsDeduped(e) && specIdx < len(specs) {
+		if ea.HasIDs() && specIdx < len(specs) {
 			spec := specs[specIdx]
 			specIdx++
-			// Compute field name: {singular_edge}_id or {singular_edge}_ids.
-			var fieldName string
-			if e.Unique {
-				fieldName = snake(e.Name) + "_id"
-			} else {
-				fieldName = snake(singular(e.Name)) + "_ids"
-			}
-			if spec.IsExcluded {
-				skipped = append(skipped, skippedField{Message: t.Name, Field: fieldName, Reason: spec.ExcludedReason})
-			} else {
-				pending = append(pending, pendingField{snakeName: fieldName, spec: spec})
+			// A deduplicated IDs() spec is consumed but not emitted: the bound
+			// field already carries the key, and the Nest spec that may follow
+			// must still read its own entry.
+			if !edgeIDsDeduped(e) {
+				// Compute field name: {singular_edge}_id or {singular_edge}_ids.
+				var fieldName string
+				if e.Unique {
+					fieldName = snake(e.Name) + "_id"
+				} else {
+					fieldName = snake(singular(e.Name)) + "_ids"
+				}
+				if spec.IsExcluded {
+					skipped = append(skipped, skippedField{Message: t.Name, Field: fieldName, Reason: spec.ExcludedReason})
+				} else {
+					pending = append(pending, pendingField{snakeName: fieldName, spec: spec})
+				}
 			}
 		}
 		if ea.HasNest() && specIdx < len(specs) {
