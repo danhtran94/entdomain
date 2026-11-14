@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: all clean help build test gen gen-basic gen-custom gen-sliced gen-sliceddomain fuzz-fiql
+.PHONY: all clean help build test gen gen-basic gen-custom gen-sliced gen-sliceddomain gen-boundfk fuzz-fiql
 
 define HELP_TEXT
 entdomain — Makefile targets
@@ -14,6 +14,7 @@ entdomain — Makefile targets
   gen-custom  regenerate examples/custom/repo/ent only
   gen-sliced  regenerate examples/sliced/ent only (vertical slices; .pb.go needs `buf generate`)
   gen-sliceddomain  regenerate examples/sliceddomain/ent only (slices + WithProtoHelpersInDomain)
+  gen-boundfk regenerate examples/boundfk/ent only (edge-bound foreign keys)
   fuzz-fiql   ad-hoc FIQL parser fuzz (not in CI)
 endef
 export HELP_TEXT
@@ -34,7 +35,7 @@ test:
 
 # `gen` regenerates every example. Required after edits to template/*.tmpl
 # or any root-package generator. CI catches divergence; running locally is faster.
-gen: gen-basic gen-custom gen-sliced gen-sliceddomain
+gen: gen-basic gen-custom gen-sliced gen-sliceddomain gen-boundfk
 
 gen-basic:
 	@cd examples/basic/ent && go run entc.go
@@ -47,6 +48,9 @@ gen-sliced:
 
 gen-sliceddomain:
 	@cd examples/sliceddomain/ent && go run entc.go
+
+gen-boundfk:
+	@cd examples/boundfk/ent && go run entc.go
 
 fuzz-fiql:
 	@go test -fuzz=FuzzParseFIQL -fuzztime=30s

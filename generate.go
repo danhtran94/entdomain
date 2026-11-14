@@ -189,9 +189,6 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 
 	// Regular fields
 	for _, f := range t.Fields {
-		if f.IsEdgeField() {
-			continue
-		}
 		typeStr, importPath, enumType := fieldToDomainTypeWithEnum(t.Name, f)
 		typeStr = stripSelfPkg(typeStr, importPath)
 		if importPath != "" {
@@ -217,7 +214,7 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 			continue
 		}
 		// IDs fields
-		if edgeAnt.HasIDs() {
+		if edgeAnt.HasIDs() && !edgeIDsDeduped(e) {
 			idTypeStr, idImport := fieldToDomainType(e.Type.Name, e.Type.ID)
 			addImport(idImport)
 			if e.Unique {
@@ -265,6 +262,13 @@ func buildDomainFileData(g *gen.Graph, t *gen.Type, ant *EntityAnnotation, pkgNa
 	sort.Strings(data.Imports)
 
 	return data, nil
+}
+
+// edgeIDsDeduped reports whether the IDs() field of e is already emitted as the
+// edge's bound foreign-key field. A unique edge declared with .Field("ring_id")
+// owns a regular domain field RingID, so the IDs() field would duplicate it.
+func edgeIDsDeduped(e *gen.Edge) bool {
+	return e.Unique && e.Field() != nil
 }
 
 // fieldToDomainType returns the Go type string and import path for a field (no enum handling).

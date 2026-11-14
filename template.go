@@ -65,6 +65,7 @@ var (
 		"domainImports":       domainImportsFn,
 		"domainAlias":         domainAliasFn,
 		"domainPkgName":       domainPkgNameFn,
+		"edgeIDsDeduped":      edgeIDsDeduped,
 		"virtualFieldType":    virtualFieldTypeFn,
 		"isEnum":              func(f *gen.Field) bool { return f.Type.Type == field.TypeEnum },
 		"isNillable":          func(f *gen.Field) bool { return f.Optional || f.Nillable },
@@ -203,9 +204,6 @@ func hasFIQLFieldsFn(n *gen.Type) (bool, error) {
 		return false, nil
 	}
 	for _, f := range n.Fields {
-		if f.IsEdgeField() {
-			continue
-		}
 		fa, err := extractFieldAnnotation(f.Annotations)
 		if err != nil {
 			return false, err
@@ -228,9 +226,6 @@ func hasFIQLNodesFn(nodes []*gen.Type) (bool, error) {
 			continue
 		}
 		for _, f := range n.Fields {
-			if f.IsEdgeField() {
-				continue
-			}
 			fa, err := extractFieldAnnotation(f.Annotations)
 			if err != nil {
 				return false, err

@@ -147,3 +147,21 @@ func TestDomainImports(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []domainImport{{Alias: "domain", Path: base}}, got, "no slices: the single import it always had")
 }
+
+// edgeIDsDeduped is true only for a unique edge with a bound field. A gen.Edge
+// literal carries no foreign key, so Field() is nil here; the positive case
+// (a real bound field) is covered through entc.LoadGraph in boundfk_example_test.go.
+func TestEdgeIDsDeduped_NoBoundField(t *testing.T) {
+	cases := []struct {
+		name string
+		edge *gen.Edge
+	}{
+		{"unique edge without bound field", &gen.Edge{Name: "owner", Unique: true}},
+		{"non-unique edge", &gen.Edge{Name: "posts", Unique: false}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.False(t, edgeIDsDeduped(tc.edge))
+		})
+	}
+}

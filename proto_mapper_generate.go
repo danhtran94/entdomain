@@ -273,9 +273,6 @@ func buildProtoMapperFileData(
 
 	// Regular fields.
 	for _, f := range t.Fields {
-		if f.IsEdgeField() {
-			continue
-		}
 		fa, err := extractFieldAnnotation(f.Annotations)
 		if err != nil {
 			return nil, false, fmt.Errorf("extract field annotation for %s: %w", f.Name, err)
@@ -362,7 +359,10 @@ func buildProtoMapperFileData(
 		if ea.HasIDs() && specIdx < len(specs) {
 			spec := specs[specIdx]
 			specIdx++
-			if !spec.IsExcluded {
+			// A deduplicated IDs() spec is consumed but not emitted: the bound
+			// field already carries the key, and the Nest spec that may follow
+			// must still read its own entry.
+			if !spec.IsExcluded && !edgeIDsDeduped(e) {
 				var domainFieldName, protoFieldName string
 				if e.Unique {
 					domainFieldName = pascal(e.Name) + "ID"

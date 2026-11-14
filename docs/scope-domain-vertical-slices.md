@@ -96,6 +96,7 @@ This scope covers the smallest design that avoids the cycle by construction. Sli
 
 ## History
 
-| Ticket    | Title                                                                                  | Created    | Status |
-|-----------|----------------------------------------------------------------------------------------|------------|--------|
-| (initial) | Domain vertical slices (KISS: slice by bounded context, cross-slice by ID, proto included) | 2026-11-13 | Accepted |
+| Ticket                                                       | Title                                                                                                | Created    | Status   |
+|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------|------------|----------|
+| (initial)                                                    | Domain vertical slices (KISS: slice by bounded context, cross-slice by ID, proto included)           | 2026-11-13 | Accepted |
+| [ENTD-007](../jobs/ENTD-007-SLICE-domain-vertical-slices.md) | ENTD-007-SLICE: Domain vertical slices (slice by bounded context, cross-slice by ID, proto included) | 2026-11-13 | Done     |

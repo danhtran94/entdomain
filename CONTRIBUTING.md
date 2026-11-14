@@ -29,7 +29,10 @@ That should be green on a fresh checkout. If it isn't, please open an issue befo
 ├── jobs/                   — job-tracking docs (`jobs/ENTD-NNN-*.md`)
 ├── examples/
 │   ├── basic/              — schema + generated output exercising the full feature surface
-│   └── custom/             — schema demonstrating non-default layouts (custom domain pkg path, etc.)
+│   ├── custom/             — schema demonstrating non-default layouts (custom domain pkg path, etc.)
+│   ├── sliced/             — vertical slices with per-slice proto mappers (`pbmap` subpackages)
+│   ├── sliceddomain/       — vertical slices with `WithProtoHelpersInDomain()` mappers
+│   └── boundfk/            — edge-bound foreign keys (required, optional, immutable, Nest, FIQL, upsert)
 ├── .github/workflows/      — CI: ci.yml (tests), security.yml (govulncheck/gosec/CodeQL), scorecard.yml
 ├── CHANGELOG.md            — Keep-a-Changelog format; see "When to add an entry" below
 ├── SECURITY.md             — vulnerability reporting policy
@@ -47,9 +50,12 @@ Each example has an `entc.go` entrypoint that invokes ent + entdomain:
 ```sh
 (cd examples/basic/ent && go run entc.go)
 (cd examples/custom/repo/ent && go run entc.go)
+(cd examples/sliced/ent && go run entc.go)
+(cd examples/sliceddomain/ent && go run entc.go)
+(cd examples/boundfk/ent && go run entc.go)
 ```
 
-Run both whenever you change anything in `template/` or any generator in the root package. The CI pipeline will catch a divergence; running locally is faster.
+`make gen` runs all of them. Run them whenever you change anything in `template/` or any generator in the root package. The CI pipeline will catch a divergence; running locally is faster.
 
 ### Templates — single source of truth
 
