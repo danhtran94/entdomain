@@ -62,36 +62,40 @@ func domainImportPath(g *gen.Graph, pkgPath string) (string, error) {
 	return resolveGoImportPath(g, pkgPath)
 }
 
-// generateDomainFiles writes one {entity_lower}.go per entity with EntityAnnotation
-// to filepath.Join(moduleRoot(g), pkgPath).
+// generateDomainFiles writes one {entity_lower}_gen.go per entity with EntityAnnotation.
+// Entities are grouped by slice: the root group goes to pkgPath as package pkgName,
+// a named slice goes to pkgPath/{slice} as package {slice}.
 func generateDomainFiles(g *gen.Graph, pkgPath, pkgName string) error {
-	outDir := filepath.Join(moduleRoot(g), pkgPath)
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		return fmt.Errorf("entdomain: create domain dir: %w", err)
-	}
-	ownImportPath, err := domainImportPath(g, pkgPath)
+	groups, err := groupBySlice(g.Nodes, pkgPath, pkgName)
 	if err != nil {
-		return fmt.Errorf("entdomain: resolve domain import path: %w", err)
+		return err
 	}
-	for _, t := range g.Nodes {
-		ant, err := extractEntityAnnotation(t.Annotations)
+	for _, grp := range groups {
+		outDir := filepath.Join(moduleRoot(g), grp.Dir)
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			return fmt.Errorf("entdomain: create domain dir: %w", err)
+		}
+		ownImportPath, err := domainImportPath(g, grp.Dir)
 		if err != nil {
-			return fmt.Errorf("entdomain: extract annotation for %s: %w", t.Name, err)
+			return fmt.Errorf("entdomain: resolve domain import path: %w", err)
 		}
-		if ant == nil {
-			continue
-		}
-		data, err := buildDomainFileData(g, t, ant, pkgName, ownImportPath)
-		if err != nil {
-			return fmt.Errorf("entdomain: build domain data for %s: %w", t.Name, err)
-		}
-		src, err := renderDomainFile(data)
-		if err != nil {
-			return fmt.Errorf("entdomain: render domain file for %s: %w", t.Name, err)
-		}
-		outPath := filepath.Join(outDir, strings.ToLower(t.Name)+"_gen.go")
-		if err := os.WriteFile(outPath, src, 0644); err != nil {
-			return fmt.Errorf("entdomain: write domain file %s: %w", outPath, err)
+		for _, t := range grp.Nodes {
+			ant, err := extractEntityAnnotation(t.Annotations)
+			if err != nil {
+				return fmt.Errorf("entdomain: extract annotation for %s: %w", t.Name, err)
+			}
+			data, err := buildDomainFileData(g, t, ant, grp.PkgName, ownImportPath)
+			if err != nil {
+				return fmt.Errorf("entdomain: build domain data for %s: %w", t.Name, err)
+			}
+			src, err := renderDomainFile(data)
+			if err != nil {
+				return fmt.Errorf("entdomain: render domain file for %s: %w", t.Name, err)
+			}
+			outPath := filepath.Join(outDir, strings.ToLower(t.Name)+"_gen.go")
+			if err := os.WriteFile(outPath, src, 0644); err != nil {
+				return fmt.Errorf("entdomain: write domain file %s: %w", outPath, err)
+			}
 		}
 	}
 	return nil

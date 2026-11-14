@@ -99,6 +99,47 @@ if err := entc.Generate("../schema",
 
 See [`examples/custom/`](examples/custom/) for a working example of this layout.
 
+### Vertical Slices
+
+By default every entity lands in one domain package. To organise the domain layer by bounded context, assign entities to a named slice:
+
+```go
+func (Invoice) Annotations() []schema.Annotation {
+    return []schema.Annotation{
+        entdomain.Entity(entdomain.Slice("billing")),
+    }
+}
+```
+
+Each slice becomes its own package under the domain path:
+
+```
+internal/domain/
+├── billing/            ← package billing   (Invoice, LineItem)
+│   └── pbmap/          ← proto mappers for this slice only (with WithProto)
+├── identity/           ← package identity  (Account)
+│   └── pbmap/
+└── user_gen.go         ← entities without Slice stay in the root package
+```
+
+`ent/domain.go` imports one package per slice under the alias `<slice>domain` (`billingdomain`, `identitydomain`); the root package keeps its `WithPackageName` alias. Entities without `Slice` generate exactly as before.
+
+**Cross-slice edges carry IDs only.** An edge between two entities in the same slice behaves as usual (`IDs()`, `Nest()`). An edge to an entity in a different slice, or between the root package and a slice, may use `IDs()` but not `Nest()`: nesting would make the two packages import each other. Generation fails with:
+
+```
+entdomain: cross-slice Nest on edge Invoice.account (Invoice in slice "billing", Account in slice "identity"): use entdomain.IDs() for this edge or move both entities into one slice
+```
+
+Slice names match `^[a-z][a-z0-9]*$` and cannot be a Go keyword or `pbmap`.
+
+**Proto.** With `WithProto`, messages stay in one proto package (cross-slice references are plain IDs). Mappers follow the slice: `billing/pbmap` imports only `billing`. Under `WithProtoHelpersInDomain()` the mappers join the slice's own package instead.
+
+**Custom proto conversions (`WithConversion`).** The generated mapper calls the expressions you give to `WithConversion` unqualified, so the functions must be defined in the mapper package of the entity's slice: `billing/pbmap/` (or the `billing` package under `WithProtoHelpersInDomain()`). A conversion file in the root `pbmap/` is not visible to sliced entities. If two slices need the same conversion, define it in each (a one-line wrapper over a shared package works). A missing function surfaces as `undefined: ...` when building that slice's `pbmap`. See `examples/sliced/internal/domain/billing/pbmap/number_conv.go`.
+
+**Moving an existing entity into a slice.** The generator writes files but never deletes them. After adding `Slice`, delete the old `{entity}_gen.go` in the root domain directory and, with proto, the old `{entity}_proto_gen.go` in `pbmap/`.
+
+See [`examples/sliced/`](examples/sliced/) for a working two-slice example, and [`examples/sliceddomain/`](examples/sliceddomain/) for the same schema with `WithProtoHelpersInDomain()` (mappers inside each slice package). Regenerate a `.pb.go` with `buf generate` in the example's `proto/` directory; see `examples/sliced/proto/README.md`.
+
 ## Schema Annotations
 
 Opt in per entity and per edge. Entities without `entdomain.Entity()` are skipped entirely.

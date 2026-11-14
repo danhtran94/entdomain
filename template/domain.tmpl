@@ -14,12 +14,13 @@
 {{- $cfg := index $.Annotations "EntDomainConfig" }}
 {{- $pkgPath := index $cfg "PkgPath" }}
 {{- $pkgName := index $cfg "PkgName" }}
-{{- $domainImport := domainImportPath $ $pkgPath }}
 
 import (
     "context"
     "github.com/danhtran94/entdomain"
-    {{ $pkgName }} "{{ $domainImport }}"
+    {{- range $di := domainImports $ $cfg }}
+    {{ $di.Alias }} "{{ $di.Path }}"
+    {{- end }}
     {{- range $n := $domainNodes }}
         {{- if hasEnumFields $n }}
         "{{ $.Config.Package }}/{{ $n.Package }}"
@@ -29,6 +30,8 @@ import (
 
 {{ range $n := $domainNodes }}
 {{- $ant := entityAnnotation $n }}
+{{- /* $pkgName shadows the root name: import alias of the slice package that holds $n. */}}
+{{- $pkgName := domainAlias $cfg $n }}
 
 // {{ $n.Name }}DomainField is the type for {{ $n.Name }} domain field constants.
 type {{ $n.Name }}DomainField = string

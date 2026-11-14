@@ -103,3 +103,47 @@ func TestFieldFIQLAnnotation_NullOnNonOptional(t *testing.T) {
 		assert.Len(t, ops, 3)
 	})
 }
+
+func TestDomainAlias(t *testing.T) {
+	cfg := map[string]string{"PkgPath": "internal/domain", "PkgName": "domain"}
+
+	got, err := domainAliasFn(cfg, sliceType("User", ""))
+	require.NoError(t, err)
+	assert.Equal(t, "domain", got, "root entities keep the configured package name")
+
+	got, err = domainAliasFn(cfg, sliceType("Invoice", "billing"))
+	require.NoError(t, err)
+	assert.Equal(t, "billingdomain", got)
+
+	got, err = domainAliasFn(map[string]string{"PkgName": "core"}, sliceType("User", ""))
+	require.NoError(t, err)
+	assert.Equal(t, "core", got, "a custom WithPackageName flows through")
+}
+
+func TestDomainImports(t *testing.T) {
+	g := &gen.Graph{
+		Config: &gen.Config{Target: "examples/custom/repo/ent"},
+		Nodes: []*gen.Type{
+			sliceType("Tag", ""),
+			sliceType("Invoice", "billing"),
+			sliceType("Account", "identity"),
+			sliceType("LineItem", "billing"),
+		},
+	}
+	cfg := map[string]string{"PkgPath": "examples/custom/internal/domain", "PkgName": "domain"}
+
+	got, err := domainImportsFn(g, cfg)
+	require.NoError(t, err)
+
+	const base = "github.com/danhtran94/entdomain/examples/custom/internal/domain"
+	assert.Equal(t, []domainImport{
+		{Alias: "domain", Path: base},
+		{Alias: "billingdomain", Path: base + "/billing"},
+		{Alias: "identitydomain", Path: base + "/identity"},
+	}, got, "one import per group: root first, then slices by name")
+
+	g.Nodes = []*gen.Type{sliceType("Tag", ""), sliceType("User", "")}
+	got, err = domainImportsFn(g, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, []domainImport{{Alias: "domain", Path: base}}, got, "no slices: the single import it always had")
+}

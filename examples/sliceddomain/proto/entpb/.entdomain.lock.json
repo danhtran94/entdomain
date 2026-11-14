@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "entities": {
+    "Account": {
+      "fields": {
+        "email": 2,
+        "id": 1,
+        "invoice_ids": 3
+      },
+      "reserved": null
+    },
+    "Invoice": {
+      "fields": {
+        "account_id": 2,
+        "id": 1,
+        "line_items": 3,
+        "number": 4,
+        "total": 5
+      },
+      "reserved": null
+    },
+    "LineItem": {
+      "fields": {
+        "description": 2,
+        "id": 1,
+        "invoice": 3,
+        "qty": 4
+      },
+      "reserved": null
+    }
+  }
+}

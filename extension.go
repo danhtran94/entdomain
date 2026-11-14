@@ -157,6 +157,14 @@ func (e *Extension) Templates() []*gen.Template {
 func (e *Extension) generateDomainHook() gen.Hook {
 	return func(next gen.Generator) gen.Generator {
 		return gen.GenerateFunc(func(g *gen.Graph) error {
+			// Reject invalid slice layouts before any file is written, so a bad
+			// schema leaves the generated tree untouched.
+			if err := validateSliceNames(g.Nodes); err != nil {
+				return err
+			}
+			if err := validateSliceEdges(g.Nodes); err != nil {
+				return err
+			}
 			// Propagate extension-level noBulk config into each entity's annotation
 			// so that both the domain file generator and the ent template can read it.
 			for _, n := range g.Nodes {

@@ -62,6 +62,8 @@ var (
 		"entityAnnotation":    entityAnnotationFn,
 		"edgeAnnotation":      edgeAnnotationFn,
 		"domainImportPath":    domainImportPathFn,
+		"domainImports":       domainImportsFn,
+		"domainAlias":         domainAliasFn,
 		"domainPkgName":       domainPkgNameFn,
 		"virtualFieldType":    virtualFieldTypeFn,
 		"isEnum":              func(f *gen.Field) bool { return f.Type.Type == field.TypeEnum },
@@ -121,6 +123,43 @@ func edgeAnnotationFn(e *gen.Edge) (*EdgeAnnotation, error) {
 // domainImportPathFn computes the full Go import path for the domain package.
 func domainImportPathFn(g *gen.Graph, pkgPath string) (string, error) {
 	return domainImportPath(g, pkgPath)
+}
+
+// domainImport is one domain package ent/domain.go must import.
+type domainImport struct {
+	Alias string
+	Path  string
+}
+
+// domainImportsFn returns one import per slice group, root first, then slices
+// by name. A graph without slices yields the single root import it always had.
+func domainImportsFn(g *gen.Graph, cfg map[string]string) ([]domainImport, error) {
+	groups, err := groupBySlice(g.Nodes, cfg["PkgPath"], cfg["PkgName"])
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domainImport, 0, len(groups))
+	for _, grp := range groups {
+		path, err := domainImportPath(g, grp.Dir)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, domainImport{Alias: grp.Alias, Path: path})
+	}
+	return out, nil
+}
+
+// domainAliasFn returns the import alias of the domain package that holds n:
+// the configured package name for the root, "<slice>domain" for a slice.
+func domainAliasFn(cfg map[string]string, n *gen.Type) (string, error) {
+	slice, _, err := sliceOf(n)
+	if err != nil {
+		return "", err
+	}
+	if slice == "" {
+		return cfg["PkgName"], nil
+	}
+	return slice + "domain", nil
 }
 
 // domainPkgNameFn extracts the pkgName from the EntDomainConfig annotation map.
