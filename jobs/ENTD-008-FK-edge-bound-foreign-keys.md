@@ -2,7 +2,7 @@
 
 | Field      | Value                      |
 |------------|----------------------------|
-| Status     | In Progress                |
+| Status     | Done                       |
 | Created    | 2026-11-14                 |
 | Assignee   | danhtran94                 |
 | Source     | docs/scope-edge-bound-fk.md |
@@ -153,8 +153,8 @@ Each test maps to one Success Criterion. Written alongside the workstream that e
 | V.1 | `make build` exits 0 | [x] |
 | V.2 | `make test` exits 0 | [x] |
 | V.3 | `make gen` then `git diff --exit-code HEAD -- examples/basic examples/custom examples/sliced examples/sliceddomain` exits 0 (SC 14) | [x] |
-| V.4 | `make gen` then `git diff --exit-code HEAD` exits 0 after the commits (SC 15) | [ ] |
-| V.5 | `harness validate-docs` exits 0; `harness validate-pr-checklist` exits 0 after the commits | [ ] |
+| V.4 | `make gen` then `git diff --exit-code HEAD` exits 0 after the commits (SC 15) | [x] |
+| V.5 | `harness validate-docs` exits 0; `harness validate-pr-checklist` exits 0 after the commits | [x] |
 
 ## Design Decisions
 
