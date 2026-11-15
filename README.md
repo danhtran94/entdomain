@@ -11,12 +11,38 @@ An [ent](https://entgo.io/ent) extension that generates a pure Go domain layer f
 
 ## Overview
 
-When using ent in a clean architecture project, the generated types (`ent.User`, `ent.UserCreate`, etc.) carry DB-layer concerns and cannot be used directly as domain entities. `entdomain` solves this by generating:
+When using ent in a clean architecture project, the generated types (`ent.User`, `ent.UserCreate`, etc.) carry DB-layer concerns and cannot be used directly as domain types. `entdomain` solves this by generating:
 
 - **`internal/domain/{entity}.go`** — Pure Go structs with no ent imports
 - **`ent/domain.go`** — `ToDomain()` and `ApplyDomain()` mapping methods on ent types
 
 The domain package stays in sync with your ent schema automatically — no manual drift.
+
+## Why
+
+entdomain keeps ent out of your business code. It rests on one rule and one mechanism.
+
+**The rule: do not pass database rows across a boundary.** In [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html), Robert C. Martin writes:
+
+> "Typically the data that crosses the boundaries is simple data structures."
+>
+> "We don't want to cheat and pass Entities or Database rows."
+
+A generated ent entity is a database row. It carries `Edges`, hooks, and a client pointer. entdomain generates a plain struct for it with zero ent imports, so "source code dependencies can only point inwards".
+
+**The mechanism: map at the edge, in generated code.** Fowler's [Data Transfer Object](https://martinfowler.com/eaaCatalog/dataTransferObject.html) and [Data Mapper](https://martinfowler.com/eaaCatalog/dataMapper.html) patterns name the mappers that do this:
+
+> "Usually an assembler is used on the server side to transfer data between the DTO and any domain objects."
+>
+> "Data Mapper itself is even unknown to the domain layer."
+
+| Form | In entdomain | Moves through |
+|---|---|---|
+| Database row | `ent.User` | |
+| Boundary data structure | `domain.User` | `ToDomain` / `ApplyDomain` |
+| DTO | `entpb.User` | `pbmap` |
+
+**What entdomain does not claim.** The domain struct carries data, not behavior. It is not Martin's "Entities" ("Entities encapsulate Enterprise wide business rules"): put rules in your own types and use the struct to cross the boundary. Fowler's [LocalDTO](https://martinfowler.com/bliki/LocalDTO.html) warns about "the cost of all of that data mapping". Generation removes the hand-written mapping, not the second struct, so the split pays off when business code must not import ent: module boundaries, several backends, tests without a database, vertical slices.
 
 ## Installation
 
