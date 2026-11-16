@@ -133,6 +133,7 @@ The edge key already lives in the same `DomainField` namespace as scalar keys. R
 - `harness hook-postbuild` runs `make gen` after template edits; CI fails on generated drift.
 - Local `golangci-lint` is v1 while `.golangci.yml` is v2; run lint as `go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run ./...` (ENTD-008 Discoveries).
 - Throwaway repro used for scope A1: `/tmp/entd-repro/examples/basic/ent/zz_repro_test.go` (outside the repo; delete after WS2).
+- Follow-up (not ENTD-009): `OnlyFields()` with no keys sets no allowlist (`runtime.go`, `len(c.onlyFields) > 0`), so a caller that builds an empty field mask applies every field and replaces unloaded edges. Making it fail closed changes scalar behavior too; needs its own scope. Raised in PR #69 review.
 - The next release currently depends on ent master `v0.14.7-0.20261014065818-8037bc89bcab` and Go 1.26.0; revert to a released ent before tagging (separate job, not ENTD-009).
 
 ### Release note draft (task 3.4)
@@ -162,3 +163,6 @@ A `grep -c '…{{ singular $e.Name }}…' && make gen` sanity check returned 0 m
 
 ### [Implementer] GitButler placed the new branch on a stale base
 `but commit -b entd-009-edge-field-gating` created the branch on `d0799c4` (PR #64), the workspace's last-pulled target, while `origin/main` was three merges ahead (#65 ENTD-008, #67, #68). The workspace tree still showed those changes because their branches were applied, so nothing looked wrong locally. `git merge-base` exposed it; `but pull --check` reported a clean rebase and `but pull` moved the branch onto `d065853`. V.3 was then verified on a `git archive` export of the branch alone (build, tests, `make gen` with no diff), not on the workspace, which also carries `chore-remove-changelog`.
+
+### [Reviewer] README overstated what the options protect (PR #69, CodeRabbit)
+Two README rules held only for replace. `OnlyFields()` with no keys sets no allowlist (`ShouldApply` checks it only when `len(c.onlyFields) > 0`), so "OnlyFields without the edge key leaves the edge unchanged" was false for an empty call. `AppendEdge` runs before the `ShouldApply` gate, so it also overrides `OmitFields`, and an empty `[]T{}` under `AppendEdge` appends nothing instead of clearing. Both behaviors are intended (Design Decision "AppendEdge bypasses the gate"); the README now scopes the unchanged/clear rules to replace and states the `AppendEdge` and empty-`OnlyFields()` cases. No runtime change; the empty-`OnlyFields()` fail-open is recorded as a follow-up in Notes.

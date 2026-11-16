@@ -217,7 +217,7 @@ func (User) Edges() []ent.Edge {
 | `Nest()` | `Posts []Post` | from `Edges.Posts` | skipped |
 | `IDs(), Nest()` | both | from `Edges.Posts` | same as `IDs()` |
 
-The edge key (`post_ids`, constant `UserDomainFieldPostIDs`) obeys the [Apply Options](#apply-options) like any field: an update that excludes it through `OnlyFields`, `OmitFields`, or `OmitZeroVal` (with `PostIDs == nil`) leaves the edge unchanged.
+The edge key (`post_ids`, constant `UserDomainFieldPostIDs`) obeys the [Apply Options](#apply-options) like any field: an update that excludes it through `OnlyFields`, `OmitFields`, or `OmitZeroVal` (with `PostIDs == nil`) does not replace the edge. `AppendEdge` is the exception, see [Apply Options](#apply-options).
 
 > **Replace needs a loaded edge.** `ToDomain()` fills `PostIDs` only when the query eager-loaded posts (`WithPosts()`). Writing back a value read without it, with no option that excludes `post_ids`, replaces the posts with an empty set. Load the edge, or exclude it with `OnlyFields` / `OmitFields`.
 
@@ -728,11 +728,13 @@ entdomain.AppendEdge("post_ids")             // append edge IDs instead of repla
 
 > `OmitZeroVal` on create can silently skip intentional zero values — use with care.
 
-Edge keys (`post_ids`) are fields for these options:
+Edge keys (`post_ids`) are fields for these options. On update, the edge is replaced unless an option excludes it:
 
-- `OnlyFields` without the edge key, or `OmitFields` with it, leaves the edge unchanged.
-- `OmitZeroVal` leaves the edge unchanged when `PostIDs` is `nil`; an empty `[]int{}` still clears it.
-- `AppendEdge` applies even when the edge key is not in `OnlyFields`. Appending only adds links, so it cannot remove data the allowlist was meant to protect.
+- `OnlyFields` with at least one key, none of them the edge key, leaves the edge unchanged. So does `OmitFields` with the edge key.
+- `OnlyFields()` with no keys sets no allowlist: every field applies, and an update replaces an edge that was not loaded.
+- `OmitZeroVal` leaves the edge unchanged when `PostIDs` is `nil`; an empty `[]int{}` still replaces it with the empty set.
+
+`AppendEdge` bypasses all of these. It appends `PostIDs` even when the edge key is outside `OnlyFields` or inside `OmitFields`, and an empty `[]int{}` appends nothing, so it never clears the edge. Appending only adds links, so it cannot remove data the other options were meant to protect.
 
 ### Example
 
