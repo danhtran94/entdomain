@@ -2,7 +2,7 @@
 
 | Field      | Value                                          |
 |------------|------------------------------------------------|
-| Status     | In Progress                                    |
+| Status     | Done                                           |
 | Created    | 2026-11-16                                     |
 | Assignee   | danhtran94                                     |
 | Source     | docs/scope-apply-domain-edge-field-gating.md   |
@@ -100,8 +100,8 @@ One e2e test per Success Criterion, against the regenerated `examples/basic`. Sh
 |---|------|--------|
 | V.1 | `make build` exits 0 | [x] |
 | V.2 | `make test` exits 0 | [x] |
-| V.3 | `make gen` then `git add -N . && git diff --exit-code HEAD` exits 0 after the commits (SC 10) | [ ] |
-| V.4 | `harness validate-docs` exits 0; `harness validate-pr-checklist` exits 0 after the commits | [ ] |
+| V.3 | `make gen` then `git add -N . && git diff --exit-code HEAD` exits 0 after the commits (SC 10) | [x] |
+| V.4 | `harness validate-docs` exits 0; `harness validate-pr-checklist` exits 0 after the commits | [x] |
 
 ## Design Decisions
 
@@ -159,3 +159,6 @@ The example called `ApplyDomain(d, ...)` without `ctx` and chained `.Save(ctx)` 
 
 ### [Implementer] Shell gotcha: a `grep -c` guard short-circuited `make gen`
 A `grep -c '…{{ singular $e.Name }}…' && make gen` sanity check returned 0 matches (exit 1) on the correctly edited template, so `make gen` never ran and the examples looked unchanged. Running `make gen` directly regenerated them. Run generation unconditionally and verify with `git diff` instead.
+
+### [Implementer] GitButler placed the new branch on a stale base
+`but commit -b entd-009-edge-field-gating` created the branch on `d0799c4` (PR #64), the workspace's last-pulled target, while `origin/main` was three merges ahead (#65 ENTD-008, #67, #68). The workspace tree still showed those changes because their branches were applied, so nothing looked wrong locally. `git merge-base` exposed it; `but pull --check` reported a clean rebase and `but pull` moved the branch onto `d065853`. V.3 was then verified on a `git archive` export of the branch alone (build, tests, `make gen` with no diff), not on the workspace, which also carries `chore-remove-changelog`.
