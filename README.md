@@ -213,9 +213,13 @@ func (User) Edges() []ent.Edge {
 
 | Annotation | Domain field | `ToDomain()` | `ApplyDomain` (create/update) |
 |---|---|---|---|
-| `IDs()` | `PostIDs []int` | from `Edges.Posts` | `AddPostIDs` (if len > 0) / replace by default |
+| `IDs()` | `PostIDs []int` | from `Edges.Posts` | create: `AddPostIDs` (if len > 0); update: replace by default, append under `AppendEdge` |
 | `Nest()` | `Posts []Post` | from `Edges.Posts` | skipped |
-| `IDs(), Nest()` | both | from `Edges.Posts` | `AddPostIDs` only (if len > 0) |
+| `IDs(), Nest()` | both | from `Edges.Posts` | same as `IDs()` |
+
+The edge key (`post_ids`, constant `UserDomainFieldPostIDs`) obeys the [Apply Options](#apply-options) like any field: an update that excludes it through `OnlyFields`, `OmitFields`, or `OmitZeroVal` (with `PostIDs == nil`) leaves the edge unchanged.
+
+> **Replace needs a loaded edge.** `ToDomain()` fills `PostIDs` only when the query eager-loaded posts (`WithPosts()`). Writing back a value read without it, with no option that excludes `post_ids`, replaces the posts with an empty set. Load the edge, or exclude it with `OnlyFields` / `OmitFields`.
 
 ### Foreign key fields
 
@@ -724,16 +728,25 @@ entdomain.AppendEdge("post_ids")             // append edge IDs instead of repla
 
 > `OmitZeroVal` on create can silently skip intentional zero values — use with care.
 
+Edge keys (`post_ids`) are fields for these options:
+
+- `OnlyFields` without the edge key, or `OmitFields` with it, leaves the edge unchanged.
+- `OmitZeroVal` leaves the edge unchanged when `PostIDs` is `nil`; an empty `[]int{}` still clears it.
+- `AppendEdge` applies even when the edge key is not in `OnlyFields`. Appending only adds links, so it cannot remove data the allowlist was meant to protect.
+
 ### Example
 
 ```go
 // Update only name and status, append new posts rather than replace
-u.UpdateOneID(id).
-    ApplyDomain(d,
+builder, err := client.User.UpdateOneID(id).
+    ApplyDomain(ctx, d,
         entdomain.OnlyFields(ent.UserDomainFieldName, ent.UserDomainFieldStatus),
         entdomain.AppendEdge(ent.UserDomainFieldPostIDs),
-    ).
-    Save(ctx)
+    )
+if err != nil {
+    return err
+}
+_, err = builder.Save(ctx)
 ```
 
 ## Transformer (Virtual Fields)
