@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "name": "entdomain Mascot Style",
+    "version": "3.0.0",
+    "description": "Concept, style, generation briefs, and asset notes for the entdomain illustrations: twin Go gophers, one in the database engine room, one in a calm domain room, passing boxes along a conveyor belt.",
+    "attribution": "Go Gopher design by Renee French, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Illustrations AI-generated with Gemini. Credit both wherever the art is published."
+  },
+  "concept": {
+    "idea": "Every ent entity gets a twin, generated from the same schema, identical in every way but free of the database.",
+    "readsAs": {
+      "twoIdenticalGophers": "The domain struct and the ent entity share one shape; generated, so they never drift.",
+      "engineRoomVsCalmRoom": "The ent side carries pipes, cables, gauges, and hooks; the domain side has zero ent imports.",
+      "blueprintOnTheTable": "The ent schema everything is generated from.",
+      "conveyorBelt": "Generation and the ToDomain() mapping.",
+      "glowingBoxes": "The data crossing the boundary."
+    },
+    "knownGap": "The conveyor only runs left to right, so ApplyDomain() (the way back) is not shown. Accepted: it is the secondary idea."
+  },
+  "style": {
+    "summary": "Cozy storybook illustration: hand-drawn ink outlines with slight wobble, soft watercolor washes, gentle pastel colors on cream paper.",
+    "notLigneClaire": "Ligne Claire means uniform line weight and flat fills. This style uses variable ink and watercolor washes. Do not use that label in prompts."
+  },
+  "gopherIdentity": {
+    "rule": "These traits make it the Go gopher. Losing any turns it into a generic bear, cat, or hamster. Never trade them for cuteness.",
+    "mustKeep": [
+      "Chubby rounded cyan blue body; head and body are one mass",
+      "Big round bulging eyes at the top of the head",
+      "Small round ears on the top corners, always visible",
+      "Beige snout with two buck teeth",
+      "Tiny stubby arms and small feet"
+    ],
+    "mustAvoid": ["hats or anything covering the top of the head", "blush cheeks", "whiskers", "shrunken eyes inside the outline"]
+  },
+  "palette": {
+    "note": "Target colors for any hand-made additions (title overlays, diagrams). Image models pick their own tones; do not prompt with hex codes.",
+    "gopherCyan": "#8CC5D0",
+    "deepSlateBlue": "#52899B",
+    "iceMint": "#CFE6E8",
+    "terracottaRose": "#D98A82",
+    "warmApricot": "#EAB67E",
+    "parchmentCream": "#FAF3E3",
+    "cardboardOchre": "#D8B184",
+    "charcoalEspresso": "#231F20",
+    "warmUmberInk": "#5A524C"
+  },
+  "briefs": {
+    "note": "Free-form briefs worked better than detailed specs: state the story and the non-negotiables, let the model design the scene. Generate several and pick.",
+    "scene": "An illustration for entdomain, an open-source Go library. The story: when you build with the ent ORM, your business code ends up tangled with the database: every entity drags its connections, hooks, and relations wherever it goes. entdomain gives each entity a twin, generated from the same schema, identical in every way, but completely free of the database. The two twins hand data back and forth, and they never drift apart. Show this as two twin Go gophers. One is happily tangled up in database cables and machinery; the other is its exact copy, light and unburdened, living in a clean, calm space. Something is being passed between them. How you stage the scene, the setting, and the small details is up to you. Make it warm, clever, and a little funny, the kind of picture a developer gets in one glance and smiles at. Style: cozy storybook illustration, hand-drawn ink outlines, soft watercolor washes, gentle pastel colors on cream paper. The gophers should be clearly the classic Go gopher: big round eyes, buck teeth, chubby body.",
+    "extendUpward": "Extend this image upward to change its aspect ratio to 16:9. Keep the entire original illustration exactly as it is: same gophers, same objects, same positions, same style. Only add new space above it. In the new top area: on the left, continue the copper pipes, cables, and hooks naturally up to the top edge so nothing looks cut off. In the center and right, continue the plain cream wall. Leave a wide, calm, mostly empty band across the top center for a title to be added later. No text, no new characters, no new objects in the empty area. Match the original style precisely: hand-drawn ink outlines, soft watercolor wash, pastel colors, cream paper texture.",
+    "avatar": "Using the gopher on the right side of this image as the exact reference, create a square 1:1 avatar of that same character. Keep everything that makes it this character: same cyan blue color, big round bulging eyes at the top of the head, small round ears, beige snout, buck teeth, happy expression, same hand-drawn ink and soft watercolor style. The gopher holds the small glowing cardboard box close to its chest, centered, head and upper body filling most of the frame. Plain soft cream background, no room, no furniture, no other objects. It must read clearly as a tiny icon, so keep the shapes bold and simple, with clean outlines and good contrast against the background. No text.",
+    "ifOffModel": "Add: 'Not a cat or hamster, the official Go gopher mascot.'"
+  },
+  "assets": {
+    "watermark": "Gemini stamps a sparkle in the bottom-right corner. Every asset is framed to exclude it by cropping, never retouched.",
+    "files": [
+      {
+        "path": "docs/assets/banner.jpg",
+        "size": "2000x739",
+        "use": "README header",
+        "source": "Scene brief output (3456x1216), cropped to x 0..3290 to drop the watermark, resized, JPEG q85."
+      },
+      {
+        "path": "docs/assets/social-preview.jpg",
+        "size": "1280x640",
+        "use": "GitHub Settings > Social preview (limit 1 MB)",
+        "source": "extendUpward output (2752x1536), cropped to x 0..2580, y 246..1536 (2:1), resized; title 'entdomain' and subtitle overlaid in SF Pro Rounded, charcoalEspresso / warmUmberInk; JPEG q88."
+      },
+      {
+        "path": "docs/assets/avatar.png",
+        "size": "512x512",
+        "use": "Avatar and icon; safe for circular crops and legible at 64px",
+        "source": "Avatar brief output (2048x2048), cropped to x 184..1964, y 90..1870 to centre the gopher and drop the watermark, resized."
+      }
+    ]
+  }
+}
