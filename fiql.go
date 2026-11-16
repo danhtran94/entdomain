@@ -17,6 +17,7 @@ package entdomain
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -506,6 +507,32 @@ func sortedMapKeys[P Predicate](m map[string]P) string {
 	}
 	sort.Strings(keys)
 	return strings.Join(keys, ", ")
+}
+
+// FIQLQueryParam extracts the FIQL expression for key from a raw URL query
+// string (http.Request.URL.RawQuery). Use it instead of r.URL.Query().Get:
+// since Go 1.17, net/url rejects ';' as a query separator and drops the whole
+// pair, so a FIQL AND such as "name==a;age=gt=1" would read as "" and a
+// handler guarding on expr != "" would run unfiltered.
+//
+// The query is split on '&' only, and the value is decoded with
+// url.PathUnescape, which keeps a literal '+' (a time offset such as
+// "+07:00" survives) and decodes %XX escapes. ok reports whether key is
+// present at all, so a handler can reject "filter=" instead of treating it
+// as no filter. The first occurrence of a repeated key wins, as with
+// url.Values.Get. A malformed escape returns an error.
+func FIQLQueryParam(rawQuery, key string) (expr string, ok bool, err error) {
+	for pair := range strings.SplitSeq(rawQuery, "&") {
+		rawName, rawValue, _ := strings.Cut(pair, "=")
+		if name, nameErr := url.PathUnescape(rawName); nameErr != nil || name != key {
+			continue
+		}
+		if expr, err = url.PathUnescape(rawValue); err != nil {
+			return "", true, fmt.Errorf("query parameter %q: %w", key, err)
+		}
+		return expr, true, nil
+	}
+	return "", false, nil
 }
 
 // ParseFIQL parses a FIQL expression and returns an ent predicate using the provided
