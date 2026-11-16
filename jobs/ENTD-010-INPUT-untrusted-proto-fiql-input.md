@@ -2,7 +2,7 @@
 
 | Field      | Value                                     |
 |------------|-------------------------------------------|
-| Status     | In Progress                               |
+| Status     | Done                                      |
 | Created    | 2026-11-17                                |
 | Assignee   | danhtran94                                |
 | Source     | docs/scope-untrusted-input-proto-fiql.md  |
@@ -130,8 +130,8 @@ Makes the mappers fallible. One atomic change: the helpers, field specs and both
 |---|------|--------|
 | V.1 | `make build` exits 0 | [x] |
 | V.2 | `make test` exits 0 | [x] |
-| V.3 | `make gen` then `git add -N . && git diff --exit-code HEAD` exits 0 after the commits, checked on a `git archive` export of the branch (SC 10) | [ ] |
-| V.4 | `harness validate-docs` and `harness validate-pr-checklist` exit 0 after the commits | [ ] |
+| V.3 | `make gen` then `git add -N . && git diff --exit-code HEAD` exits 0 after the commits, checked on a `git archive` export of the branch (SC 10) | [x] |
+| V.4 | `harness validate-docs` and `harness validate-pr-checklist` exit 0 after the commits | [x] |
 
 ## Design Decisions
 
