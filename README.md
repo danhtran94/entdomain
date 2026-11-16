@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/banner.jpg" alt="Two Go gophers: one in a room full of database pipes and cables, the other in a calm room, passing boxes along a conveyor belt">
+</p>
+
 # entdomain
 
 [![CI](https://github.com/danhtran94/entdomain/actions/workflows/ci.yml/badge.svg)](https://github.com/danhtran94/entdomain/actions/workflows/ci.yml)
@@ -1126,3 +1130,9 @@ Proto field numbers are tracked in `.entdomain.lock.json`. Commit this file — 
 - Upsert generation is auto-detected from `gen.Config.Features` — no entdomain annotation or config option is needed
 
 See [`docs/ADR-001-entdomain-extension.md`](docs/ADR-001-entdomain-extension.md) for the full design rationale.
+
+---
+
+## Credits
+
+The Go gopher was designed by [Renée French](https://reneefrench.blogspot.com/) and is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The entdomain illustrations are AI-generated with Gemini; see [`docs/assets/mascot-style.json`](docs/assets/mascot-style.json) for the brief.
