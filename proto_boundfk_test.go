@@ -56,10 +56,11 @@ func TestBoundFK_Proto(t *testing.T) {
 	for _, name := range []string{"ringversion", "ringnote", "ringtag"} {
 		src := readText(t, filepath.Join(mapperOut, boundFKDomainDir, "pbmap", name+"_proto_gen.go"))
 		assert.Equal(t, 1, count(src, `\bRingId:`), "%s mapper: RingId assigned once to proto", name)
-		assert.Equal(t, 1, count(src, `\bRingID:`), "%s mapper: RingID assigned once to domain", name)
+		// RingID is a UUID, so FromProto assigns it once, as a checked assignment (ENTD-010).
+		assert.Equal(t, 1, count(src, `\bRingID:|d\.RingID, err =`), "%s mapper: RingID assigned once to domain", name)
 		if name != "ringnote" { // RingNote has no Nest(); the other two nest Ring.
 			assert.Regexp(t, `Ring:\s+RingToProto\(d\.Ring\)`, src, "%s mapper: nested Ring uses the entity-qualified converter", name)
-			assert.Regexp(t, `Ring:\s+RingFromProto\(p\.Ring\)`, src, "%s mapper: nested Ring reads back through RingFromProto", name)
+			assert.Regexp(t, `d\.Ring, err = RingFromProto\(p\.Ring\)`, src, "%s mapper: nested Ring reads back through RingFromProto", name)
 		}
 	}
 }

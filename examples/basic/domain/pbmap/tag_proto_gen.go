@@ -3,6 +3,7 @@
 package pbmap
 
 import (
+	"fmt"
 	domain "github.com/danhtran94/entdomain/examples/basic/domain"
 	entpb "github.com/danhtran94/entdomain/examples/basic/proto/entpb"
 )
@@ -21,16 +22,22 @@ func TagToProto(d *domain.Tag) *entpb.Tag {
 }
 
 // TagFromProto converts *entpb.Tag to *domain.Tag.
-func TagFromProto(p *entpb.Tag) *domain.Tag {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming Tag.<field>.
+func TagFromProto(p *entpb.Tag) (*domain.Tag, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &domain.Tag{
+	d := &domain.Tag{
 		ID:      int(p.Id),
 		Name:    p.Name,
 		UserIDs: FromInt64Slice(p.UserIds),
-		Users:   UserListFromProto(p.Users),
 	}
+	var err error
+	if d.Users, err = UserListFromProto(p.Users); err != nil {
+		return nil, fmt.Errorf("Tag.users: %w", err)
+	}
+	return d, nil
 }
 
 // TagListToProto converts domain.TagList to []*entpb.Tag.
@@ -43,10 +50,15 @@ func TagListToProto(ds domain.TagList) []*entpb.Tag {
 }
 
 // TagListFromProto converts []*entpb.Tag to domain.TagList.
-func TagListFromProto(ps []*entpb.Tag) domain.TagList {
+// The first invalid element returns an error naming its index.
+func TagListFromProto(ps []*entpb.Tag) (domain.TagList, error) {
 	result := make(domain.TagList, len(ps))
 	for i, p := range ps {
-		result[i] = TagFromProto(p)
+		d, err := TagFromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }

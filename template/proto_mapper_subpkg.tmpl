@@ -3,6 +3,7 @@
 package {{ .PkgName }}
 
 import (
+	"fmt"
 {{- range .Imports }}
 	"{{ . }}"
 {{- end }}
@@ -22,14 +23,14 @@ func {{ .ToFuncName }}(s {{ $.DomainPkgAlias }}.{{ .DomainType }}) {{ $.ProtoPkg
 	}
 }
 
-func {{ .FromFuncName }}(s {{ $.ProtoPkgAlias }}.{{ .ProtoType }}) {{ $.DomainPkgAlias }}.{{ .DomainType }} {
+func {{ .FromFuncName }}(s {{ $.ProtoPkgAlias }}.{{ .ProtoType }}) ({{ $.DomainPkgAlias }}.{{ .DomainType }}, error) {
 	switch s {
 {{- range .Cases }}
 	case {{ $.ProtoPkgAlias }}.{{ .ProtoConst }}:
-		return {{ $.DomainPkgAlias }}.{{ .DomainConst }}
+		return {{ $.DomainPkgAlias }}.{{ .DomainConst }}, nil
 {{- end }}
 	default:
-		return {{ $.DomainPkgAlias }}.{{ .DefaultDomainConst }}
+		return "", fmt.Errorf("unknown or unspecified value %v", s)
 	}
 }
 {{- end }}
@@ -48,16 +49,34 @@ func {{ .EntityName }}ToProto(d *{{ .DomainPkgAlias }}.{{ .EntityName }}) *{{ .P
 }
 
 // {{ .EntityName }}FromProto converts *{{ .ProtoPkgAlias }}.{{ .EntityName }} to *{{ .DomainPkgAlias }}.{{ .EntityName }}.
-func {{ .EntityName }}FromProto(p *{{ .ProtoPkgAlias }}.{{ .EntityName }}) *{{ .DomainPkgAlias }}.{{ .EntityName }} {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming {{ .EntityName }}.<field>.
+func {{ .EntityName }}FromProto(p *{{ .ProtoPkgAlias }}.{{ .EntityName }}) (*{{ .DomainPkgAlias }}.{{ .EntityName }}, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &{{ .DomainPkgAlias }}.{{ .EntityName }}{
+	d := &{{ .DomainPkgAlias }}.{{ .EntityName }}{
+{{- if not .IDField.Fallible }}
 		{{ .IDField.StructName }}: {{ .IDField.FromProtoExpr }},
-{{- range .Fields }}
-		{{ .StructName }}: {{ .FromProtoExpr }},
 {{- end }}
+{{- range .Fields }}{{ if not .Fallible }}
+		{{ .StructName }}: {{ .FromProtoExpr }},
+{{- end }}{{ end }}
 	}
+{{- if .HasFallible }}
+	var err error
+{{- if .IDField.Fallible }}
+	if d.{{ .IDField.StructName }}, err = {{ .IDField.FromProtoExpr }}; err != nil {
+		return nil, fmt.Errorf("{{ $.EntityName }}.{{ .IDField.ErrName }}: %w", err)
+	}
+{{- end }}
+{{- range .Fields }}{{ if .Fallible }}
+	if d.{{ .StructName }}, err = {{ .FromProtoExpr }}; err != nil {
+		return nil, fmt.Errorf("{{ $.EntityName }}.{{ .ErrName }}: %w", err)
+	}
+{{- end }}{{ end }}
+{{- end }}
+	return d, nil
 }
 
 // {{ .EntityName }}ListToProto converts {{ .DomainPkgAlias }}.{{ .ListName }} to []*{{ .ProtoPkgAlias }}.{{ .EntityName }}.
@@ -70,10 +89,15 @@ func {{ .EntityName }}ListToProto(ds {{ .DomainPkgAlias }}.{{ .ListName }}) []*{
 }
 
 // {{ .EntityName }}ListFromProto converts []*{{ .ProtoPkgAlias }}.{{ .EntityName }} to {{ .DomainPkgAlias }}.{{ .ListName }}.
-func {{ .EntityName }}ListFromProto(ps []*{{ .ProtoPkgAlias }}.{{ .EntityName }}) {{ .DomainPkgAlias }}.{{ .ListName }} {
+// The first invalid element returns an error naming its index.
+func {{ .EntityName }}ListFromProto(ps []*{{ .ProtoPkgAlias }}.{{ .EntityName }}) ({{ .DomainPkgAlias }}.{{ .ListName }}, error) {
 	result := make({{ .DomainPkgAlias }}.{{ .ListName }}, len(ps))
 	for i, p := range ps {
-		result[i] = {{ .EntityName }}FromProto(p)
+		d, err := {{ .EntityName }}FromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }

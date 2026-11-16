@@ -3,6 +3,7 @@
 package pbmap
 
 import (
+	"fmt"
 	identitydomain "github.com/danhtran94/entdomain/examples/sliced/internal/domain/identity"
 	entpb "github.com/danhtran94/entdomain/examples/sliced/proto/entpb"
 )
@@ -20,15 +21,18 @@ func AccountToProto(d *identitydomain.Account) *entpb.Account {
 }
 
 // AccountFromProto converts *entpb.Account to *identitydomain.Account.
-func AccountFromProto(p *entpb.Account) *identitydomain.Account {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming Account.<field>.
+func AccountFromProto(p *entpb.Account) (*identitydomain.Account, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &identitydomain.Account{
+	d := &identitydomain.Account{
 		ID:         int(p.Id),
 		Email:      p.Email,
 		InvoiceIDs: FromInt64Slice(p.InvoiceIds),
 	}
+	return d, nil
 }
 
 // AccountListToProto converts identitydomain.AccountList to []*entpb.Account.
@@ -41,10 +45,15 @@ func AccountListToProto(ds identitydomain.AccountList) []*entpb.Account {
 }
 
 // AccountListFromProto converts []*entpb.Account to identitydomain.AccountList.
-func AccountListFromProto(ps []*entpb.Account) identitydomain.AccountList {
+// The first invalid element returns an error naming its index.
+func AccountListFromProto(ps []*entpb.Account) (identitydomain.AccountList, error) {
 	result := make(identitydomain.AccountList, len(ps))
 	for i, p := range ps {
-		result[i] = AccountFromProto(p)
+		d, err := AccountFromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }

@@ -3,6 +3,7 @@
 package identity
 
 import (
+	"fmt"
 	entpb "github.com/danhtran94/entdomain/examples/sliceddomain/proto/entpb"
 )
 
@@ -19,15 +20,18 @@ func (d *Account) ToProto() *entpb.Account {
 }
 
 // AccountFromProto converts *entpb.Account to *Account.
-func AccountFromProto(p *entpb.Account) *Account {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming Account.<field>.
+func AccountFromProto(p *entpb.Account) (*Account, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &Account{
+	d := &Account{
 		ID:         int(p.Id),
 		Email:      p.Email,
 		InvoiceIDs: fromInt64Slice(p.InvoiceIds),
 	}
+	return d, nil
 }
 
 // ToProto converts AccountList to []*entpb.Account.
@@ -40,10 +44,15 @@ func (ds AccountList) ToProto() []*entpb.Account {
 }
 
 // AccountListFromProto converts []*entpb.Account to AccountList.
-func AccountListFromProto(ps []*entpb.Account) AccountList {
+// The first invalid element returns an error naming its index.
+func AccountListFromProto(ps []*entpb.Account) (AccountList, error) {
 	result := make(AccountList, len(ps))
 	for i, p := range ps {
-		result[i] = AccountFromProto(p)
+		d, err := AccountFromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }

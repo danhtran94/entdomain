@@ -218,7 +218,9 @@ func TestProtoGenerate_HelpersFile(t *testing.T) {
 	assert.Contains(t, content, "func DurationToDurationProto(")
 	assert.Contains(t, content, "func DurationProtoToDuration(")
 	assert.Contains(t, content, "func UuidPtrToProtoString(")
-	assert.Contains(t, content, "func ProtoStringToUUIDPtr(")
+	assert.Contains(t, content, "func ProtoStringToUUID(v string) (uuid.UUID, error) {")
+	assert.Contains(t, content, "func ProtoStringToUUIDPtr(v *string) (*uuid.UUID, error) {")
+	assert.Contains(t, content, "func StringSliceToUUIDSlice(vs []string) ([]uuid.UUID, error) {")
 }
 
 // TestProtoGenerate_PbmapCompiles verifies the generated pbmap package compiles cleanly
@@ -256,10 +258,14 @@ func TestProtoGenerate_MapperUserComplexFieldMappings(t *testing.T) {
 	require.NoError(t, err)
 	content := string(data)
 
-	// UUID field: .String() ToProto, uuid.MustParse FromProto.
+	// UUID field: .String() ToProto; FromProto parses through the error-returning
+	// helper (ENTD-010) and never panics. The uuid package is used only by the
+	// helpers file, so the mapper must not import it.
 	assert.Contains(t, content, "d.ExternalID.String()", "UUID ToProto must call .String()")
-	assert.Contains(t, content, "uuid.MustParse(p.ExternalId)", "UUID FromProto must call uuid.MustParse with proto-style field name")
-	assert.Contains(t, content, `"github.com/google/uuid"`, "UUID usage requires uuid import")
+	assert.Contains(t, content, "if d.ExternalID, err = ProtoStringToUUID(p.ExternalId); err != nil {", "UUID FromProto must be a checked assignment with proto-style field name")
+	assert.Contains(t, content, `fmt.Errorf("User.external_id: %w", err)`, "UUID FromProto error names Entity.field")
+	assert.NotContains(t, content, "MustParse", "FromProto must not panic on untrusted input")
+	assert.NotContains(t, content, `"github.com/google/uuid"`, "mapper does not reference the uuid package directly")
 
 	// Optional time.Time: nullable helper functions.
 	assert.Contains(t, content, "TimeToTimestampProto(d.UpdatedAt)", "optional time ToProto")
@@ -361,7 +367,8 @@ func TestProtoGenerate_EnumHelpers(t *testing.T) {
 
 	// Enum helpers use domain. prefix for domain types and entpb. prefix for proto types.
 	assert.Contains(t, content, "func userStatusToProto(s domain.UserStatus) entpb.UserStatus {")
-	assert.Contains(t, content, "func userStatusFromProto(s entpb.UserStatus) domain.UserStatus {")
+	assert.Contains(t, content, "func userStatusFromProto(s entpb.UserStatus) (domain.UserStatus, error) {")
+	assert.Contains(t, content, `return "", fmt.Errorf("unknown or unspecified value %v", s)`, "UNSPECIFIED and unknown values are rejected, not mapped to the first value")
 	assert.Contains(t, content, "case domain.UserStatusActive:")
 	assert.Contains(t, content, "return entpb.UserStatus_USER_STATUS_ACTIVE")
 	assert.Contains(t, content, "case domain.UserStatusInactive:")

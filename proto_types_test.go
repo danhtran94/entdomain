@@ -211,11 +211,16 @@ func TestTrackExprImports(t *testing.T) {
 		assert.True(t, imports["google.golang.org/protobuf/types/known/durationpb"])
 		assert.False(t, imports["google.golang.org/protobuf/types/known/timestamppb"])
 	})
-	t.Run("uuid.MustParse in FromProto", func(t *testing.T) {
+	t.Run("uuid package reference in expr", func(t *testing.T) {
 		imports := map[string]bool{}
-		trackExprImports("d.ExternalID.String()", "uuid.MustParse(p.ExternalId)", imports)
+		trackExprImports("d.ExternalID.String()", "uuid.Nil", imports)
 		assert.True(t, imports["github.com/google/uuid"])
 		assert.False(t, imports["google.golang.org/protobuf/types/known/timestamppb"])
+	})
+	t.Run("UUID helper call needs no uuid import", func(t *testing.T) {
+		imports := map[string]bool{}
+		trackExprImports("d.ExternalID.String()", "protoStringToUUID(p.ExternalId)", imports)
+		assert.False(t, imports["github.com/google/uuid"], "the helper lives in the helpers file, which imports uuid itself")
 	})
 	t.Run("no special imports for plain string", func(t *testing.T) {
 		imports := map[string]bool{}

@@ -3,9 +3,9 @@
 package pbmap
 
 import (
+	"fmt"
 	domain "github.com/danhtran94/entdomain/examples/basic/domain"
 	entpb "github.com/danhtran94/entdomain/examples/basic/proto/entpb"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -21,14 +21,14 @@ func userStatusToProto(s domain.UserStatus) entpb.UserStatus {
 	}
 }
 
-func userStatusFromProto(s entpb.UserStatus) domain.UserStatus {
+func userStatusFromProto(s entpb.UserStatus) (domain.UserStatus, error) {
 	switch s {
 	case entpb.UserStatus_USER_STATUS_ACTIVE:
-		return domain.UserStatusActive
+		return domain.UserStatusActive, nil
 	case entpb.UserStatus_USER_STATUS_INACTIVE:
-		return domain.UserStatusInactive
+		return domain.UserStatusInactive, nil
 	default:
-		return domain.UserStatusActive
+		return "", fmt.Errorf("unknown or unspecified value %v", s)
 	}
 }
 
@@ -64,34 +64,48 @@ func UserToProto(d *domain.User) *entpb.User {
 }
 
 // UserFromProto converts *entpb.User to *domain.User.
-func UserFromProto(p *entpb.User) *domain.User {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming User.<field>.
+func UserFromProto(p *entpb.User) (*domain.User, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &domain.User{
+	d := &domain.User{
 		ID:                   int(p.Id),
 		Name:                 p.Name,
 		Bio:                  p.Bio,
-		Status:               userStatusFromProto(p.Status),
 		CreatedAt:            p.CreatedAt.AsTime(),
 		Score:                FromInt64Ptr(p.Score),
-		ExternalID:           uuid.MustParse(p.ExternalId),
 		UpdatedAt:            TimestampProtoToTime(p.UpdatedAt),
 		Settings:             ProtoStructToMap(p.Settings),
 		Labels:               ProtoStructToMap(p.Labels),
 		TagNames:             p.TagNames,
 		Metadata:             UserMetadataFromProto(p.Metadata),
 		PostIDs:              FromInt64Slice(p.PostIds),
-		Posts:                PostListFromProto(p.Posts),
 		PinnedPostID:         int(p.PinnedPostId),
-		PinnedPost:           PostFromProto(p.PinnedPost),
 		TagIDs:               FromInt64Slice(p.TagIds),
-		Tags:                 TagListFromProto(p.Tags),
 		FullName:             p.FullName,
 		IsPremium:            p.IsPremium,
 		ExpiresAt:            p.ExpiresAt.AsTime(),
 		SubscriptionDuration: p.SubscriptionDuration.AsDuration(),
 	}
+	var err error
+	if d.Status, err = userStatusFromProto(p.Status); err != nil {
+		return nil, fmt.Errorf("User.status: %w", err)
+	}
+	if d.ExternalID, err = ProtoStringToUUID(p.ExternalId); err != nil {
+		return nil, fmt.Errorf("User.external_id: %w", err)
+	}
+	if d.Posts, err = PostListFromProto(p.Posts); err != nil {
+		return nil, fmt.Errorf("User.posts: %w", err)
+	}
+	if d.PinnedPost, err = PostFromProto(p.PinnedPost); err != nil {
+		return nil, fmt.Errorf("User.pinned_post: %w", err)
+	}
+	if d.Tags, err = TagListFromProto(p.Tags); err != nil {
+		return nil, fmt.Errorf("User.tags: %w", err)
+	}
+	return d, nil
 }
 
 // UserListToProto converts domain.UserList to []*entpb.User.
@@ -104,10 +118,15 @@ func UserListToProto(ds domain.UserList) []*entpb.User {
 }
 
 // UserListFromProto converts []*entpb.User to domain.UserList.
-func UserListFromProto(ps []*entpb.User) domain.UserList {
+// The first invalid element returns an error naming its index.
+func UserListFromProto(ps []*entpb.User) (domain.UserList, error) {
 	result := make(domain.UserList, len(ps))
 	for i, p := range ps {
-		result[i] = UserFromProto(p)
+		d, err := UserFromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }

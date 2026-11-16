@@ -60,7 +60,8 @@ func TestSlicedDomainModeE2E_ProtoRoundTrip(t *testing.T) {
 	require.Len(t, p.LineItems, 2, "same-slice Nest converts through the slice's own LineItem mapper")
 	assert.Equal(t, "widget", p.LineItems[0].Description)
 
-	back := billing.InvoiceFromProto(&entpb.Invoice{Id: p.Id, AccountId: p.AccountId, Number: "inv-009", Total: 7})
+	back, err := billing.InvoiceFromProto(&entpb.Invoice{Id: p.Id, AccountId: p.AccountId, Number: "inv-009", Total: 7})
+	require.NoError(t, err)
 	assert.Equal(t, acc.ID, back.AccountID)
 	assert.Equal(t, "inv-009", back.Number)
 
@@ -70,5 +71,7 @@ func TestSlicedDomainModeE2E_ProtoRoundTrip(t *testing.T) {
 
 	ap := c.Account.Query().WithInvoices().OnlyX(ctx).ToDomain().ToProto()
 	assert.Equal(t, []int64{int64(inv.ID)}, ap.InvoiceIds, "identity's helper-using mapper works in its own package")
-	assert.Equal(t, []int{inv.ID}, identity.AccountFromProto(ap).InvoiceIDs)
+	backAcc, err := identity.AccountFromProto(ap)
+	require.NoError(t, err)
+	assert.Equal(t, []int{inv.ID}, backAcc.InvoiceIDs)
 }

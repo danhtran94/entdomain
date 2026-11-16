@@ -3,6 +3,7 @@
 package pbmap
 
 import (
+	"fmt"
 	billingdomain "github.com/danhtran94/entdomain/examples/sliced/internal/domain/billing"
 	entpb "github.com/danhtran94/entdomain/examples/sliced/proto/entpb"
 )
@@ -22,17 +23,23 @@ func InvoiceToProto(d *billingdomain.Invoice) *entpb.Invoice {
 }
 
 // InvoiceFromProto converts *entpb.Invoice to *billingdomain.Invoice.
-func InvoiceFromProto(p *entpb.Invoice) *billingdomain.Invoice {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming Invoice.<field>.
+func InvoiceFromProto(p *entpb.Invoice) (*billingdomain.Invoice, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &billingdomain.Invoice{
+	d := &billingdomain.Invoice{
 		ID:        int(p.Id),
 		Number:    InvoiceNumberFromProto(p.Number),
 		Total:     int(p.Total),
-		LineItems: LineItemListFromProto(p.LineItems),
 		AccountID: int(p.AccountId),
 	}
+	var err error
+	if d.LineItems, err = LineItemListFromProto(p.LineItems); err != nil {
+		return nil, fmt.Errorf("Invoice.line_items: %w", err)
+	}
+	return d, nil
 }
 
 // InvoiceListToProto converts billingdomain.InvoiceList to []*entpb.Invoice.
@@ -45,10 +52,15 @@ func InvoiceListToProto(ds billingdomain.InvoiceList) []*entpb.Invoice {
 }
 
 // InvoiceListFromProto converts []*entpb.Invoice to billingdomain.InvoiceList.
-func InvoiceListFromProto(ps []*entpb.Invoice) billingdomain.InvoiceList {
+// The first invalid element returns an error naming its index.
+func InvoiceListFromProto(ps []*entpb.Invoice) (billingdomain.InvoiceList, error) {
 	result := make(billingdomain.InvoiceList, len(ps))
 	for i, p := range ps {
-		result[i] = InvoiceFromProto(p)
+		d, err := InvoiceFromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }
