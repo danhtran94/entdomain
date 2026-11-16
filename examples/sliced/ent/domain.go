@@ -53,7 +53,7 @@ func (c *AccountCreate) ApplyDomain(ctx context.Context, d *identitydomain.Accou
 	if cfg.ShouldApply("email", d.Email) {
 		c = c.SetEmail(d.Email)
 	}
-	if len(d.InvoiceIDs) > 0 {
+	if len(d.InvoiceIDs) > 0 && cfg.ShouldApply("invoice_ids", d.InvoiceIDs) {
 		c = c.AddInvoiceIDs(d.InvoiceIDs...)
 	}
 	return c, nil
@@ -80,9 +80,11 @@ func (u *AccountUpdateOne) ApplyDomain(ctx context.Context, d *identitydomain.Ac
 	if cfg.ShouldApply("email", d.Email) {
 		u = u.SetEmail(d.Email)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("invoice_ids") {
 		u = u.AddInvoiceIDs(d.InvoiceIDs...)
-	} else {
+	} else if cfg.ShouldApply("invoice_ids", d.InvoiceIDs) {
 		u = u.ClearInvoices().AddInvoiceIDs(d.InvoiceIDs...)
 	}
 	return u, nil
@@ -110,9 +112,11 @@ func (u *AccountUpdate) ApplyDomain(ctx context.Context, d *identitydomain.Accou
 	if cfg.ShouldApply("email", d.Email) {
 		u = u.SetEmail(d.Email)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("invoice_ids") {
 		u = u.AddInvoiceIDs(d.InvoiceIDs...)
-	} else {
+	} else if cfg.ShouldApply("invoice_ids", d.InvoiceIDs) {
 		u = u.ClearInvoices().AddInvoiceIDs(d.InvoiceIDs...)
 	}
 	return u, nil

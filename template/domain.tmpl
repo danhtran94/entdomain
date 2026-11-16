@@ -178,7 +178,7 @@ func (c *{{ $n.Name }}Create) ApplyDomain(ctx context.Context, d *{{ $pkgName }}
     {{- $ea := edgeAnnotation $e }}
     {{- if $ea }}
     {{- if and $ea.HasIDs (not $e.Unique) }}
-    if len(d.{{ singular (pascal $e.Name) }}IDs) > 0 {
+    if len(d.{{ singular (pascal $e.Name) }}IDs) > 0 && cfg.ShouldApply("{{ singular $e.Name }}_ids", d.{{ singular (pascal $e.Name) }}IDs) {
         c = c.{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
     }
     {{- end }}
@@ -256,9 +256,11 @@ func (u *{{ $n.Name }}UpdateOne) ApplyDomain(ctx context.Context, d *{{ $pkgName
     {{- $ea := edgeAnnotation $e }}
     {{- if $ea }}
     {{- if and $ea.HasIDs (not $e.Unique) }}
+    // AppendEdge is an explicit, additive opt-in and applies even outside
+    // OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
     if cfg.IsAppendEdge("{{ singular $e.Name }}_ids") {
         u = u.{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
-    } else {
+    } else if cfg.ShouldApply("{{ singular $e.Name }}_ids", d.{{ singular (pascal $e.Name) }}IDs) {
         u = u.{{ $e.MutationClear }}().{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
     }
     {{- end }}
@@ -337,9 +339,11 @@ func (u *{{ $n.Name }}Update) ApplyDomain(ctx context.Context, d *{{ $pkgName }}
     {{- $ea := edgeAnnotation $e }}
     {{- if $ea }}
     {{- if and $ea.HasIDs (not $e.Unique) }}
+    // AppendEdge is an explicit, additive opt-in and applies even outside
+    // OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
     if cfg.IsAppendEdge("{{ singular $e.Name }}_ids") {
         u = u.{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
-    } else {
+    } else if cfg.ShouldApply("{{ singular $e.Name }}_ids", d.{{ singular (pascal $e.Name) }}IDs) {
         u = u.{{ $e.MutationClear }}().{{ $e.MutationAdd }}(d.{{ singular (pascal $e.Name) }}IDs...)
     }
     {{- end }}

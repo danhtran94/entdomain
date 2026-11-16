@@ -62,7 +62,7 @@ func (c *PostCreate) ApplyDomain(ctx context.Context, d *domain.Post, opts ...en
 	if cfg.ShouldApply("published", d.Published) {
 		c = c.SetPublished(d.Published)
 	}
-	if len(d.PinnerIDs) > 0 {
+	if len(d.PinnerIDs) > 0 && cfg.ShouldApply("pinner_ids", d.PinnerIDs) {
 		c = c.AddPinnerIDs(d.PinnerIDs...)
 	}
 	return c, nil
@@ -92,9 +92,11 @@ func (u *PostUpdateOne) ApplyDomain(ctx context.Context, d *domain.Post, opts ..
 	if cfg.ShouldApply("published", d.Published) {
 		u = u.SetPublished(d.Published)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("pinner_ids") {
 		u = u.AddPinnerIDs(d.PinnerIDs...)
-	} else {
+	} else if cfg.ShouldApply("pinner_ids", d.PinnerIDs) {
 		u = u.ClearPinners().AddPinnerIDs(d.PinnerIDs...)
 	}
 	return u, nil
@@ -125,9 +127,11 @@ func (u *PostUpdate) ApplyDomain(ctx context.Context, d *domain.Post, opts ...en
 	if cfg.ShouldApply("published", d.Published) {
 		u = u.SetPublished(d.Published)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("pinner_ids") {
 		u = u.AddPinnerIDs(d.PinnerIDs...)
-	} else {
+	} else if cfg.ShouldApply("pinner_ids", d.PinnerIDs) {
 		u = u.ClearPinners().AddPinnerIDs(d.PinnerIDs...)
 	}
 	return u, nil
@@ -220,7 +224,7 @@ func (c *TagCreate) ApplyDomain(ctx context.Context, d *domain.Tag, opts ...entd
 	if cfg.ShouldApply("name", d.Name) {
 		c = c.SetName(d.Name)
 	}
-	if len(d.UserIDs) > 0 {
+	if len(d.UserIDs) > 0 && cfg.ShouldApply("user_ids", d.UserIDs) {
 		c = c.AddUserIDs(d.UserIDs...)
 	}
 	return c, nil
@@ -247,9 +251,11 @@ func (u *TagUpdateOne) ApplyDomain(ctx context.Context, d *domain.Tag, opts ...e
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("user_ids") {
 		u = u.AddUserIDs(d.UserIDs...)
-	} else {
+	} else if cfg.ShouldApply("user_ids", d.UserIDs) {
 		u = u.ClearUsers().AddUserIDs(d.UserIDs...)
 	}
 	return u, nil
@@ -277,9 +283,11 @@ func (u *TagUpdate) ApplyDomain(ctx context.Context, d *domain.Tag, opts ...entd
 	if cfg.ShouldApply("name", d.Name) {
 		u = u.SetName(d.Name)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("user_ids") {
 		u = u.AddUserIDs(d.UserIDs...)
-	} else {
+	} else if cfg.ShouldApply("user_ids", d.UserIDs) {
 		u = u.ClearUsers().AddUserIDs(d.UserIDs...)
 	}
 	return u, nil
@@ -587,10 +595,10 @@ func (c *UserCreate) ApplyDomain(ctx context.Context, d *domain.User, opts ...en
 	if cfg.ShouldApply("metadata", d.Metadata) {
 		c = c.SetMetadata(d.Metadata)
 	}
-	if len(d.PostIDs) > 0 {
+	if len(d.PostIDs) > 0 && cfg.ShouldApply("post_ids", d.PostIDs) {
 		c = c.AddPostIDs(d.PostIDs...)
 	}
-	if len(d.TagIDs) > 0 {
+	if len(d.TagIDs) > 0 && cfg.ShouldApply("tag_ids", d.TagIDs) {
 		c = c.AddTagIDs(d.TagIDs...)
 	}
 	if UserTransformer != nil && UserTransformer.SetFullNameOnCreate != nil {
@@ -664,14 +672,18 @@ func (u *UserUpdateOne) ApplyDomain(ctx context.Context, d *domain.User, opts ..
 	if cfg.ShouldApply("metadata", d.Metadata) {
 		u = u.SetMetadata(d.Metadata)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("post_ids") {
 		u = u.AddPostIDs(d.PostIDs...)
-	} else {
+	} else if cfg.ShouldApply("post_ids", d.PostIDs) {
 		u = u.ClearPosts().AddPostIDs(d.PostIDs...)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("tag_ids") {
 		u = u.AddTagIDs(d.TagIDs...)
-	} else {
+	} else if cfg.ShouldApply("tag_ids", d.TagIDs) {
 		u = u.ClearTags().AddTagIDs(d.TagIDs...)
 	}
 	if UserTransformer != nil && UserTransformer.SetFullNameOnUpdate != nil {
@@ -746,14 +758,18 @@ func (u *UserUpdate) ApplyDomain(ctx context.Context, d *domain.User, opts ...en
 	if cfg.ShouldApply("metadata", d.Metadata) {
 		u = u.SetMetadata(d.Metadata)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("post_ids") {
 		u = u.AddPostIDs(d.PostIDs...)
-	} else {
+	} else if cfg.ShouldApply("post_ids", d.PostIDs) {
 		u = u.ClearPosts().AddPostIDs(d.PostIDs...)
 	}
+	// AppendEdge is an explicit, additive opt-in and applies even outside
+	// OnlyFields; replace honors OnlyFields / OmitFields / OmitZeroVal.
 	if cfg.IsAppendEdge("tag_ids") {
 		u = u.AddTagIDs(d.TagIDs...)
-	} else {
+	} else if cfg.ShouldApply("tag_ids", d.TagIDs) {
 		u = u.ClearTags().AddTagIDs(d.TagIDs...)
 	}
 	return u, nil
