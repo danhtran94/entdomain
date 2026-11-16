@@ -197,6 +197,8 @@ type FIQLEnum[P Predicate]   struct { EQ, NEQ map[string]P }
 
 ### Usage
 
+> **Amended by ENTD-010 (2026-11-17).** The handler below reads the filter with `r.URL.Query().Get`, which since Go 1.17 drops any query pair containing `;` (FIQL's AND): `?filter=a==1;b==2` reads as `""`, and a handler that skips an empty filter runs unfiltered. The constraint in Context ("URI-safe without percent-encoding") holds only when the expression is read from the raw query. Use `entdomain.FIQLQueryParam(r.URL.RawQuery, "filter")`, which splits on `&` only, keeps `;` and `+`, and reports whether the parameter was present. See README "HTTP Handler Usage" and `docs/scope-untrusted-input-proto-fiql.md`.
+
 ```go
 // HTTP handler:
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {

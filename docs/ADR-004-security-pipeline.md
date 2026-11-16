@@ -18,7 +18,7 @@ A self-audit identified the following concrete findings before the pipeline was 
 |---|---|
 | Medium | Path traversal via user-controlled `pkgPath` in `generate.go` |
 | Medium | `fmt.Sprintf` with user-supplied format strings in proto expression templates |
-| Low | `uuid.MustParse` panic on invalid proto input in generated helpers |
+| Low | `uuid.MustParse` panic on invalid proto input in generated helpers (resolved by ENTD-010: the optional-UUID helper had been hardened, but non-optional UUID fields and unique UUID edge IDs still used `MustParse`; all three paths now return errors) |
 | Low | Absolute filesystem path leaked in error messages |
 | Low | `moduleRoot()` does not resolve symlinks before writing files |
 
