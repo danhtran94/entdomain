@@ -48,6 +48,10 @@ type ProtoFieldSpec struct {
 	// FromProtoExpr is a Go fmt format string (with %s for the source expression) that converts
 	// the proto value to the domain value. Empty string means direct assignment.
 	FromProtoExpr string
+	// Fallible reports that FromProtoExpr returns (value, error). The mapper
+	// emits such fields as checked assignments so untrusted proto input is
+	// rejected instead of panicking or being stored as an invented value.
+	Fallible bool
 	// EnumTypeName is the proto enum type name (e.g., "UserStatus"). Only set when IsEnum=true.
 	EnumTypeName string
 	// NestEntityName is set for Nest edge specs and holds the referenced entity type name
@@ -98,19 +102,19 @@ func resolveEntFieldProtoSpec(entityName string, f *gen.Field, fa *FieldAnnotati
 	// Check this BEFORE HasGoType since ent represents uuid fields as a GoType.
 	// Inherit the canonical UUID/GoType gate from resolveFieldKind so a custom
 	// uuid GoType is excluded here too (otherwise the generated mapper would
-	// call customType.String() / uuid.MustParse and fail to compile — same
+	// call customType.String() / protoStringToUUID and fail to compile — same
 	// hazard ENTD-001 fixed for FIQL).
 	if f.Type.Type == field.TypeUUID {
 		if kind, reason := resolveFieldKind(f); kind != KindUUID {
 			return ProtoFieldSpec{IsExcluded: true, ExcludedReason: reason}
 		}
-		spec := ProtoFieldSpec{ProtoType: "string", IsOptional: optional}
+		spec := ProtoFieldSpec{ProtoType: "string", IsOptional: optional, Fallible: true}
 		if optional {
 			spec.ToProtoExpr = "uuidPtrToProtoString(%s)"
 			spec.FromProtoExpr = "protoStringToUUIDPtr(%s)"
 		} else {
 			spec.ToProtoExpr = "%s.String()"
-			spec.FromProtoExpr = "uuid.MustParse(%s)"
+			spec.FromProtoExpr = "protoStringToUUID(%s)"
 		}
 		return spec
 	}
@@ -327,7 +331,7 @@ func resolveEdgeProtoSpec(e *gen.Edge, ea *EdgeAnnotation, fa *FieldAnnotation) 
 		} else {
 			// Inherit the canonical UUID/GoType gate from resolveFieldKind for the
 			// target entity's ID. resolveIDTypeSpec's default branch emits
-			// uuid.MustParse for any non-numeric/non-string ID type, which would
+			// protoStringToUUID for any non-numeric/non-string ID type, which would
 			// produce a signature mismatch in the generated mapper if the target's
 			// ID is a custom UUID GoType (not github.com/google/uuid.UUID).
 			targetIDKind, targetIDReason := resolveFieldKind(e.Type.ID)
@@ -422,6 +426,7 @@ func resolveIDTypeSpec(idTypeStr string, unique bool) ProtoFieldSpec {
 	typeStr := strings.TrimPrefix(idTypeStr, "*")
 
 	var protoType, toExpr, fromExpr string
+	fallible := false
 	switch typeStr {
 	case "int", "int8", "int16":
 		protoType = "int64"
@@ -444,9 +449,10 @@ func resolveIDTypeSpec(idTypeStr string, unique bool) ProtoFieldSpec {
 	default:
 		// UUID or other types → string representation.
 		protoType = "string"
+		fallible = true
 		if unique {
 			toExpr = "%s.String()"
-			fromExpr = "uuid.MustParse(%s)"
+			fromExpr = "protoStringToUUID(%s)"
 		} else {
 			toExpr = "uuidSliceToStringSlice(%s)"
 			fromExpr = "stringSliceToUUIDSlice(%s)"
@@ -458,5 +464,6 @@ func resolveIDTypeSpec(idTypeStr string, unique bool) ProtoFieldSpec {
 		IsRepeated:    !unique,
 		ToProtoExpr:   toExpr,
 		FromProtoExpr: fromExpr,
+		Fallible:      fallible,
 	}
 }

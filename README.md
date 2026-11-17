@@ -415,7 +415,7 @@ client.User.CreateBulkDomain(ds).
 
 ## FIQL Filtering
 
-entdomain generates a typed FIQL filter entry point per entity. [FIQL](https://tools.ietf.org/html/draft-nottingham-atompub-fiql) expressions are URI-safe without percent-encoding — ideal for GET query parameters.
+entdomain generates a typed FIQL filter entry point per entity. [FIQL](https://tools.ietf.org/html/draft-nottingham-atompub-fiql) expressions are URI-safe without percent-encoding — ideal for GET query parameters. Read them with [`entdomain.FIQLQueryParam`](#http-handler-usage), not `r.URL.Query().Get`: the standard library drops any query pair containing `;`, FIQL's AND.
 
 ### Schema Annotation
 
@@ -519,7 +519,13 @@ func UserFIQL(expr string) (predicate.User, error) {
 ```go
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
     q := h.client.User.Query()
-    if expr := r.URL.Query().Get("filter"); expr != "" {
+    // Not r.URL.Query().Get: net/url drops any pair containing ';' (FIQL AND).
+    expr, ok, err := entdomain.FIQLQueryParam(r.URL.RawQuery, "filter")
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
+    if ok { // present, even if empty: an empty filter is an error, not "no filter"
         pred, err := ent.UserFIQL(expr)
         if err != nil {
             http.Error(w, err.Error(), http.StatusBadRequest)
@@ -532,7 +538,9 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-GET request — no percent-encoding required:
+> **Do not read the filter with `r.URL.Query().Get("filter")`.** Since Go 1.17, `net/url` rejects `;` as a query separator and drops the whole pair, so `?filter=name==john;score=gt=25` reads as `""` and a handler that skips an empty filter returns every row. `url.QueryUnescape` also turns the `+` of a time offset (`+07:00`) into a space. `FIQLQueryParam` splits the raw query on `&` only, keeps `;` and `+`, and reports with `ok` whether the parameter was sent, so `?filter=` fails instead of matching everything.
+
+GET request — no percent-encoding required when read with `FIQLQueryParam`:
 ```
 GET /users?filter=name==john;score=gt=25,status==active
 GET /users?filter=(status==active,status==inactive);created_at=ge=2024-01-01T00:00:00Z
@@ -992,10 +1000,24 @@ import "github.com/myorg/myrepo/internal/domain/pbmap"
 p := pbmap.UserToProto(user)
 ps := pbmap.UserListToProto(users)
 
-// proto → domain
-d := pbmap.UserFromProto(req.User)
-ds := pbmap.UserListFromProto(req.Users)
+// proto → domain: invalid input returns an error, never a panic
+d, err := pbmap.UserFromProto(req.User)
+if err != nil {
+    return status.Error(codes.InvalidArgument, err.Error()) // e.g. "User.external_id: invalid UUID length: 0"
+}
+ds, err := pbmap.UserListFromProto(req.Users)
+if err != nil {
+    return status.Error(codes.InvalidArgument, err.Error()) // names the element: "index 1: User.status: …"
+}
 ```
+
+`XFromProto` and `XListFromProto` return an error instead of panicking or inventing a value when the message holds:
+
+- a malformed UUID (field, optional field, or edge ID),
+- an `UNSPECIFIED` or unknown value of a non-optional enum (it used to map to the first enum value),
+- an invalid nested message (`Nest()` edges).
+
+The error names the field as `Entity.field`; list errors are prefixed with `index N`. A nil message maps to `nil, nil`. `WithConversion` expressions are called as before and cannot return an error.
 
 ### Field Opt-out (`SkipProto`)
 

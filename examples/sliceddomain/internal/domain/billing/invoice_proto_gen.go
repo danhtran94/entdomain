@@ -3,6 +3,7 @@
 package billing
 
 import (
+	"fmt"
 	entpb "github.com/danhtran94/entdomain/examples/sliceddomain/proto/entpb"
 )
 
@@ -21,17 +22,23 @@ func (d *Invoice) ToProto() *entpb.Invoice {
 }
 
 // InvoiceFromProto converts *entpb.Invoice to *Invoice.
-func InvoiceFromProto(p *entpb.Invoice) *Invoice {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming Invoice.<field>.
+func InvoiceFromProto(p *entpb.Invoice) (*Invoice, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &Invoice{
+	d := &Invoice{
 		ID:        int(p.Id),
 		Number:    p.Number,
 		Total:     int(p.Total),
-		LineItems: LineItemListFromProto(p.LineItems),
 		AccountID: int(p.AccountId),
 	}
+	var err error
+	if d.LineItems, err = LineItemListFromProto(p.LineItems); err != nil {
+		return nil, fmt.Errorf("Invoice.line_items: %w", err)
+	}
+	return d, nil
 }
 
 // ToProto converts InvoiceList to []*entpb.Invoice.
@@ -44,10 +51,15 @@ func (ds InvoiceList) ToProto() []*entpb.Invoice {
 }
 
 // InvoiceListFromProto converts []*entpb.Invoice to InvoiceList.
-func InvoiceListFromProto(ps []*entpb.Invoice) InvoiceList {
+// The first invalid element returns an error naming its index.
+func InvoiceListFromProto(ps []*entpb.Invoice) (InvoiceList, error) {
 	result := make(InvoiceList, len(ps))
 	for i, p := range ps {
-		result[i] = InvoiceFromProto(p)
+		d, err := InvoiceFromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }

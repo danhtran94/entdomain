@@ -1759,3 +1759,39 @@ func TestFIQLListErrorsKeepFieldPrefix(t *testing.T) {
 		})
 	}
 }
+
+// TestFIQLQueryParam covers ENTD-010: reading a FIQL expression from a raw
+// query string without losing ';' (rejected by net/url since Go 1.17) or '+'
+// (decoded to a space by url.QueryUnescape).
+func TestFIQLQueryParam(t *testing.T) {
+	cases := []struct {
+		name     string
+		rawQuery string
+		wantExpr string
+		wantOK   bool
+		wantErr  bool
+	}{
+		{"semicolon AND kept", "filter=name==a;b==c", "name==a;b==c", true, false},
+		{"plus in time offset kept", "filter=t=ge=2024-01-15T10:30:00+07:00", "t=ge=2024-01-15T10:30:00+07:00", true, false},
+		{"percent escapes decoded", "filter=name==a%3Bb", "name==a;b", true, false},
+		{"other params ignored", "page=2&filter=name==a&sort=x", "name==a", true, false},
+		{"absent key", "x=1", "", false, false},
+		{"empty raw query", "", "", false, false},
+		{"present but empty", "filter=", "", true, false},
+		{"bare key is present and empty", "filter", "", true, false},
+		{"repeated key: first wins", "filter=a==1&filter=b==2", "a==1", true, false},
+		{"malformed escape", "filter=%zz", "", true, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			expr, ok, err := entdomain.FIQLQueryParam(tc.rawQuery, "filter")
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tc.wantExpr, expr)
+			assert.Equal(t, tc.wantOK, ok)
+		})
+	}
+}

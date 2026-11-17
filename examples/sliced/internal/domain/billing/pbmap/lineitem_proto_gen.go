@@ -3,6 +3,7 @@
 package pbmap
 
 import (
+	"fmt"
 	billingdomain "github.com/danhtran94/entdomain/examples/sliced/internal/domain/billing"
 	entpb "github.com/danhtran94/entdomain/examples/sliced/proto/entpb"
 )
@@ -21,16 +22,22 @@ func LineItemToProto(d *billingdomain.LineItem) *entpb.LineItem {
 }
 
 // LineItemFromProto converts *entpb.LineItem to *billingdomain.LineItem.
-func LineItemFromProto(p *entpb.LineItem) *billingdomain.LineItem {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming LineItem.<field>.
+func LineItemFromProto(p *entpb.LineItem) (*billingdomain.LineItem, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &billingdomain.LineItem{
+	d := &billingdomain.LineItem{
 		ID:          int(p.Id),
 		Description: p.Description,
 		Qty:         int(p.Qty),
-		Invoice:     InvoiceFromProto(p.Invoice),
 	}
+	var err error
+	if d.Invoice, err = InvoiceFromProto(p.Invoice); err != nil {
+		return nil, fmt.Errorf("LineItem.invoice: %w", err)
+	}
+	return d, nil
 }
 
 // LineItemListToProto converts billingdomain.LineItemList to []*entpb.LineItem.
@@ -43,10 +50,15 @@ func LineItemListToProto(ds billingdomain.LineItemList) []*entpb.LineItem {
 }
 
 // LineItemListFromProto converts []*entpb.LineItem to billingdomain.LineItemList.
-func LineItemListFromProto(ps []*entpb.LineItem) billingdomain.LineItemList {
+// The first invalid element returns an error naming its index.
+func LineItemListFromProto(ps []*entpb.LineItem) (billingdomain.LineItemList, error) {
 	result := make(billingdomain.LineItemList, len(ps))
 	for i, p := range ps {
-		result[i] = LineItemFromProto(p)
+		d, err := LineItemFromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }

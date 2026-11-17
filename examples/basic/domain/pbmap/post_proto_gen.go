@@ -3,6 +3,7 @@
 package pbmap
 
 import (
+	"fmt"
 	domain "github.com/danhtran94/entdomain/examples/basic/domain"
 	entpb "github.com/danhtran94/entdomain/examples/basic/proto/entpb"
 )
@@ -22,17 +23,20 @@ func PostToProto(d *domain.Post) *entpb.Post {
 }
 
 // PostFromProto converts *entpb.Post to *domain.Post.
-func PostFromProto(p *entpb.Post) *domain.Post {
+// Invalid input (a malformed UUID, an unknown or UNSPECIFIED enum value, or an
+// invalid nested message) returns an error naming Post.<field>.
+func PostFromProto(p *entpb.Post) (*domain.Post, error) {
 	if p == nil {
-		return nil
+		return nil, nil
 	}
-	return &domain.Post{
+	d := &domain.Post{
 		ID:        int(p.Id),
 		Title:     p.Title,
 		Published: p.Published,
 		OwnerID:   int(p.OwnerId),
 		PinnerIDs: FromInt64Slice(p.PinnerIds),
 	}
+	return d, nil
 }
 
 // PostListToProto converts domain.PostList to []*entpb.Post.
@@ -45,10 +49,15 @@ func PostListToProto(ds domain.PostList) []*entpb.Post {
 }
 
 // PostListFromProto converts []*entpb.Post to domain.PostList.
-func PostListFromProto(ps []*entpb.Post) domain.PostList {
+// The first invalid element returns an error naming its index.
+func PostListFromProto(ps []*entpb.Post) (domain.PostList, error) {
 	result := make(domain.PostList, len(ps))
 	for i, p := range ps {
-		result[i] = PostFromProto(p)
+		d, err := PostFromProto(p)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		result[i] = d
 	}
-	return result
+	return result, nil
 }

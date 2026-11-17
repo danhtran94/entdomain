@@ -57,12 +57,31 @@ type protoMapperFileData struct {
 	EnumHelpers    []protoEnumHelper
 }
 
+// HasFallible reports whether any field's FromProto conversion can fail, so the
+// template declares the shared err variable only when a checked assignment uses it.
+func (d *protoMapperFileData) HasFallible() bool {
+	if d.IDField.Fallible {
+		return true
+	}
+	for _, f := range d.Fields {
+		if f.Fallible {
+			return true
+		}
+	}
+	return false
+}
+
 // protoMapperField describes one field in the proto mapper.
 type protoMapperField struct {
 	StructName     string
 	ProtoFieldName string
 	ToProtoExpr    string
 	FromProtoExpr  string
+	// Fallible fields have a FromProtoExpr returning (value, error); the
+	// template assigns them after the struct literal and wraps the error with
+	// ErrName, the schema name of the field or edge (e.g. "external_id").
+	Fallible bool
+	ErrName  string
 }
 
 // protoEnumHelper holds data for generating a pair of enum conversion functions.
@@ -70,13 +89,12 @@ type protoMapperField struct {
 // package qualifier (e.g. "UserStatus", not "entpb.UserStatus"). Templates add
 // the qualifier (ProtoPkgAlias) where needed.
 type protoEnumHelper struct {
-	ToFuncName         string
-	FromFuncName       string
-	DomainType         string // bare domain type, e.g. "UserStatus"
-	ProtoType          string // bare proto type, e.g. "UserStatus"
-	Unspecified        string // bare sentinel, e.g. "UserStatus_USER_STATUS_UNSPECIFIED"
-	DefaultDomainConst string // e.g. "UserStatusActive"
-	Cases              []protoEnumCase
+	ToFuncName   string
+	FromFuncName string
+	DomainType   string // bare domain type, e.g. "UserStatus"
+	ProtoType    string // bare proto type, e.g. "UserStatus"
+	Unspecified  string // bare sentinel, e.g. "UserStatus_USER_STATUS_UNSPECIFIED"
+	Cases        []protoEnumCase
 }
 
 type protoEnumCase struct {
@@ -130,7 +148,7 @@ var protoHelperFuncNames = []string{
 	"toUint64Ptr", "fromUint64Ptr",
 	"timeToTimestampProto", "timestampProtoToTime",
 	"durationToDurationProto", "durationProtoToDuration",
-	"uuidPtrToProtoString", "protoStringToUUIDPtr",
+	"protoStringToUUID", "uuidPtrToProtoString", "protoStringToUUIDPtr",
 	"uuidSliceToStringSlice", "stringSliceToUUIDSlice",
 	"mapToProtoStruct", "protoStructToMap",
 }
@@ -269,6 +287,8 @@ func buildProtoMapperFileData(
 		ProtoFieldName: "Id",
 		ToProtoExpr:    adjustHelperExpr(rawIDTo, helpersExported),
 		FromProtoExpr:  adjustHelperExpr(rawIDFrom, helpersExported),
+		Fallible:       idSpec.Fallible,
+		ErrName:        "id",
 	}
 
 	// Regular fields.
@@ -293,6 +313,8 @@ func buildProtoMapperFileData(
 		mf := protoMapperField{
 			StructName:     f.StructField(),
 			ProtoFieldName: protoGoName,
+			Fallible:       spec.Fallible,
+			ErrName:        f.Name,
 		}
 
 		if spec.IsEnum {
@@ -300,6 +322,8 @@ func buildProtoMapperFileData(
 			fromHelperName := strings.ToLower(t.Name[:1]) + t.Name[1:] + pascal(f.Name) + "FromProto"
 			mf.ToProtoExpr = toHelperName + "(" + domainExpr + ")"
 			mf.FromProtoExpr = fromHelperName + "(" + protoExpr + ")"
+			// Unknown and UNSPECIFIED values are rejected, never mapped to a default.
+			mf.Fallible = true
 
 			// Enum helper: store bare proto identifiers (no package qualifier).
 			prefix := strings.ToUpper(snake(t.Name)) + "_" + strings.ToUpper(snake(f.StructField()))
@@ -311,7 +335,6 @@ func buildProtoMapperFileData(
 				ProtoType:    enumType,
 				Unspecified:  enumType + "_" + prefix + "_UNSPECIFIED",
 			}
-			defaultSet := false
 			for _, v := range f.Enums {
 				domainConst := enumType + pascal(v.Value)
 				protoConst := enumType + "_" + prefix + "_" + strings.ToUpper(snake(v.Value))
@@ -319,10 +342,6 @@ func buildProtoMapperFileData(
 					DomainConst: domainConst,
 					ProtoConst:  protoConst,
 				})
-				if !defaultSet {
-					helper.DefaultDomainConst = domainConst
-					defaultSet = true
-				}
 			}
 			data.EnumHelpers = append(data.EnumHelpers, helper)
 		} else {
@@ -363,13 +382,15 @@ func buildProtoMapperFileData(
 			// field already carries the key, and the Nest spec that may follow
 			// must still read its own entry.
 			if !spec.IsExcluded && !edgeIDsDeduped(e) {
-				var domainFieldName, protoFieldName string
+				var domainFieldName, protoFieldName, errName string
 				if e.Unique {
 					domainFieldName = pascal(e.Name) + "ID"
 					protoFieldName = pascal(e.Name) + "Id"
+					errName = e.Name + "_id"
 				} else {
 					domainFieldName = singular(pascal(e.Name)) + "IDs"
 					protoFieldName = pascal(singular(e.Name)) + "Ids"
+					errName = singular(e.Name) + "_ids"
 				}
 
 				domainExpr := "d." + domainFieldName
@@ -383,6 +404,8 @@ func buildProtoMapperFileData(
 					ProtoFieldName: protoFieldName,
 					ToProtoExpr:    adjustHelperExpr(rawTo, helpersExported),
 					FromProtoExpr:  adjustHelperExpr(rawFrom, helpersExported),
+					Fallible:       spec.Fallible,
+					ErrName:        errName,
 				}
 
 				if spec.IsRepeated && spec.ProtoType == "int64" {
@@ -390,6 +413,7 @@ func buildProtoMapperFileData(
 					rawFrom = "fromInt64Slice(" + protoExpr + ")"
 					mf.ToProtoExpr = adjustHelperExpr(rawTo, helpersExported)
 					mf.FromProtoExpr = adjustHelperExpr(rawFrom, helpersExported)
+					mf.Fallible = false
 					needsHelpers = true
 				}
 
@@ -434,11 +458,14 @@ func buildProtoMapperFileData(
 					}
 				}
 
+				// Nested mappers are fallible: they reject invalid input of their own.
 				data.Fields = append(data.Fields, protoMapperField{
 					StructName:     domainFieldName,
 					ProtoFieldName: protoFieldName,
 					ToProtoExpr:    rawTo,
 					FromProtoExpr:  rawFrom,
+					Fallible:       true,
+					ErrName:        e.Name,
 				})
 			}
 		}
@@ -467,6 +494,8 @@ func buildProtoMapperFileData(
 			ProtoFieldName: protoGoName,
 			ToProtoExpr:    adjustHelperExpr(rawTo, helpersExported),
 			FromProtoExpr:  adjustHelperExpr(rawFrom, helpersExported),
+			Fallible:       spec.Fallible,
+			ErrName:        vf.Name,
 		})
 	}
 
@@ -553,7 +582,7 @@ func trackExprImports(rawTo, rawFrom string, goImports map[string]bool) {
 		if strings.Contains(expr, "durationpb") {
 			goImports["google.golang.org/protobuf/types/known/durationpb"] = true
 		}
-		if strings.Contains(expr, "uuid.MustParse") || strings.Contains(expr, "uuid.UUID") {
+		if strings.Contains(expr, "uuid.") {
 			goImports["github.com/google/uuid"] = true
 		}
 		if strings.Contains(expr, "structpb") {

@@ -170,7 +170,8 @@ func TestSlicedE2E_ProtoRoundTrip(t *testing.T) {
 	require.Len(t, p.LineItems, 2)
 	assert.Equal(t, "widget", p.LineItems[0].Description)
 
-	back := billingpb.InvoiceFromProto(&entpb.Invoice{Id: p.Id, AccountId: p.AccountId, Number: "inv-009", Total: 7})
+	back, err := billingpb.InvoiceFromProto(&entpb.Invoice{Id: p.Id, AccountId: p.AccountId, Number: "inv-009", Total: 7})
+	require.NoError(t, err)
 	assert.Equal(t, accID, back.AccountID)
 	assert.Equal(t, "INV-009", back.Number)
 
