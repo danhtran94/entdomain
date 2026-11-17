@@ -233,6 +233,8 @@ func (c *UserCreate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) 
 
 Same as create for scalars. IDs edges default to **replace** (desired final state semantics). Immutable fields are excluded. Nested edges are skipped. Virtual field transformer hooks are called when wired.
 
+> **Amended by ENTD-009 (2026-11-16).** The replace branch below is gated by `cfg.ShouldApply("post_ids", d.PostIDs)`, so `OnlyFields` / `OmitFields` / `OmitZeroVal` apply to edge keys; `AppendEdge` still applies outside `OnlyFields`. The sketch shows the original ungated form, which unlinked every relation on `OnlyFields(<scalars>)` updates. See `docs/scope-apply-domain-edge-field-gating.md`.
+
 ```go
 func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdateOne {
     cfg := entdomain.NewApplyConfig(opts...)
@@ -260,6 +262,8 @@ func (u *UserUpdateOne) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOptio
 #### 4. Update (by WHERE) — `*ent.UserUpdate ← *domain.User`
 
 Same field/edge logic as `UpdateOne` but operates on the WHERE-based `*UserUpdate` builder. Caller chains `.Where(...)` conditions. Virtual field transformer hooks are not called (transformer setters are typed to `*UserUpdateOne`).
+
+> **Amended by ENTD-009 (2026-11-16).** Same edge gate as section 3. Before it, the `OnlyFields("status")` usage below also cleared the posts of every matched row.
 
 ```go
 func (u *UserUpdate) ApplyDomain(d *domain.User, opts ...entdomain.ApplyOption) *UserUpdate {
