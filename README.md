@@ -1005,7 +1005,10 @@ d, err := pbmap.UserFromProto(req.User)
 if err != nil {
     return status.Error(codes.InvalidArgument, err.Error()) // e.g. "User.external_id: invalid UUID length: 0"
 }
-ds, err := pbmap.UserListFromProto(req.Users) // error names the element: "index 1: User.status: …"
+ds, err := pbmap.UserListFromProto(req.Users)
+if err != nil {
+    return status.Error(codes.InvalidArgument, err.Error()) // names the element: "index 1: User.status: …"
+}
 ```
 
 `XFromProto` and `XListFromProto` return an error instead of panicking or inventing a value when the message holds:

@@ -194,3 +194,6 @@ The committed `examples/basic/proto/entpb/*.pb.go` panicked on import, so no map
 - The `harness hook-postbuild` `make gen` fired between adding `FIQLQueryParam` and adding its `net/url` import, so one hook run failed (`undefined: url`). Harmless (gen-basic fails before writing), but edits to root `*.go` should land with their imports in one edit.
 - golangci-lint v2.11.4 flagged `defer resp.Body.Close()` in the new HTTP test (errcheck); fixed with an explicit discard.
 
+
+### [Reviewer] README list example ignored its error (PR #71, CodeRabbit)
+The "Mapper Usage" example assigned `ds, err := pbmap.UserListFromProto(req.Users)` and never checked `err`, so it did not compile as written and modelled the very pattern this job removes. It now returns `codes.InvalidArgument` on error, like the single-message example above it. Docs only.
