@@ -54,6 +54,11 @@ A generated ent entity is a database row. It carries `Edges`, hooks, and a clien
 go get github.com/danhtran94/entdomain
 ```
 
+### Requirements
+
+- **Go 1.26 or later.**
+- **ent master, not the latest ent tag.** entdomain pins `entgo.io/ent v0.14.7-0.20261014065818-8037bc89bcab`, an ent master commit ahead of `v0.14.6` (2026-03-17) that adds Go 1.27 support and runtime fixes. Go's minimum version selection raises your module to that ent version and to `go 1.26.0`. After upgrading, regenerate your ent code: ent now splits mutation logic into per-type packages, so expect a large mechanical diff. See [ADR-006](docs/ADR-006-track-ent-master.md) for the reasons and the exit criterion.
+
 ## Setup
 
 Register the extension in your `ent/entc.go`:
